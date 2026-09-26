@@ -113,12 +113,13 @@ fun MoneroOneNavHost(
     val isLocked by walletViewModel.isLocked.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Kick off price/chart fetches once a wallet exists. ChartViewModel
-    // skips its init-time fetch pre-wallet so we don't leak IP to monero.one
-    // before key generation.
+    // Price/chart fetches run only while a wallet exists, so no IP goes to
+    // monero.one before key generation, and none after the last wallet is gone.
     LaunchedEffect(walletState.hasWallet) {
         if (walletState.hasWallet) {
-            chartViewModel.refresh()
+            chartViewModel.start()
+        } else {
+            chartViewModel.stop()
         }
     }
 
@@ -129,6 +130,10 @@ fun MoneroOneNavHost(
                 walletViewModel.checkAndApplyAutoLock()
                 // Restart wallet sync if it dropped while backgrounded
                 walletViewModel.startWallet()
+                // Refresh the price and chart if they went stale while away
+                chartViewModel.onForeground()
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                chartViewModel.onBackground()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

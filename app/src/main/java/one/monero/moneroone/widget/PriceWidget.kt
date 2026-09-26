@@ -14,13 +14,19 @@ import android.graphics.Path
 import android.graphics.Shader
 import android.os.Build
 import android.os.Bundle
+import android.text.format.DateFormat
 import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import one.monero.moneroone.MainActivity
 import one.monero.moneroone.R
+import one.monero.moneroone.data.util.ChartMath
+import one.monero.moneroone.ui.screens.chart.ChartDateFormats
+import one.monero.moneroone.ui.screens.chart.ChartTimeAxis
 import java.text.NumberFormat
 import java.util.Locale
+import java.util.TimeZone
+import kotlin.math.roundToLong
 
 class PriceWidget : AppWidgetProvider() {
 
@@ -46,6 +52,8 @@ class PriceWidget : AppWidgetProvider() {
 
     companion object {
         private const val ORANGE = 0xFFFF6600.toInt()
+        private const val X_LABEL_INSET = 4f
+        private const val X_LABEL_GAP = 8f
 
         private enum class Size { SMALL, MEDIUM, LARGE }
 
@@ -57,19 +65,47 @@ class PriceWidget : AppWidgetProvider() {
             }
         }
 
+        /**
+         * What the widget shows. The line and the high/low were saved with
+         * the currency they are in; under a price in another currency they
+         * are left out until the app saves them again.
+         */
+        private class Snapshot(
+            val price: Float,
+            val change: Float,
+            val symbol: String,
+            /** One value per half-hour slot, oldest first, the last at [sparklineEndMs]. */
+            val sparkline: List<Double>,
+            val sparklineEndMs: Long,
+            val high: Double?,
+            val low: Double?,
+            val updatedAt: Long
+        )
+
+        private fun load(context: Context): Snapshot {
+            val sparklineCurrency = WidgetDataStore.getSparklineCurrencyCode(context)
+            val sameCurrency = sparklineCurrency != null && sparklineCurrency == WidgetDataStore.getCurrencyCode(context)
+            return Snapshot(
+                price = WidgetDataStore.getPrice(context),
+                change = WidgetDataStore.getChange24h(context),
+                symbol = WidgetDataStore.getCurrencySymbol(context),
+                sparkline = if (sameCurrency) WidgetDataStore.getSparkline(context) else emptyList(),
+                sparklineEndMs = WidgetDataStore.getSparklineEnd(context),
+                high = if (sameCurrency) WidgetDataStore.getHigh24h(context) else null,
+                low = if (sameCurrency) WidgetDataStore.getLow24h(context) else null,
+                updatedAt = WidgetDataStore.getPriceUpdatedAt(context)
+            )
+        }
+
         private fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int) {
-            val price = WidgetDataStore.getPrice(context)
-            val change = WidgetDataStore.getChange24h(context)
-            val symbol = WidgetDataStore.getCurrencySymbol(context)
-            val chartPoints = WidgetDataStore.getChartPoints(context)
-            val updatedAt = WidgetDataStore.getPriceUpdatedAt(context)
+            val data = load(context)
 
             val views = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 // Android 12+: provide all three layouts; system picks based on actual size.
                 // Cutoffs match iOS widget families: 2x2 small, 4x2 medium, 4x4 large.
-                val small = buildView(context, Size.SMALL, price, change, symbol, chartPoints, updatedAt)
-                val medium = buildView(context, Size.MEDIUM, price, change, symbol, chartPoints, updatedAt)
-                val large = buildView(context, Size.LARGE, price, change, symbol, chartPoints, updatedAt)
+                val small = buildView(context, Size.SMALL, data)
+                val medium = buildView(context, Size.MEDIUM, data)
+                val large = buildView(context, Size.LARGE, data)
                 RemoteViews(
                     mapOf(
                         SizeF(110f, 110f) to small,
@@ -86,34 +122,17 @@ class PriceWidget : AppWidgetProvider() {
                     w >= 240 -> Size.MEDIUM
                     else -> Size.SMALL
                 }
-                buildView(context, size, price, change, symbol, chartPoints, updatedAt)
+                buildView(context, size, data)
             }
 
             manager.updateAppWidget(widgetId, views)
         }
 
-        private fun buildView(
-            context: Context,
-            size: Size,
-            price: Float,
-            changeApi: Float,
-            symbol: String,
-            chartPoints: List<Double>,
-            updatedAt: Long
-        ): RemoteViews {
-            // Match the in-app chart screen, which displays a % computed from EMA-smoothed
-            // points (span=10) — same algorithm as data/util/ChartAlgorithms.emaSmooth.
-            val change = if (chartPoints.size > 1 && chartPoints.first() > 0) {
-                val alpha = 2.0 / (10 + 1)
-                var ema = chartPoints.first()
-                for (i in 1 until chartPoints.size) {
-                    ema = alpha * chartPoints[i] + (1 - alpha) * ema
-                }
-                val open = chartPoints.first()
-                (((ema - open) / open) * 100).toFloat()
-            } else {
-                changeApi
-            }
+        private fun buildView(context: Context, size: Size, data: Snapshot): RemoteViews {
+            val price = data.price
+            val symbol = data.symbol
+            // The API's 24h change, as on iOS.
+            val change = data.change
             val layoutId = when (size) {
                 Size.LARGE -> R.layout.widget_price_large
                 Size.MEDIUM -> R.layout.widget_price_medium
@@ -147,30 +166,32 @@ class PriceWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.price_change, View.GONE)
             }
 
-            if (size != Size.SMALL && chartPoints.size > 1) {
+            val points = data.sparkline
+            if (size != Size.SMALL && points.size > 1) {
                 val bitmap = if (size == Size.LARGE) {
-                    renderFullChart(chartPoints, symbol, 800, 600)
+                    renderFullChart(context, points, data.sparklineEndMs, symbol, 800, 600)
                 } else {
-                    renderSparkline(chartPoints, 400, 200)
+                    renderSparkline(points, 400, 200)
                 }
                 views.setImageViewBitmap(R.id.price_chart, bitmap)
-
-                if (size == Size.MEDIUM && price > 0) {
-                    val hi = chartPoints.max()
-                    val lo = chartPoints.min()
-                    val compact = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
-                        maximumFractionDigits = 0
-                    }
-                    views.setTextViewText(
-                        R.id.price_hilo,
-                        "↑ $symbol${compact.format(hi)}   ↓ $symbol${compact.format(lo)}"
-                    )
-                    views.setViewVisibility(R.id.price_hilo, View.VISIBLE)
-                }
             }
 
-            if (size == Size.LARGE && updatedAt > 0) {
-                val ago = formatRelative(System.currentTimeMillis() - updatedAt)
+            // The high and low of every 24h sample, not of the half-hour slots.
+            val high = data.high
+            val low = data.low
+            if (size == Size.MEDIUM && price > 0 && high != null && low != null) {
+                val compact = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+                    maximumFractionDigits = 0
+                }
+                views.setTextViewText(
+                    R.id.price_hilo,
+                    "↑ $symbol${compact.format(high)}   ↓ $symbol${compact.format(low)}"
+                )
+                views.setViewVisibility(R.id.price_hilo, View.VISIBLE)
+            }
+
+            if (size == Size.LARGE && data.updatedAt > 0) {
+                val ago = formatRelative(System.currentTimeMillis() - data.updatedAt)
                 views.setTextViewText(R.id.price_updated, "Updated $ago ago")
                 views.setViewVisibility(R.id.price_updated, View.VISIBLE)
             }
@@ -192,7 +213,12 @@ class PriceWidget : AppWidgetProvider() {
             }
         }
 
-        private fun renderFullChart(points: List<Double>, symbol: String, width: Int, height: Int): Bitmap {
+        /**
+         * [points] are half-hour slots, the last at [endMs]. X labels sit at
+         * the in-app 24H chart's hours (12 AM, 5 AM, 10 AM, 3 PM, 8 PM) at
+         * the time each one really is on the line.
+         */
+        private fun renderFullChart(context: Context, points: List<Double>, endMs: Long, symbol: String, width: Int, height: Int): Bitmap {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
 
@@ -227,7 +253,7 @@ class PriceWidget : AppWidgetProvider() {
                 textSize = 22f
                 isAntiAlias = true
                 typeface = android.graphics.Typeface.MONOSPACE
-                textAlign = Paint.Align.CENTER
+                textAlign = Paint.Align.LEFT
             }
             val gridPaint = Paint().apply {
                 color = 0x408E8E93.toInt()
@@ -240,24 +266,31 @@ class PriceWidget : AppWidgetProvider() {
             for (yv in yValues) {
                 val y = (plotTop + (1.0 - (yv - yMin) / yRange) * plotH).toFloat()
                 canvas.drawLine(plotLeft, y, plotRight, y, gridPaint)
-                val label = "$symbol${yv.toInt()}"
+                val label = "$symbol${yv.roundToLong()}"
                 canvas.drawText(label, plotRight + 6f, y + yLabelPaint.textSize / 3f, yLabelPaint)
             }
 
-            // X-axis: 4 inner time labels spanning 24h regardless of point count.
-            val cal = java.util.Calendar.getInstance()
-            val nowMinutes = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
-            val totalMinutes = 24 * 60
-            val xLabelIndices = (1..4).map { (it * points.size) / 5 }
-            for (idx in xLabelIndices) {
-                val frac = idx.toDouble() / (points.size - 1)
-                val x = (plotLeft + frac * plotW).toFloat()
-                val minutesAgo = ((1.0 - frac) * totalMinutes).toInt()
-                val pointMinutes = ((nowMinutes - minutesAgo) % totalMinutes + totalMinutes) % totalMinutes
-                val hour = pointMinutes / 60
-                val displayHour = if (hour == 0) 12 else if (hour > 12) hour - 12 else hour
-                val ampm = if (hour < 12) "a" else "p"
-                canvas.drawText("$displayHour$ampm", x, plotBottom + 22f, xLabelPaint)
+            // X-axis: a gridline at each tick; a label starts at its line
+            // and is left out where it would run into the one before it or
+            // past the plot.
+            if (endMs > 0) {
+                val startMs = endMs - (points.size - 1) * ChartMath.SPARKLINE_SLOT_MS
+                val locale = context.resources.configuration.locales[0]
+                val timeZone = TimeZone.getDefault()
+                val formats = ChartDateFormats(locale, timeZone, DateFormat.is24HourFormat(context)) { skeleton ->
+                    DateFormat.getBestDateTimePattern(locale, skeleton)
+                }
+                var lastEnd = Float.NEGATIVE_INFINITY
+                for (tick in ChartTimeAxis.DAY.ticks(startMs, endMs, timeZone, locale)) {
+                    val x = plotLeft + (tick - startMs).toFloat() / (endMs - startMs) * plotW
+                    canvas.drawLine(x, plotTop, x, plotBottom, gridPaint)
+                    val label = formats.tickLabel(ChartTimeAxis.DAY, tick)
+                    val left = x + X_LABEL_INSET
+                    val right = left + xLabelPaint.measureText(label)
+                    if (left < lastEnd + X_LABEL_GAP || right > plotRight) continue
+                    canvas.drawText(label, left, plotBottom + 22f, xLabelPaint)
+                    lastEnd = right
+                }
             }
 
             // Sparkline (line + gradient fill)

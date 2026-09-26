@@ -36,6 +36,7 @@ import kotlinx.coroutines.withContext
 import one.monero.moneroone.data.model.Currency
 import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.repository.PriceRepository
+import one.monero.moneroone.data.util.XmrFormat
 import one.monero.moneroone.widget.PriceWidget
 import one.monero.moneroone.widget.WalletWidget
 import one.monero.moneroone.widget.WidgetDataStore
@@ -451,11 +452,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                             currency.code,
                             currency.symbol
                         )
-                        // Fetch 24h chart data for widget sparkline
-                        priceRepository.fetchChartData(one.monero.moneroone.ui.screens.chart.TimeRange.DAY, currency)
-                            .onSuccess { points ->
-                                WidgetDataStore.saveChartPoints(context, points.map { it.price })
-                            }
+                        // The 24h line and its high/low come from ChartViewModel.
                         PriceWidget.updateAll(context)
                     }
                     fetchingCurrency = null
@@ -2162,12 +2159,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         return true
     }
 
-    fun formatXmr(atomicUnits: Long): String {
-        val xmr = BigDecimal(atomicUnits).divide(BigDecimal(1_000_000_000_000L))
-        val full = xmr.setScale(12, java.math.RoundingMode.DOWN).stripTrailingZeros()
-        // Always show at least 4 decimal places
-        return if (full.scale() < 4) full.setScale(4).toPlainString() else full.toPlainString()
-    }
+    fun formatXmr(atomicUnits: Long): String = XmrFormat.format(atomicUnits)
 
     fun parseXmr(xmrString: String): Long {
         return try {

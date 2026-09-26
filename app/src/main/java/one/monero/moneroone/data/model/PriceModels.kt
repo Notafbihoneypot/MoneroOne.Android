@@ -111,21 +111,6 @@ data class CurrentPrice(
     val lastUpdated: Long = System.currentTimeMillis()
 )
 
-// UI state
-data class ChartUiState(
-    val currentPrice: Double? = null,
-    val priceChange: Double? = null,
-    val priceChange24h: Double? = null,
-    val chartData: List<PriceDataPoint> = emptyList(),
-    val isLoading: Boolean = true,
-    val error: String? = null,
-    val selectedPoint: PriceDataPoint? = null,
-    val high: Double? = null,
-    val low: Double? = null,
-    val open: Double? = null,
-    val close: Double? = null
-)
-
 // Supported currencies with CoinMarketCap IDs for chart data
 enum class Currency(
     val code: String,

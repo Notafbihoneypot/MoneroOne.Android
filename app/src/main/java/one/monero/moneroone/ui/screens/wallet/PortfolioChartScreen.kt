@@ -1,10 +1,5 @@
 package one.monero.moneroone.ui.screens.wallet
 
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,46 +27,42 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.core.wallet.WalletViewModel
-import one.monero.moneroone.data.model.PriceDataPoint
-import one.monero.moneroone.data.util.calculateChartIndex
+import one.monero.moneroone.data.util.ChartMath
+import one.monero.moneroone.data.util.MoneyFormat
+import one.monero.moneroone.ui.components.ChartAxes
+import one.monero.moneroone.ui.components.ChartPoint
+import one.monero.moneroone.ui.components.ChartSpeech
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.GlassSegmentedPicker
+import one.monero.moneroone.ui.components.SampledLineChart
+import one.monero.moneroone.ui.components.rememberChartDateFormats
+import one.monero.moneroone.ui.screens.chart.ChartTimeAxis
 import one.monero.moneroone.ui.screens.chart.ChartViewModel
 import one.monero.moneroone.ui.screens.chart.TimeRange
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.MoneroTheme
-import one.monero.moneroone.ui.theme.TabularFigures
 import one.monero.moneroone.ui.theme.SuccessGreen
-import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.Currency
-import java.util.Date
+import one.monero.moneroone.ui.theme.TabularFigures
 import java.util.Locale
-import one.monero.moneroone.data.model.Currency as AppCurrency
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,29 +73,37 @@ fun PortfolioChartScreen(
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val chartUiState by chartViewModel.uiState.collectAsState()
-    val selectedRange by chartViewModel.selectedTimeRange.collectAsState()
-    val selectedCurrency by chartViewModel.selectedCurrency.collectAsState()
-    val conversionRate by chartViewModel.usdToSelectedRate.collectAsState()
+    val formats = rememberChartDateFormats()
+    val range = chartUiState.range
+    val currency = chartUiState.currency
+    val rate = chartUiState.rate
+    val balance = walletState.balance.all
 
-    // Calculate balance in XMR
-    val balanceXmr = walletState.balance.all.toDouble() / 1_000_000_000_000.0
-
-    // Convert chart data to portfolio value (apply conversion rate for currency)
-    val portfolioData = remember(chartUiState.chartData, balanceXmr, conversionRate) {
-        chartUiState.chartData.map { point ->
-            PriceDataPoint(
-                timestamp = point.timestamp,
-                price = point.price * balanceXmr * conversionRate
-            )
-        }
+    // The balance now and every transaction that led to it; the kit holds
+    // the wallet's whole history, so the ledger reaches back to the start.
+    val ledger = remember(balance, walletState.transactions) {
+        BalanceLedger(balance, walletState.transactions.mapNotNull { it.toBalanceChange() })
     }
-
-    val selectedPoint = chartUiState.selectedPoint?.let { point ->
-        PriceDataPoint(
-            timestamp = point.timestamp,
-            price = point.price * balanceXmr * conversionRate
+    // The XMR held at each real price sample times that sample's price, in
+    // the selected currency. Nothing is drawn until that currency's rate is in.
+    val portfolio = remember(chartUiState.seriesUsd, rate, ledger, range) {
+        if (rate == null) emptyList()
+        else PortfolioHistory.points(chartUiState.seriesUsd, rate, ledger, startAtFirstHolding = range == TimeRange.ALL)
+    }
+    val points = remember(portfolio) { portfolio.map { ChartPoint(it.timestamp, it.value) } }
+    val transactionCount = remember(portfolio) { PortfolioHistory.spokenCount(portfolio) }
+    val markers = remember(portfolio, currency, formats) {
+        PortfolioHistory.markers(
+            portfolio,
+            formatValue = { MoneyFormat.format(it, currency, fractionDigits = 2) },
+            formatWhen = { formats.dateTime(it) }
         )
     }
+    // Keyed on the points, as the chart keys its own selection.
+    var selectedIndex by remember(points) { mutableStateOf<Int?>(null) }
+    val selected = selectedIndex?.let { portfolio.getOrNull(it) }
+
+    LaunchedEffect(Unit) { chartViewModel.showRange(chartViewModel.uiState.value.range) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -133,42 +132,35 @@ fun PortfolioChartScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Portfolio value display card
+            // Portfolio value display card. Every line keeps its height, so
+            // the chart below never moves when a scrub starts or a value comes in.
             GlassCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .animateContentSize(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            )
-                        )
-                ) {
-                    val isShowingSelection = selectedPoint != null
-
+                Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = if (isShowingSelection) formatDate(selectedPoint!!.timestamp, selectedRange) else "Current Value",
+                        text = selected?.let { formats.scrubLabel(range.axis, PortfolioHistory.eventTime(it)) }
+                            ?: "Current Value",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // currentPrice is already in selected currency from CoinGecko
-                    // chart data (close) is in USD, so we apply conversion rate
-                    val displayValue = selectedPoint?.price
-                        ?: (chartUiState.currentPrice?.times(balanceXmr))
-                        ?: (chartUiState.close?.times(balanceXmr)?.times(conversionRate))
-
+                    // The sample under the finger, else the balance at the live
+                    // price, else the balance at the last sample.
+                    val currentValue = chartUiState.currentPrice?.let { balance / ATOMIC_UNITS_PER_XMR * it.price }
+                    val displayValue = selected?.value ?: currentValue ?: portfolio.lastOrNull()?.value
                     if (displayValue != null) {
+                        val value = MoneyFormat.format(displayValue, currency)
                         Text(
-                            text = formatCurrency(displayValue, selectedCurrency),
-                            style = MaterialTheme.typography.displayMedium
+                            text = value,
+                            style = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = TabularFigures),
+                            modifier = Modifier.semantics { contentDescription = "Portfolio value, $value" }
                         )
-                    } else if (chartUiState.isLoading) {
+                    } else {
                         Text(
                             text = "Loading...",
                             style = MaterialTheme.typography.displayMedium,
@@ -179,23 +171,34 @@ fun PortfolioChartScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = "${walletViewModel.formatXmr(walletState.balance.all)} XMR",
+                        text = selected?.let { PortfolioHistory.scrubDetail(it) }
+                            ?: "${walletViewModel.formatXmr(balance)} XMR",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    val priceChange = chartUiState.priceChange
-                    if (priceChange != null) {
-                        val changeColor = if (priceChange >= 0) SuccessGreen else ErrorRed
-                        val changePrefix = if (priceChange >= 0) "+" else ""
-
+                    val change = remember(portfolio) { ChartMath.percentChange(portfolio) { it.value } }
+                    if (change != null) {
+                        val up = change >= 0
                         Text(
-                            text = "$changePrefix${String.format(Locale.US, "%.2f", priceChange)}% (${selectedRange.label})",
+                            text = "${if (up) "+" else ""}${String.format(Locale.US, "%.2f", change)}% (${range.label})",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = changeColor
+                            color = if (up) SuccessGreen else ErrorRed,
+                            modifier = Modifier.clearAndSetSemantics {
+                                contentDescription = "Change, ${range.axis.spokenSpan}"
+                                stateDescription = ChartSpeech.spokenChange(change)
+                            }
+                        )
+                    } else {
+                        Text(
+                            text = "",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.clearAndSetSemantics { }
                         )
                     }
                 }
@@ -206,8 +209,8 @@ fun PortfolioChartScreen(
             // Time range selector
             GlassSegmentedPicker(
                 options = TimeRange.entries.toList(),
-                selectedOption = selectedRange,
-                onOptionSelected = { chartViewModel.selectTimeRange(it) },
+                selectedOption = range,
+                onOptionSelected = { chartViewModel.showRange(it) },
                 modifier = Modifier.fillMaxWidth(),
                 labelSelector = { it.label }
             )
@@ -220,7 +223,7 @@ fun PortfolioChartScreen(
                     .fillMaxWidth()
                     .height(220.dp)
             ) {
-                if (chartUiState.isLoading && portfolioData.isEmpty()) {
+                if (chartUiState.isLoading && points.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -231,30 +234,32 @@ fun PortfolioChartScreen(
                             strokeWidth = 3.dp
                         )
                     }
-                } else if (portfolioData.isNotEmpty()) {
-                    PortfolioChart(
-                        data = portfolioData,
-                        selectedPoint = selectedPoint,
-                        currency = selectedCurrency,
-                        onPointSelected = { point ->
-                            // Convert back to price point for the view model
-                            if (point != null && balanceXmr > 0) {
-                                chartViewModel.selectPoint(
-                                    PriceDataPoint(
-                                        timestamp = point.timestamp,
-                                        price = point.price / balanceXmr
-                                    )
-                                )
-                            } else {
-                                chartViewModel.selectPoint(null)
-                            }
-                        },
-                        timeRange = selectedRange,
+                } else if (points.isNotEmpty()) {
+                    val domain = remember(points) { ChartMath.portfolioYDomain(points.map { it.value }) }
+                    // "All" starts when the wallet first held XMR, so its span runs from weeks to years.
+                    val axis = if (range == TimeRange.ALL) {
+                        ChartTimeAxis.fitting(points.last().timestamp - points.first().timestamp)
+                    } else {
+                        range.axis
+                    }
+                    SampledLineChart(
+                        points = points,
+                        domain = domain,
+                        axes = ChartAxes(axis, formats, currency),
+                        speech = ChartSpeech(
+                            title = "Portfolio",
+                            span = range.axis.spokenSpan,
+                            currency = currency,
+                            note = transactionCount,
+                            markerName = "transaction"
+                        ),
+                        onSelect = { selectedIndex = it },
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp)
+                            .padding(16.dp),
+                        markers = markers
                     )
-                } else if (chartUiState.error != null) {
+                } else {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -271,7 +276,7 @@ fun PortfolioChartScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Portfolio stats (High/Low)
-            if (portfolioData.isNotEmpty()) {
+            if (points.isNotEmpty()) {
                 GlassCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -281,17 +286,17 @@ fun PortfolioChartScreen(
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val high = portfolioData.maxOfOrNull { it.price }
-                        val low = portfolioData.minOfOrNull { it.price }
+                        val high = remember(points) { points.maxOf { it.value } }
+                        val low = remember(points) { points.minOf { it.value } }
 
                         StatItem(
-                            label = "${selectedRange.label} High",
-                            value = high?.let { formatCurrency(it, selectedCurrency) } ?: "-",
+                            label = "${range.label} High",
+                            value = MoneyFormat.format(high, currency),
                             valueColor = SuccessGreen
                         )
                         StatItem(
-                            label = "${selectedRange.label} Low",
-                            value = low?.let { formatCurrency(it, selectedCurrency) } ?: "-",
+                            label = "${range.label} Low",
+                            value = MoneyFormat.format(low, currency),
                             valueColor = ErrorRed
                         )
                     }
@@ -303,174 +308,21 @@ fun PortfolioChartScreen(
     }
 }
 
-@Composable
-private fun PortfolioChart(
-    data: List<PriceDataPoint>,
-    selectedPoint: PriceDataPoint?,
-    currency: AppCurrency,
-    onPointSelected: (PriceDataPoint?) -> Unit,
-    timeRange: TimeRange,
-    modifier: Modifier = Modifier
-) {
-    val lineColor = MoneroOrange
-    val areaTopColor = MoneroOrange.copy(alpha = 0.4f)
-    val areaBottomColor = MoneroOrange.copy(alpha = 0.0f)
-    val axisColor = MoneroTheme.colors.gray.copy(alpha = 0.5f)
-    val textMeasurer = rememberTextMeasurer()
-    // Axis labels: caption2 (tokens.json type.roles).
-    val labelStyle = MaterialTheme.typography.labelSmall.copy(
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+/**
+ * The transaction as it moved the balance the app shows. The kit's balance
+ * leaves pending incoming out, as wallet2's does (iOS software wallets).
+ */
+private fun TransactionInfo.toBalanceChange(): BalanceChange? = BalanceChange.of(
+    id = hash,
+    incoming = direction == TransactionInfo.Direction.Direction_In,
+    isPending = isPending,
+    isFailed = isFailed,
+    amount = amount,
+    fee = fee,
+    timestampMs = timestamp * 1000
+)
 
-    var chartWidth by remember { mutableFloatStateOf(0f) }
-
-    val rightMargin = 55f
-    val bottomMargin = 20f
-
-    Canvas(
-        modifier = modifier.pointerInput(data) {
-            detectHorizontalDragGestures(
-                onDragStart = { offset ->
-                    chartWidth = size.width.toFloat() - rightMargin
-                    val index = calculateChartIndex(offset.x, chartWidth, data.size)
-                    data.getOrNull(index)?.let { onPointSelected(it) }
-                },
-                onHorizontalDrag = { change, _ ->
-                    change.consume()
-                    val index = calculateChartIndex(change.position.x, chartWidth, data.size)
-                    data.getOrNull(index)?.let { onPointSelected(it) }
-                },
-                onDragEnd = { onPointSelected(null) },
-                onDragCancel = { onPointSelected(null) }
-            )
-        }
-    ) {
-        if (data.isEmpty()) return@Canvas
-
-        val width = size.width - rightMargin
-        val height = size.height - bottomMargin
-        chartWidth = width
-
-        val min = data.minOfOrNull { it.price } ?: 0.0
-        val max = data.maxOfOrNull { it.price } ?: 0.0
-        val range = (max - min).coerceAtLeast(0.01)
-        val verticalPadding = height * 0.05f
-
-        val pointWidth = width / (data.size - 1).coerceAtLeast(1)
-
-        // Draw Y-axis labels
-        val yLabelCount = 2
-        val currencySymbol = currency.symbol
-        for (i in 0..yLabelCount) {
-            val price = min + (range * i / yLabelCount)
-            val y = height - verticalPadding - ((price - min) / range * (height - 2 * verticalPadding)).toFloat()
-            val label = "$currencySymbol${String.format(Locale.US, "%.0f", price)}"
-            val textLayout = textMeasurer.measure(label, labelStyle)
-            val clampedY = y.coerceIn(textLayout.size.height / 2f, height - textLayout.size.height / 2f)
-            drawText(
-                textLayoutResult = textLayout,
-                topLeft = Offset(width + 6f, clampedY - textLayout.size.height / 2)
-            )
-            drawLine(
-                color = axisColor.copy(alpha = 0.15f),
-                start = Offset(0f, y),
-                end = Offset(width, y),
-                strokeWidth = 1f
-            )
-        }
-
-        // Draw X-axis labels
-        val xLabelCount = 3
-        val datePattern = when (timeRange) {
-            TimeRange.DAY -> "ha"
-            TimeRange.WEEK -> "EEE"
-            TimeRange.MONTH -> "M/d"
-            TimeRange.YEAR, TimeRange.ALL -> "MMM"
-        }
-        val dateFormat = SimpleDateFormat(datePattern, Locale.US)
-        for (i in 1..xLabelCount) {
-            val dataIndex = (data.size - 1) * i / (xLabelCount + 1)
-            val point = data.getOrNull(dataIndex) ?: continue
-            val x = dataIndex * pointWidth
-            val label = dateFormat.format(Date(point.timestamp))
-            val textLayout = textMeasurer.measure(label, labelStyle)
-            drawText(
-                textLayoutResult = textLayout,
-                topLeft = Offset(x - textLayout.size.width / 2, height + 4f)
-            )
-        }
-
-        // Create paths
-        val linePath = Path()
-        val areaPath = Path()
-
-        data.forEachIndexed { index, point ->
-            val x = index * pointWidth
-            val y = height - verticalPadding - ((point.price - min) / range * (height - 2 * verticalPadding)).toFloat()
-
-            if (index == 0) {
-                linePath.moveTo(x, y)
-                areaPath.moveTo(x, height)
-                areaPath.lineTo(x, y)
-            } else {
-                linePath.lineTo(x, y)
-                areaPath.lineTo(x, y)
-            }
-        }
-
-        areaPath.lineTo(width, height)
-        areaPath.lineTo(0f, height)
-        areaPath.close()
-
-        // Draw area fill
-        drawPath(
-            path = areaPath,
-            brush = Brush.verticalGradient(
-                colors = listOf(areaTopColor, areaBottomColor)
-            )
-        )
-
-        // Draw line
-        drawPath(
-            path = linePath,
-            color = lineColor,
-            style = Stroke(
-                width = 3f,
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round
-            )
-        )
-
-        // Draw selected point
-        selectedPoint?.let { selected ->
-            val index = data.indexOfFirst { it.timestamp == selected.timestamp }
-            if (index >= 0) {
-                val x = index * pointWidth
-                val y = height - verticalPadding - ((selected.price - min) / range * (height - 2 * verticalPadding)).toFloat()
-
-                drawLine(
-                    color = lineColor.copy(alpha = 0.6f),
-                    start = Offset(x, 0f),
-                    end = Offset(x, height),
-                    strokeWidth = 1.5f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
-                )
-
-                drawCircle(
-                    color = Color.White,
-                    radius = 10f,
-                    center = Offset(x, y)
-                )
-
-                drawCircle(
-                    color = lineColor,
-                    radius = 6f,
-                    center = Offset(x, y)
-                )
-            }
-        }
-    }
-}
+private const val ATOMIC_UNITS_PER_XMR = 1e12
 
 @Composable
 private fun StatItem(
@@ -478,7 +330,7 @@ private fun StatItem(
     value: String,
     valueColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
-    Column {
+    Column(modifier = Modifier.clearAndSetSemantics { contentDescription = "$label, $value" }) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
@@ -491,37 +343,4 @@ private fun StatItem(
             color = valueColor
         )
     }
-}
-
-private fun formatCurrency(amount: Double, currency: AppCurrency): String {
-    val locale = when (currency) {
-        AppCurrency.USD -> Locale.US
-        AppCurrency.EUR -> Locale.GERMANY
-        AppCurrency.GBP -> Locale.UK
-        AppCurrency.CAD -> Locale.CANADA
-        AppCurrency.AUD -> Locale("en", "AU")
-        AppCurrency.JPY -> Locale.JAPAN
-        AppCurrency.CNY -> Locale.CHINA
-        AppCurrency.TRY -> Locale("tr", "TR")
-        AppCurrency.RUB -> Locale("ru", "RU")
-        else -> Locale(currency.code, currency.code.uppercase())
-    }
-    val format = NumberFormat.getCurrencyInstance(locale)
-    try {
-        format.currency = Currency.getInstance(currency.code.uppercase())
-    } catch (e: Exception) {
-        // Fallback formatting
-    }
-    return format.format(amount)
-}
-
-private fun formatDate(timestamp: Long, range: TimeRange): String {
-    val date = Date(timestamp)
-    val pattern = when (range) {
-        TimeRange.DAY -> "h:mm a"
-        TimeRange.WEEK -> "EEE h:mm a"
-        TimeRange.MONTH -> "MMM d, h:mm a"
-        TimeRange.YEAR, TimeRange.ALL -> "MMM d, yyyy"
-    }
-    return SimpleDateFormat(pattern, Locale.US).format(date)
 }

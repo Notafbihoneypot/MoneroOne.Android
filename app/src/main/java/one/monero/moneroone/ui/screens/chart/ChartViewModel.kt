@@ -4,227 +4,328 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import one.monero.moneroone.data.model.ChartUiState
 import one.monero.moneroone.data.model.Currency
+import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.model.PriceDataPoint
+import one.monero.moneroone.data.repository.MissingQuoteException
 import one.monero.moneroone.data.repository.PriceRepository
-import one.monero.moneroone.data.util.emaSmooth
+import one.monero.moneroone.data.util.ChartMath
+import one.monero.moneroone.ui.components.ChartPoint
 import one.monero.moneroone.widget.PriceWidget
 import one.monero.moneroone.widget.WidgetDataStore
 import timber.log.Timber
+import kotlin.coroutines.cancellation.CancellationException
 
+/** What the price and portfolio charts draw. Fiat values are in [currency]. */
+data class ChartUiState(
+    val range: TimeRange = TimeRange.WEEK,
+    val currency: Currency = Currency.USD,
+    /** The range's samples in USD with the live price as the last point. */
+    val seriesUsd: List<PriceDataPoint> = emptyList(),
+    /** [seriesUsd] in [currency]; empty while [rate] is unknown. */
+    val points: List<ChartPoint> = emptyList(),
+    /** USD to [currency]; null until a price in [currency] has come in. */
+    val rate: Double? = 1.0,
+    val currentPrice: CurrentPrice? = null,
+    /** True while there is nothing to draw yet and a fetch is running. */
+    val isLoading: Boolean = true,
+    /** First point to last over [range]. */
+    val rangeChange: Double? = null,
+    /** Over the 24h series, whatever [range] shows. */
+    val priceChange24h: Double? = null,
+    val high: Double? = null,
+    val low: Double? = null,
+    val open: Double? = null,
+    val close: Double? = null
+)
+
+/**
+ * Price data for the charts and the price widget, as iOS PriceService keeps
+ * it: raw samples per range with a TTL, one fetch per range at a time, the
+ * live price added as the line's tip on every read, and a refresh every
+ * five minutes while the app is in the foreground. Nothing goes on the
+ * network before [start], which waits for a wallet to exist.
+ */
 class ChartViewModel(application: Application) : AndroidViewModel(application) {
+
+    private data class Model(
+        val range: TimeRange = TimeRange.WEEK,
+        val currency: Currency = Currency.USD,
+        /** Raw samples in USD, per range. Never includes the tip. */
+        val cache: Map<TimeRange, List<PriceDataPoint>> = emptyMap(),
+        val loading: Set<TimeRange> = emptySet(),
+        val price: CurrentPrice? = null,
+        val rate: Double = 1.0,
+        /** The last price fetch for [currency] gave up. */
+        val priceFailed: Boolean = false
+    )
 
     private val priceRepository = PriceRepository()
     private val prefs = application.getSharedPreferences("monero_wallet", Context.MODE_PRIVATE)
-    private var chartLoadJob: Job? = null
-    private var priceLoadJob: Job? = null
 
-    private val _uiState = MutableStateFlow(ChartUiState())
-    val uiState: StateFlow<ChartUiState> = _uiState.asStateFlow()
+    private val model = MutableStateFlow(
+        Model(
+            currency = prefs.getString("selected_currency", Currency.USD.code)
+                .let { saved -> Currency.entries.find { it.code == saved } } ?: Currency.USD
+        )
+    )
 
-    private var rawChartData: List<PriceDataPoint> = emptyList()
+    val uiState: StateFlow<ChartUiState> = model
+        .map { it.toUiState() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, model.value.toUiState())
 
-    private val _selectedTimeRange = MutableStateFlow(TimeRange.WEEK)
-    val selectedTimeRange: StateFlow<TimeRange> = _selectedTimeRange.asStateFlow()
+    private val fetchedAt = HashMap<TimeRange, Long>()
+    private val inFlight = HashMap<TimeRange, Deferred<Unit>>()
+    private var started = false
+    private var startupJob: Job? = null
+    private var refreshLoop: Job? = null
+    private var priceJob: Job? = null
+    private var currencyJob: Job? = null
 
-    private val _selectedCurrency = MutableStateFlow(Currency.USD)
-    val selectedCurrency: StateFlow<Currency> = _selectedCurrency.asStateFlow()
+    /**
+     * Fetches the price and every range, then refreshes every five minutes.
+     * Call once a wallet exists; calling again does nothing.
+     */
+    fun start() {
+        if (started) return
+        started = true
+        startupJob = viewModelScope.launch {
+            fetchPrice()
+            // The shown range first, then the rest.
+            for (range in (listOf(model.value.range) + PREFETCH_ORDER).distinct()) fetchChart(range)
+        }
+        startRefreshLoop()
+    }
 
-    // Conversion rate from USD to selected currency (for chart data conversion)
-    private val _usdToSelectedRate = MutableStateFlow(1.0)
-    val usdToSelectedRate: StateFlow<Double> = _usdToSelectedRate.asStateFlow()
+    /** Stops every fetch, for when the last wallet is gone. */
+    fun stop() {
+        started = false
+        listOf(startupJob, refreshLoop, priceJob, currencyJob).forEach { it?.cancel() }
+        inFlight.values.forEach { it.cancel() }
+        inFlight.clear()
+        model.update { it.copy(loading = emptySet()) }
+    }
 
-    init {
-        // Load saved currency from preferences
-        val savedCode = prefs.getString("selected_currency", Currency.USD.code)
-        _selectedCurrency.value = Currency.entries.find { it.code == savedCode } ?: Currency.USD
-        // Defer network fetch until a wallet exists. Avoids leaking IP to
-        // monero.one before the user has generated/restored a key.
-        if (one.monero.moneroone.core.wallet.WalletStore.hasAnyWallet(application)) {
-            loadData()
-            load24hChange()
+    /** The app went to the background: no refreshes until it comes back. */
+    fun onBackground() {
+        refreshLoop?.cancel()
+        refreshLoop = null
+    }
+
+    /** The app came back: refresh what went stale and restart the loop. */
+    fun onForeground() {
+        if (!started) return
+        startRefreshLoop()
+        viewModelScope.launch {
+            val price = model.value.price
+            if (price == null || System.currentTimeMillis() - price.lastUpdated >= REFRESH_INTERVAL_MS) {
+                fetchPrice()
+            }
+            fetchChart(model.value.range)
         }
     }
 
-    fun selectTimeRange(range: TimeRange) {
-        if (_selectedTimeRange.value == range) return // Already selected
-        _selectedTimeRange.value = range
-        clearSelection()
-        // Show loading but keep existing data visible (like iOS)
-        _uiState.update { it.copy(isLoading = true) }
-        loadChartData()
+    /** Shows [range], fetching it when its cache is missing or stale. */
+    fun showRange(range: TimeRange) {
+        model.update { state ->
+            state.copy(
+                range = range,
+                loading = if (state.cache[range].isNullOrEmpty()) state.loading + range else state.loading
+            )
+        }
+        // Before start the range waits for the startup fetch.
+        if (!started) return
+        viewModelScope.launch { fetchChart(range) }
     }
 
     fun selectCurrency(currency: Currency) {
-        if (_selectedCurrency.value == currency) return
-        _selectedCurrency.value = currency
-        // Persist to SharedPreferences (same key as WalletViewModel)
+        if (model.value.currency == currency) return
+        currencyJob?.cancel()
+        priceJob?.cancel()
         prefs.edit().putString("selected_currency", currency.code).apply()
-        // Reload all data with new currency (this sets the conversion rate from the response)
-        loadData()
-        load24hChange()
+        // The samples are USD and stay; the price and the rate wait for the new currency.
+        model.update { it.copy(currency = currency, price = null, rate = 1.0, priceFailed = false) }
+        if (!started) return
+        currencyJob = viewModelScope.launch {
+            // Wait out quick taps through the currency list.
+            delay(CURRENCY_DEBOUNCE_MS)
+            fetchPrice()
+        }
     }
 
-    fun selectPoint(point: PriceDataPoint?) {
-        _uiState.update { it.copy(selectedPoint = point) }
+    /** Pull to refresh: the price, then the shown range even when fresh. */
+    suspend fun refreshNow() {
+        if (!started) return
+        fetchPrice()
+        fetchChart(model.value.range, force = true)
     }
 
-    fun clearSelection() {
-        _uiState.update { it.copy(selectedPoint = null) }
+    private fun startRefreshLoop() {
+        if (refreshLoop?.isActive == true) return
+        refreshLoop = viewModelScope.launch {
+            while (isActive) {
+                delay(REFRESH_INTERVAL_MS)
+                fetchPrice()
+                fetchChart(model.value.range)
+            }
+        }
     }
 
-    private fun applySmoothing(data: List<PriceDataPoint>): List<PriceDataPoint> {
-        return emaSmooth(data, 10)
+    /** Fetches the price; a fetch already running is joined, not repeated. */
+    private suspend fun fetchPrice() {
+        priceJob?.takeIf { it.isActive }?.let { return it.join() }
+        val job = viewModelScope.launch {
+            val currency = model.value.currency
+            model.update { it.copy(priceFailed = false) }
+            val result = fetchPriceWithRetry(currency)
+            if (model.value.currency != currency) return@launch
+            if (result == null) {
+                model.update { it.copy(priceFailed = true) }
+                return@launch
+            }
+            model.update { it.copy(price = result, rate = result.usdToSelectedRate, priceFailed = false) }
+            saveWidget()
+        }
+        priceJob = job
+        job.join()
     }
 
-    fun refresh() {
-        loadData()
-        load24hChange()
-    }
-
-    private fun loadData() {
-        loadCurrentPrice()
-        loadChartData()
+    /** Three tries, 2 s then 4 s apart. A currency the API lacks is not retried. */
+    private suspend fun fetchPriceWithRetry(currency: Currency): CurrentPrice? {
+        var backoff = FIRST_RETRY_DELAY_MS
+        repeat(PRICE_ATTEMPTS) { attempt ->
+            Timber.d("Price fetch ${currency.code}, try ${attempt + 1}")
+            priceRepository.fetchCurrentPrice(currency)
+                .onSuccess { return it }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    if (error is MissingQuoteException || attempt == PRICE_ATTEMPTS - 1) return null
+                }
+            delay(backoff)
+            backoff *= 2
+        }
+        return null
     }
 
     /**
-     * Fetches 1D chart data to calculate the true 24h price change.
-     * This value stays stable regardless of which time range the user selects in the chart.
+     * Fetches [range] unless its samples are still fresh. A fetch of the
+     * same range already running is joined, so a quick switch back and
+     * forth costs one request.
      */
-    private fun load24hChange() {
-        viewModelScope.launch {
-            priceRepository.fetchChartData(TimeRange.DAY, _selectedCurrency.value).fold(
-                onSuccess = { data ->
-                    val open = data.firstOrNull()?.price
-                    val close = data.lastOrNull()?.price
-                    if (open != null && close != null && open > 0) {
-                        _uiState.update { it.copy(priceChange24h = ((close - open) / open) * 100) }
-                    }
-                    // Keep widget data in sync with what the chart screen just computed.
-                    val ctx = getApplication<Application>().applicationContext
-                    WidgetDataStore.saveChartPoints(ctx, data.map { it.price })
-                    PriceWidget.updateAll(ctx)
-                },
-                onFailure = { /* Silently fail, badge just won't show */ }
-            )
+    private suspend fun fetchChart(range: TimeRange, force: Boolean = false) {
+        val fresh = fetchedAt[range]?.let { System.currentTimeMillis() - it < range.cacheTtlMs } == true
+        if (!force && fresh && !model.value.cache[range].isNullOrEmpty()) return
+
+        inFlight[range]?.let { return it.await() }
+        val task = viewModelScope.async(start = CoroutineStart.LAZY) {
+            try {
+                performChartFetch(range)
+            } finally {
+                inFlight.remove(range)
+            }
+        }
+        inFlight[range] = task
+        task.await()
+    }
+
+    private suspend fun performChartFetch(range: TimeRange) {
+        model.update { it.copy(loading = it.loading + range) }
+        Timber.d("Chart fetch ${range.apiRange}")
+        try {
+            // On failure the old samples stay on screen.
+            val samples = priceRepository.fetchChartData(range).getOrElse { error ->
+                if (error is CancellationException) throw error
+                Timber.w(error, "Chart fetch failed for ${range.apiRange}")
+                return
+            }
+            if (samples.size < 2) return
+            fetchedAt[range] = System.currentTimeMillis()
+            model.update { it.copy(cache = it.cache + (range to samples)) }
+            if (range == TimeRange.DAY) saveWidget()
+        } finally {
+            model.update { it.copy(loading = it.loading - range) }
         }
     }
 
-    private fun loadCurrentPrice() {
-        // Cancel any pending price fetch to prevent race conditions
-        priceLoadJob?.cancel()
-
-        priceLoadJob = viewModelScope.launch {
-            val currency = _selectedCurrency.value
-            priceRepository.fetchCurrentPrice(currency).fold(
-                onSuccess = { result ->
-                    // Only update if this is still the selected currency
-                    if (_selectedCurrency.value == currency) {
-                        // Set the conversion rate from the API response
-                        _usdToSelectedRate.value = result.usdToSelectedRate
-                        Timber.d("Conversion rate for ${currency.code}: ${result.usdToSelectedRate}")
-                        _uiState.update { state ->
-                            state.copy(
-                                currentPrice = result.price,
-                                priceChange = result.change24h,
-                                error = null
-                            )
-                        }
-                    }
-                },
-                onFailure = { e ->
-                    Timber.e(e, "Failed to fetch current price, retrying...")
-                    // Retry once after a short delay (handles rate limiting from CurrencyScreen)
-                    kotlinx.coroutines.delay(1000)
-                    priceRepository.fetchCurrentPrice(currency).fold(
-                        onSuccess = { result ->
-                            // Only update if this is still the selected currency
-                            if (_selectedCurrency.value == currency) {
-                                _usdToSelectedRate.value = result.usdToSelectedRate
-                                _uiState.update { state ->
-                                    state.copy(
-                                        currentPrice = result.price,
-                                        priceChange = result.change24h,
-                                        error = null
-                                    )
-                                }
-                            }
-                        },
-                        onFailure = { e2 ->
-                            Timber.e(e2, "Retry failed for current price")
-                            _uiState.update { it.copy(error = e2.message) }
-                        }
-                    )
-                }
+    /**
+     * The price widget: the price and its 24h change, and a 24h line in 30
+     * minute slots with the high and low of every sample. Written only
+     * with a price, so the line never goes out in a currency the price
+     * has not been fetched in.
+     */
+    private fun saveWidget() {
+        val state = model.value
+        val price = state.price ?: return
+        val context = getApplication<Application>().applicationContext
+        val day = ChartMath.chartSeries(state.cache[TimeRange.DAY].orEmpty(), state.tip())
+        val now = System.currentTimeMillis()
+        // Written here, in order; only the drawing leaves the main thread.
+        WidgetDataStore.savePrice(context, price.price, price.change24h, state.currency.code, state.currency.symbol)
+        if (day.isNotEmpty()) {
+            WidgetDataStore.saveSparkline(
+                context,
+                points = ChartMath.widgetSparkline(day, state.rate, now),
+                endMs = now,
+                currencyCode = state.currency.code,
+                high = day.maxOf { it.price } * state.rate,
+                low = day.minOf { it.price } * state.rate
             )
         }
+        viewModelScope.launch(Dispatchers.Default) { PriceWidget.updateAll(context) }
     }
 
-    private fun loadChartData() {
-        // Cancel any pending chart load to prevent race conditions
-        chartLoadJob?.cancel()
-
-        chartLoadJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-
-            val range = _selectedTimeRange.value
-            val currency = _selectedCurrency.value
-            val result = priceRepository.fetchChartData(range, currency)
-
-            // Only update if this is still the selected range/currency (in case user switched while loading)
-            if (_selectedTimeRange.value != range || _selectedCurrency.value != currency) return@launch
-
-            result.fold(
-                onSuccess = { data ->
-                    rawChartData = data
-                    val displayData = applySmoothing(data)
-
-                    val high = displayData.maxOfOrNull { it.price }
-                    val low = displayData.minOfOrNull { it.price }
-                    val open = displayData.firstOrNull()?.price
-                    val close = displayData.lastOrNull()?.price
-
-                    _uiState.update { state ->
-                        state.copy(
-                            chartData = displayData,
-                            isLoading = false,
-                            error = null,
-                            high = high,
-                            low = low,
-                            open = open,
-                            close = close,
-                            priceChange = if (open != null && close != null && open > 0) {
-                                ((close - open) / open) * 100
-                            } else state.priceChange
-                        )
-                    }
-                },
-                onFailure = { e ->
-                    // Don't show error for cancellation - this is expected when user switches ranges
-                    if (e is CancellationException) {
-                        return@launch
-                    }
-                    // Silently fail like iOS - just log and keep existing data
-                    Timber.e(e, "Failed to fetch chart data")
-                    _uiState.update { it.copy(isLoading = false) }
-                }
-            )
-        }
+    /** The live price as a USD point, for the end of every line. */
+    private fun Model.tip(): PriceDataPoint? {
+        val price = price ?: return null
+        if (!(rate > 0)) return null
+        return PriceDataPoint(price.lastUpdated, price.price / rate)
     }
 
-    fun getChartPriceChange(): Double? {
-        val state = _uiState.value
-        val open = state.open ?: return null
-        val close = state.close ?: return null
-        if (open == 0.0) return null
-        return ((close - open) / open) * 100
+    private fun Model.toUiState(): ChartUiState {
+        val tip = tip()
+        val series = ChartMath.chartSeries(cache[range].orEmpty(), tip)
+        val day = ChartMath.chartSeries(cache[TimeRange.DAY].orEmpty(), tip)
+        // USD samples drawn under another currency's symbol would be wrong,
+        // so a line in that currency waits for its rate.
+        val knownRate = rate.takeIf { currency == Currency.USD || price != null }
+        val points = knownRate?.let { r -> series.map { ChartPoint(it.timestamp, it.price * r) } }.orEmpty()
+        val awaitingRate = knownRate == null && !priceFailed
+        return ChartUiState(
+            range = range,
+            currency = currency,
+            seriesUsd = series,
+            points = points,
+            rate = knownRate,
+            currentPrice = price,
+            isLoading = points.isEmpty() && (range in loading || (awaitingRate && series.isNotEmpty())),
+            rangeChange = ChartMath.percentChange(series) { it.price },
+            priceChange24h = ChartMath.percentChange(day) { it.price },
+            high = points.maxOfOrNull { it.value },
+            low = points.minOfOrNull { it.value },
+            open = points.firstOrNull()?.value,
+            close = points.lastOrNull()?.value
+        )
+    }
+
+    private companion object {
+        const val REFRESH_INTERVAL_MS = 5 * 60 * 1000L
+        const val CURRENCY_DEBOUNCE_MS = 300L
+        const val PRICE_ATTEMPTS = 3
+        const val FIRST_RETRY_DELAY_MS = 2_000L
+        val PREFETCH_ORDER = listOf(TimeRange.WEEK, TimeRange.DAY, TimeRange.MONTH, TimeRange.YEAR, TimeRange.ALL)
     }
 }

@@ -8,11 +8,14 @@ import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.model.MoneroOnePriceResponse
 import one.monero.moneroone.data.model.PriceDataPoint
 import one.monero.moneroone.data.model.CMCChartResponse
-import one.monero.moneroone.data.util.lttbDownsample
+import one.monero.moneroone.data.util.ChartMath
 import one.monero.moneroone.ui.screens.chart.TimeRange
 import timber.log.Timber
 import java.net.HttpURLConnection
 import java.net.URL
+
+/** The price API has no quote for [currency]; asking again will not help. */
+class MissingQuoteException(currency: Currency) : Exception("Price not available for ${currency.code}")
 
 class PriceRepository {
 
@@ -50,7 +53,7 @@ class PriceRepository {
             val parsed = json.decodeFromString<MoneroOnePriceResponse>(response)
 
             val quote = parsed.quotes[currency.code]
-                ?: return@withContext Result.failure(Exception("Price not available for ${currency.code}"))
+                ?: return@withContext Result.failure(MissingQuoteException(currency))
 
             val usdQuote = parsed.quotes["usd"]
             val usdPrice = usdQuote?.price ?: quote.price
@@ -68,42 +71,24 @@ class PriceRepository {
         }
     }
 
-    suspend fun fetchChartData(range: TimeRange, currency: Currency = Currency.USD): Result<List<PriceDataPoint>> = withContext(Dispatchers.IO) {
+    /**
+     * Every real USD sample of [range], oldest first. Nothing is smoothed or
+     * dropped for size; see [ChartMath.chartSamples] for what is dropped.
+     */
+    suspend fun fetchChartData(range: TimeRange): Result<List<PriceDataPoint>> = withContext(Dispatchers.IO) {
         try {
-            val rangeParam = when (range) {
-                TimeRange.DAY -> "1D"
-                TimeRange.WEEK -> "7D"
-                TimeRange.MONTH -> "1M"
-                TimeRange.YEAR -> "1Y"
-                TimeRange.ALL -> "ALL"
-            }
-
-            val response = fetchUrl("$MONERO_ONE_API/chart?range=$rangeParam")
+            val response = fetchUrl("$MONERO_ONE_API/chart?range=${range.apiRange}")
             val parsed = json.decodeFromString<CMCChartResponse>(response)
 
             val points = parsed.data?.points
                 ?: return@withContext Result.failure(Exception("No chart data available"))
 
-            val dataPoints = points.mapNotNull { point ->
-                val timestamp = point.s?.toLongOrNull()?.times(1000) ?: return@mapNotNull null
-                val price = point.v?.firstOrNull() ?: return@mapNotNull null
-                PriceDataPoint(timestamp, price)
-            }.sortedBy { it.timestamp }
-
-            if (dataPoints.isEmpty()) {
+            val samples = ChartMath.chartSamples(points, range, System.currentTimeMillis())
+            if (samples.isEmpty()) {
                 return@withContext Result.failure(Exception("No chart data available"))
             }
 
-            val maxPoints = when (range) {
-                TimeRange.DAY -> 96
-                TimeRange.WEEK -> 168
-                TimeRange.MONTH -> 180
-                TimeRange.YEAR -> 365
-                TimeRange.ALL -> 500
-            }
-            val downsampled = lttbDownsample(dataPoints, maxPoints)
-
-            Result.success(downsampled)
+            Result.success(samples)
         } catch (e: Exception) {
             Timber.e(e, "Failed to fetch chart data")
             Result.failure(e)
@@ -122,8 +107,10 @@ class PriceRepository {
             connection.setRequestProperty("User-Agent", "Mozilla/5.0")
             connection.connectTimeout = 10000
             connection.readTimeout = 10000
+            // Prices go stale in minutes; never answer from an HTTP cache.
+            connection.useCaches = false
 
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+            if (connection.responseCode !in 200..299) {
                 throw Exception("HTTP ${connection.responseCode}: ${connection.responseMessage}")
             }
 

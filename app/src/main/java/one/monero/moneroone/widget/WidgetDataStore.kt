@@ -41,6 +41,11 @@ object WidgetDataStore {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_CURRENCY_SYMBOL, "$") ?: "$"
 
+    /** The saved price's currency code ("usd"); null before the first price. */
+    fun getCurrencyCode(context: Context): String? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_CURRENCY_CODE, null)
+
     // Balance data
     private const val KEY_BALANCE_UPDATED_AT = "balance_updated_at"
     private const val KEY_SYNC_STATUS = "sync_status"
@@ -88,20 +93,52 @@ object WidgetDataStore {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_TRANSACTIONS, "") ?: ""
 
-    // Chart data for price widget (comma-separated doubles)
-    private const val KEY_CHART_POINTS = "chart_points"
+    // Price widget sparkline: the last 24 hours in half-hour slots, oldest
+    // first, in the currency it was drawn in (comma-separated doubles).
+    private const val KEY_SPARKLINE = "sparkline"
+    private const val KEY_SPARKLINE_END = "sparkline_end"
+    private const val KEY_SPARKLINE_CURRENCY = "sparkline_currency"
+    private const val KEY_HIGH_24H = "high_24h"
+    private const val KEY_LOW_24H = "low_24h"
+    // Smoothed USD points from before the sparkline; never read again.
+    private const val KEY_LEGACY_CHART_POINTS = "chart_points"
 
-    fun saveChartPoints(context: Context, points: List<Double>) {
+    /**
+     * [points] end at [endMs], one per half-hour slot.
+     * [high] and [low] come from every 24h sample, not the slots.
+     */
+    fun saveSparkline(context: Context, points: List<Double>, endMs: Long, currencyCode: String, high: Double, low: Double) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-            .putString(KEY_CHART_POINTS, points.joinToString(","))
+            .putString(KEY_SPARKLINE, points.joinToString(","))
+            .putLong(KEY_SPARKLINE_END, endMs)
+            .putString(KEY_SPARKLINE_CURRENCY, currencyCode)
+            .putString(KEY_HIGH_24H, high.toString())
+            .putString(KEY_LOW_24H, low.toString())
+            .remove(KEY_LEGACY_CHART_POINTS)
             .apply()
     }
 
-    fun getChartPoints(context: Context): List<Double> {
+    fun getSparkline(context: Context): List<Double> {
         val str = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_CHART_POINTS, null) ?: return emptyList()
+            .getString(KEY_SPARKLINE, null) ?: return emptyList()
         return str.split(",").mapNotNull { it.toDoubleOrNull() }
     }
+
+    fun getSparklineEnd(context: Context): Long =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(KEY_SPARKLINE_END, 0L)
+
+    fun getSparklineCurrencyCode(context: Context): String? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_SPARKLINE_CURRENCY, null)
+
+    fun getHigh24h(context: Context): Double? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_HIGH_24H, null)?.toDoubleOrNull()
+
+    fun getLow24h(context: Context): Double? =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_LOW_24H, null)?.toDoubleOrNull()
 
     // Wallet widget enable/disable
     fun setWalletWidgetEnabled(context: Context, enabled: Boolean) {
