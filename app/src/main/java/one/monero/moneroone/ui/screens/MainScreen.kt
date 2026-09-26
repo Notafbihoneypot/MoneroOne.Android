@@ -75,7 +75,6 @@ fun MainScreen(
     val context = LocalContext.current
     val chartUiState by chartViewModel.uiState.collectAsState()
     val walletState by walletViewModel.walletState.collectAsState()
-    val activeWallet by walletViewModel.activeWallet.collectAsState()
 
     // When the last wallet is deleted, fall back to Welcome.
     LaunchedEffect(walletState.hasWallet) {
@@ -210,11 +209,10 @@ fun MainScreen(
                             walletViewModel.resetSync()
                             Toast.makeText(context, "Sync reset initiated", Toast.LENGTH_SHORT).show()
                         },
-                        onRemoveWalletClick = {
-                            // Delete only the ACTIVE wallet; auto-switches to
-                            // the next one, or the hasWallet watcher above
-                            // falls back to Welcome when none remain.
-                            activeWallet?.let { walletViewModel.deleteWallet(it.id) }
+                        onRemoveAllWalletsClick = {
+                            // Wipe EVERY wallet (iOS deleteAllWallets); the
+                            // hasWallet watcher above falls back to Welcome.
+                            walletViewModel.removeWallet()
                         },
                         onDonateClick = { navController.navigate("donation") }
                     )

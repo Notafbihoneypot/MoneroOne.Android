@@ -55,6 +55,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import one.monero.moneroone.BuildConfig
 import one.monero.moneroone.core.wallet.WalletViewModel
@@ -83,13 +85,13 @@ fun SettingsScreen(
     onPriceAlertsClick: () -> Unit = {},
     onSyncSettingsClick: () -> Unit,
     onResetSyncClick: () -> Unit,
-    onRemoveWalletClick: () -> Unit,
+    onRemoveAllWalletsClick: () -> Unit,
     onDonateClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("monero_wallet", android.content.Context.MODE_PRIVATE) }
 
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showRemoveAllDialog by remember { mutableStateOf(false) }
     var showResetSyncDialog by remember { mutableStateOf(false) }
 
     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
@@ -188,13 +190,16 @@ fun SettingsScreen(
 
         // About Section
         SettingsSection(title = "About") {
+            // "1.0.9 (12)": versionName (versionCode), as iOS shows
+            // CFBundleShortVersionString (CFBundleVersion).
             SettingsItem(
                 icon = Icons.Default.Info,
-                title = "Build",
-                subtitle = BuildConfig.VERSION_CODE.toString(),
+                title = "Version",
+                subtitle = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 onClick = { },
                 iconColor = SettingsGray,
-                showDivider = false
+                showDivider = false,
+                contentDescription = "Version ${BuildConfig.VERSION_NAME}, build ${BuildConfig.VERSION_CODE}"
             )
 
             SettingsItem(
@@ -254,11 +259,13 @@ fun SettingsScreen(
                 showDivider = false
             )
 
+            // One wallet is removed from the wallet switcher; this row wipes
+            // them all, as on iOS.
             SettingsItem(
                 icon = Icons.Default.Delete,
-                title = "Remove Wallet from Device",
-                subtitle = "Permanently delete wallet from device",
-                onClick = { showDeleteDialog = true },
+                title = "Remove All Wallets from Device",
+                subtitle = "Permanently delete all wallets from device",
+                onClick = { showRemoveAllDialog = true },
                 iconColor = ErrorRed,
                 isDestructive = true
             )
@@ -267,35 +274,35 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(32.dp))
     }
 
-    // Delete confirmation dialog
-    if (showDeleteDialog) {
+    // Remove-all confirmation dialog (iOS copy)
+    if (showRemoveAllDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
+            onDismissRequest = { showRemoveAllDialog = false },
             title = {
                 Text(
-                    text = "Remove Wallet from Device?",
+                    text = "Remove All Wallets from Device?",
                     style = MaterialTheme.typography.titleLarge
                 )
             },
             text = {
                 Text(
-                    text = "This removes wallet data from this device only. " +
-                        "Your wallet still exists on the blockchain and can be recovered with your seed phrase.",
+                    text = "This removes every wallet from this device only. " +
+                        "Your wallets still exist on the blockchain and can be recovered with your seed phrases.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onRemoveWalletClick()
-                        showDeleteDialog = false
+                        onRemoveAllWalletsClick()
+                        showRemoveAllDialog = false
                     }
                 ) {
-                    Text("Remove", color = ErrorRed)
+                    Text("Remove All", color = ErrorRed)
                 }
             },
             dismissButton = {
-                DismissTextButton(onClick = { showDeleteDialog = false }) {
+                DismissTextButton(onClick = { showRemoveAllDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -436,7 +443,9 @@ private fun SettingsItem(
     onClick: () -> Unit,
     iconColor: Color = MoneroOrange,
     isDestructive: Boolean = false,
-    showDivider: Boolean = true
+    showDivider: Boolean = true,
+    // TalkBack reads this in place of the title and subtitle when set.
+    contentDescription: String? = null
 ) {
     val titleColor = if (isDestructive) ErrorRed else MaterialTheme.colorScheme.onSurface
 
@@ -444,6 +453,13 @@ private fun SettingsItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (contentDescription != null) {
+                    Modifier.semantics { this.contentDescription = contentDescription }
+                } else {
+                    Modifier
+                }
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically

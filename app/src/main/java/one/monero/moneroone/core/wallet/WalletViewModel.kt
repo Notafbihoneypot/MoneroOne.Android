@@ -1360,7 +1360,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
 
     /**
      * Full local wipe of ALL wallets (PIN brute-force protection / "Forgot
-     * PIN"). Wallet caches are deleted immediately. Global app settings
+     * PIN" / Settings "Remove All Wallets from Device"). Wallet caches are
+     * deleted immediately. Global app settings
      * (theme, currency, nodes, auto-lock) are PRESERVED.
      */
     fun removeWallet() {
