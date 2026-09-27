@@ -35,7 +35,9 @@ fun MoneroLogo(
 /**
  * Glossy hero art from the iOS app (light and night variants, converted to
  * sRGB). Hero use only: Welcome and Add Wallet. Like iOS, the art is scaled
- * 1.15 and clipped to a circle so only the coin shows, not its plate.
+ * 1.15 and clipped to a circle so only the coin shows, not its plate. The
+ * art is 1024px in drawable-nodpi, as on iOS, so the 240dp welcome hero
+ * stays sharp and decodes at its own size on every screen density.
  */
 @Composable
 fun MoneroHeroLogo(

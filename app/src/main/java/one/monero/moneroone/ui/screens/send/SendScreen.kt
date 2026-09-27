@@ -614,7 +614,7 @@ private fun AmountPhase(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
                     .clip(CapsuleShape)
-                    .background(MoneroOrange.copy(alpha = 0.1f))
+                    .background(MoneroOrange.copy(alpha = 0.15f))
                     .clickable {
                         if (isFiatMode) {
                             // Switching back to XMR mode — sync XMR from fiat
@@ -842,13 +842,13 @@ private fun ReviewPhase(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
 
-                // Recipient
+                // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
-                            .background(MoneroOrange.copy(alpha = 0.2f)),
+                            .background(MoneroOrange.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.Person, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))

@@ -65,7 +65,7 @@ import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.MoneroOrange
-import one.monero.moneroone.ui.theme.SettingsGreen
+import one.monero.moneroone.ui.theme.SuccessGreen
 
 private const val DONATION_ADDRESS = "86AWuSFkMKCNp4e7dWho3CBvFpvAzj8hnZNWM9fedD5LKb2mXVfnmH9XuDD9zYqzzR6LAFxUSsdGTVUDABzcgjMfFVfBHpP"
 private const val SUGGESTED_DONATION_AMOUNT = "0.25"
@@ -209,7 +209,7 @@ fun DonationScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Copy: glass with a label-color title, green once copied (iOS)
+                // Copy: glass with the brand label, green once copied (iOS)
                 PrimaryButton(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -219,7 +219,7 @@ fun DonationScreen(
                         Toast.makeText(context, "Address copied", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.weight(1f),
-                    contentColor = if (copied) SettingsGreen else MaterialTheme.colorScheme.onSurface
+                    contentColor = if (copied) SuccessGreen else MoneroOrange
                 ) {
                     Icon(
                         imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,

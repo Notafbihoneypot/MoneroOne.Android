@@ -79,6 +79,7 @@ import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.R
 import one.monero.moneroone.core.wallet.WalletViewModel
+import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.Motion
 import one.monero.moneroone.ui.components.RollingText
@@ -238,7 +239,7 @@ fun WalletScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Balance card + actions <-> wallet rows (iOS WalletView: rows slide in
-            // from the trailing edge on .snappy(0.4) while the balance block
+            // from the trailing edge on .snappy(0.35) while the balance block
             // collapses; reversed on the way back). Recent activity below hides
             // instantly, as on iOS.
             AnimatedContent(
@@ -619,8 +620,8 @@ private fun PriceChangeIndicator(priceChange: Double) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(color.copy(alpha = 0.1f))
+            .clip(CapsuleShape)
+            .background(color.copy(alpha = 0.15f))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Icon(

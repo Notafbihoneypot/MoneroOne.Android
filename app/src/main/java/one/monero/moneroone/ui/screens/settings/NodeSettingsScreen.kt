@@ -576,7 +576,13 @@ private fun NodeDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var credentialError by remember { mutableStateOf<String?>(null) }
     val parsed = parseNodeInput(nodeUri)
-    val fieldColors = moneroTextFieldColors()
+    // tokens.json: a field in a dialog (fillElevated) is #F2F2F7 light and
+    // #3A3A3C dark, so it never matches the dialog and sits one step above
+    // it in dark mode, as fields do on cards.
+    val fieldColors = moneroTextFieldColors(
+        containerColor = if (MoneroTheme.isDark) MaterialTheme.colorScheme.surfaceContainerHighest
+        else MaterialTheme.colorScheme.surfaceVariant
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,

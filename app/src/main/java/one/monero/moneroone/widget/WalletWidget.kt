@@ -58,13 +58,13 @@ class WalletWidget : AppWidgetProvider() {
             views.setViewVisibility(R.id.wallet_fiat, View.GONE)
             views.setViewVisibility(R.id.wallet_fiat_dot, View.GONE)
 
-            // Sync status (matches iOS: synced=green, syncing/connecting=orange, offline=red)
+            // Sync status (matches iOS: synced=green, syncing/connecting=brand, offline=gray)
             val status = WidgetDataStore.getSyncStatus(context)
             val (statusText, statusColor) = when (status) {
                 "synced" -> "● Synced" to 0xFF34C759.toInt()
                 "syncing" -> "● Syncing" to 0xFFFF6600.toInt()
                 "connecting" -> "● Connecting" to 0xFFFF6600.toInt()
-                else -> "● Offline" to 0xFFFF3B30.toInt()
+                else -> "● Offline" to 0xFF8E8E93.toInt()
             }
             views.setTextViewText(R.id.wallet_sync_status, statusText)
             views.setTextColor(R.id.wallet_sync_status, statusColor)
