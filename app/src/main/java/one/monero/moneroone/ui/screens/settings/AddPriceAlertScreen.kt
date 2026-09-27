@@ -176,7 +176,7 @@ fun AddPriceAlertScreen(
             modifier = Modifier.fillMaxWidth(),
             enabled = targetPrice.toDoubleOrNull() != null && targetPrice.toDoubleOrNull()!! > 0
         ) {
-            Text(text = "Create Alert")
+            Text(text = "Save Alert")
         }
 
         Spacer(modifier = Modifier.height(32.dp))

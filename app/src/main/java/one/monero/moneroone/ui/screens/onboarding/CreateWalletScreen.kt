@@ -47,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -332,6 +333,13 @@ private fun SeedDisplay(
         // Copy seed button
         val context = LocalContext.current
         var copied by rememberSaveable { mutableStateOf(false) }
+        // Back to the copy label after 2 s, as on iOS
+        LaunchedEffect(copied) {
+            if (copied) {
+                delay(2000)
+                copied = false
+            }
+        }
         TintedButton(
             onClick = {
                 SeedClipboard.copy(context, seed.joinToString(" "))

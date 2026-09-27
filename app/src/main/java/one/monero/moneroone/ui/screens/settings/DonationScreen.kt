@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,6 +79,13 @@ fun DonationScreen(
 ) {
     val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
+    // Back to the copy label after 2 s, as on iOS
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2000)
+            copied = false
+        }
+    }
 
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
     LaunchedEffect(Unit) {

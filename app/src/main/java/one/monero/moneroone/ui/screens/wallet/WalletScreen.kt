@@ -310,6 +310,7 @@ fun WalletScreen(
                             fiatValue = fiatValue,
                             unlockedFiatValue = unlockedFiatValue,
                             syncState = walletState.syncState,
+                            isOnline = isOnline,
                             priceChange24h = priceChange24h,
                             onClick = onBalanceClick
                         )
@@ -444,6 +445,7 @@ private fun BalanceCard(
     fiatValue: String?,
     unlockedFiatValue: String?,
     syncState: SyncState,
+    isOnline: Boolean,
     priceChange24h: Double? = null,
     onClick: (() -> Unit)? = null
 ) {
@@ -472,7 +474,8 @@ private fun BalanceCard(
                 SyncStatusIndicator(
                     status = status,
                     progress = progress,
-                    syncState = syncState
+                    syncState = syncState,
+                    isOnline = isOnline
                 )
 
                 // Price change indicator (moved from bottom to top right like iOS)
@@ -658,9 +661,10 @@ private fun ActionButton(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // iOS arrow.up/down.circle.fill at 20pt
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(20.dp)
                     .clip(CircleShape)
                     .background(color),
                 contentAlignment = Alignment.Center
@@ -669,7 +673,7 @@ private fun ActionButton(
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.background,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))

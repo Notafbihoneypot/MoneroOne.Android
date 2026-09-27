@@ -260,9 +260,9 @@ private fun TransactionDetailContent(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = statusText,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = statusColor,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }

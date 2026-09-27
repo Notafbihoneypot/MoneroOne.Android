@@ -506,7 +506,7 @@ private fun AddWalletRow(onClick: () -> Unit) {
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
                     tint = MoneroOrange,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))

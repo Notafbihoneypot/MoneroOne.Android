@@ -1051,6 +1051,13 @@ private fun SendingPhase() {
 private fun SuccessPhase(txHash: String, onDone: () -> Unit) {
     val clipboardManager = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
+    // Back to the copy label after 2 s, as on iOS
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2000)
+            copied = false
+        }
+    }
 
     // Animated checkmark
     var showCheck by remember { mutableStateOf(false) }
