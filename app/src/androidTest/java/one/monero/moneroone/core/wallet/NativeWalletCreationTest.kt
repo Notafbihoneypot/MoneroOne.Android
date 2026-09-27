@@ -7,6 +7,9 @@ import io.horizontalsystems.monerokit.Seed
 import io.horizontalsystems.monerokit.model.Wallet
 import io.horizontalsystems.monerokit.model.WalletManager
 import io.horizontalsystems.monerokit.toElectrum
+import io.horizontalsystems.monerokit.util.Helper
+import kotlinx.coroutines.runBlocking
+import java.util.UUID
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -238,6 +241,45 @@ class NativeWalletCreationTest {
 
         assertThrows(InvalidSeedException::class.java) {
             SeedValidation.validate(abbey, SeedType.ELECTRUM_25)
+        }
+    }
+
+    @Test
+    fun offlineStartKeepsMatchingFileIdentityForBackup() = assertOfflineFileIdentity(bip39)
+
+    @Test
+    fun offlineStartCannotHideMismatchedFileIdentity() = assertOfflineFileIdentity(velvet)
+
+    private fun assertOfflineFileIdentity(fileSeed: Golden) = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val id = "audit-test-${UUID.randomUUID()}"
+        val file = File(Helper.getWalletRoot(context), id)
+        val electrum = fileSeed.seed.toElectrum()
+        val wallet = WalletManager.getInstance().recoveryWallet(
+            file, "", electrum.mnemonic.joinToString(" "), electrum.passphrase, RESTORE_HEIGHT
+        )
+        try {
+            assertTrue(wallet.status.isOk)
+        } finally {
+            wallet.close()
+        }
+        val kit = MoneroKit.getInstance(
+            context, bip39.seed, RESTORE_HEIGHT.toString(), id, "127.0.0.1:1", false
+        )
+        try {
+            assertNull(kit.checkedWalletFilePrimaryAddress)
+            kit.start()
+            assertFalse("dead node should close the file", kit.isWalletOpen)
+            assertEquals(fileSeed.primary, kit.checkedWalletFilePrimaryAddress)
+            val mismatch = kit.checkedWalletFilePrimaryAddress != kit.seedPrimaryAddress()
+            assertEquals(
+                if (fileSeed === bip39) SeedVerification.VERIFIED else SeedVerification.MISMATCH,
+                SeedVerification.afterRead(null, complete = true, mismatch = mismatch)
+            )
+        } finally {
+            kit.release()
+            kit.stop()
+            MoneroKit.deleteWallet(context, id)
         }
     }
 

@@ -63,6 +63,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.util.SeedClipboard
+import one.monero.moneroone.core.wallet.SeedVerification
 import one.monero.moneroone.core.wallet.SeedType
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.components.GlassButton
@@ -83,6 +84,7 @@ private const val WALLET_CHANGED_MESSAGE = "Active wallet changed — please ret
 private const val NO_SEED_MESSAGE = "No seed phrase found for this wallet"
 
 /** iOS WalletError.seedMismatch wording. */
+private const val SEED_UNVERIFIED_MESSAGE = "Wallet keys have not been verified yet. Please retry once the wallet opens."
 private const val SEED_MISMATCH_MESSAGE = "Seed phrase doesn't match current wallet"
 
 /** What the screen may show once the PIN is verified. */
@@ -96,8 +98,11 @@ private sealed interface SeedReveal {
  * wallet it was opened for. Put any further reveal check here. Reads encrypted
  * storage and converts BIP39 to the legacy words: call it off Main.
  */
-private fun seedRevealFor(walletViewModel: WalletViewModel, boundWalletId: String?): SeedReveal {
+private suspend fun seedRevealFor(walletViewModel: WalletViewModel, boundWalletId: String?): SeedReveal {
     val walletId = boundWalletId ?: return SeedReveal.Refuse(NO_SEED_MESSAGE)
+    if (!walletViewModel.verifySeedForExport(walletId)) {
+        return SeedReveal.Refuse(if (walletViewModel.hasSeedMismatch(walletId)) SEED_MISMATCH_MESSAGE else SEED_UNVERIFIED_MESSAGE)
+    }
     val words = walletViewModel.getSeedPhrase(walletId)
     val type = walletViewModel.getSeedType(walletId)
     val electrumWords = if (type == SeedType.BIP39_24) walletViewModel.getElectrumSeedPhrase(walletId) else null
@@ -135,6 +140,9 @@ fun BackupSeedScreen(
     // can never show another wallet's seed (iOS a31683d).
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     val boundWalletId = remember { activeWallet?.id }
+    val verification by walletViewModel.seedVerification.collectAsState()
+    val canReveal = activeWallet?.id == boundWalletId &&
+        verification[activeWallet?.derivedWalletId] == SeedVerification.VERIFIED
     // Two paths can close the screen at once (the switch above, a refused reveal): pop once.
     var closed by remember { mutableStateOf(false) }
     fun close() {
@@ -142,8 +150,11 @@ fun BackupSeedScreen(
         closed = true
         onBack()
     }
-    LaunchedEffect(activeWallet?.id) {
-        if (activeWallet?.id != boundWalletId) {
+    LaunchedEffect(activeWallet?.id, canReveal, isUnlocked) {
+        if (activeWallet?.id != boundWalletId || (isUnlocked && !canReveal)) {
+            seedWords = emptyList()
+            electrumSeedWords = null
+            isUnlocked = false
             close()
         }
     }
@@ -179,6 +190,11 @@ fun BackupSeedScreen(
                         }
                         when (reveal) {
                             is SeedReveal.Show -> {
+                                if (walletViewModel.activeWallet.value?.id != boundWalletId ||
+                                    boundWalletId == null || !walletViewModel.seedMatchesWalletFile(boundWalletId)) {
+                                    close()
+                                    return@launch
+                                }
                                 seedWords = reveal.words
                                 seedType = reveal.type
                                 electrumSeedWords = reveal.electrumWords
@@ -209,7 +225,7 @@ fun BackupSeedScreen(
         }
     }
 
-    if (!isUnlocked) {
+    if (!isUnlocked || !canReveal) {
         // Full-screen PIN entry with custom number pad
         Column(
             modifier = Modifier
@@ -487,6 +503,14 @@ fun BackupSeedScreen(
             // Copy button
             PrimaryButton(
                 onClick = {
+                    if (walletViewModel.activeWallet.value?.id != boundWalletId ||
+                        boundWalletId == null || !walletViewModel.seedMatchesWalletFile(boundWalletId)) {
+                        seedWords = emptyList()
+                        electrumSeedWords = null
+                        isUnlocked = false
+                        close()
+                        return@PrimaryButton
+                    }
                     SeedClipboard.copy(context, displayWords.joinToString(" "))
                     copiedToClipboard = true
                     Toast.makeText(

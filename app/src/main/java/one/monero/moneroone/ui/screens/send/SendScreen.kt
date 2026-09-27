@@ -101,6 +101,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.util.NetworkMonitor
 import one.monero.moneroone.core.wallet.SendState
+import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.CapsuleShape
@@ -131,7 +132,9 @@ fun SendScreen(
     onSent: () -> Unit
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
-    val sendState by walletViewModel.sendState.collectAsState()
+    val flow = remember { SendFlow(walletViewModel.activeWallet.value?.id) }
+    val sharedSendState by walletViewModel.sendState.collectAsState()
+    val sendState = sharedSendState.takeIf { it.flow == flow } ?: SendState.Idle
 
     // Pre-fill arrives via QR / deep link and is untrusted: it must pass the
     // same checks as manual entry or be dropped, so the flow can never skip
@@ -187,7 +190,7 @@ fun SendScreen(
     }
 
     DisposableEffect(Unit) {
-        onDispose { walletViewModel.resetSendState() }
+        onDispose { walletViewModel.resetSendState(flow) }
     }
 
     fun goForward(to: SendPhase) {
@@ -334,11 +337,11 @@ fun SendScreen(
                 SendPhase.ERROR -> ErrorPhase(
                     message = (sendState as? SendState.Error)?.message ?: "Transaction failed",
                     onRetry = {
-                        walletViewModel.resetSendState()
+                        walletViewModel.resetSendState(flow)
                         goBack(SendPhase.REVIEW)
                     },
                     onClose = {
-                        walletViewModel.resetSendState()
+                        walletViewModel.resetSendState(flow)
                         onBack()
                     }
                 )
@@ -354,6 +357,7 @@ fun SendScreen(
             onAuthenticated = {
                 showAuthGate = false
                 walletViewModel.send(
+                    flow,
                     address,
                     walletViewModel.parseXmr(amount),
                     isSweepAll = isSweepAll

@@ -32,8 +32,13 @@ data class WalletInfo(
     /** Cached unlocked balance in atomic units. */
     val cachedUnlockedBalance: Long? = null,
     val derivedWalletId: String? = null,
-    val deviceWalletId: String? = null
+    val deviceWalletId: String? = null,
+    /** Previous wallet files kept for recovery, including transaction keys absent from the seed. */
+    val retainedCacheIds: List<String> = emptyList()
 ) {
+    val allCacheIds: Set<String>
+        get() = (retainedCacheIds + listOfNotNull(derivedWalletId, deviceWalletId)).toSet()
+
     val isViewOnly: Boolean
         get() = source.isViewOnly
 

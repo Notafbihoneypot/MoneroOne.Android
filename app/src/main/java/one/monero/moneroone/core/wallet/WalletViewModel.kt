@@ -103,13 +103,6 @@ enum class SeedType {
     BIP39_24        // 24-word BIP39 (Standard)
 }
 
-sealed class SendState {
-    object Idle : SendState()
-    object Sending : SendState()
-    data class Success(val txHash: String) : SendState()
-    data class Error(val message: String) : SendState()
-}
-
 class DuplicateWalletException(val existingName: String) :
     Exception("This wallet is already added as \"$existingName\"")
 
@@ -178,16 +171,10 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     /** Wallets whose delete waits behind [walletMutationMutex]: a switch to them is refused. */
     private val pendingDeleteIds = mutableSetOf<String>()
 
-    /**
-     * Cache ids of wallet files that failed the key check: the primary address
-     * is not the one the stored seed derives. Such a wallet's addresses stay
-     * hidden while that cache is in use, until a read of the open file shows
-     * the match again (a heal rebuilds the cache from the seed; Reset Sync
-     * rebuilds it under a new id). Replaced whole on each change (Main); read
-     * off Main by [seedMatchesWalletFile].
-     */
-    @Volatile
-    private var keyMismatchCacheIds: Set<String> = emptySet()
+    private val _seedVerification = MutableStateFlow<Map<String, SeedVerification>>(emptyMap())
+    val seedVerification: StateFlow<Map<String, SeedVerification>> = _seedVerification.asStateFlow()
+    private val keyMismatchCacheIds: Set<String>
+        get() = _seedVerification.value.filterValues { it == SeedVerification.MISMATCH }.keys
 
     /** Orders address reads (Main only): a read that started before a newer one never overwrites it. */
     private var addressReadSeq = 0L
@@ -205,8 +192,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     val selectedCurrency: StateFlow<Currency> = _selectedCurrency.asStateFlow()
 
     // Send state tracking
-    private val _sendState = MutableStateFlow<SendState>(SendState.Idle)
-    val sendState: StateFlow<SendState> = _sendState.asStateFlow()
+    private val sendCoordinator = SendCoordinator()
+    val sendState: StateFlow<SendState> = sendCoordinator.state
 
     // Encrypted storage for seeds, per-wallet PIN hashes and node RPC credentials
     private val encryptedPrefs: SharedPreferences by lazy { SecurePrefs.open(context) }
@@ -227,7 +214,6 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
         dropUncheckedCachedAddresses()
         loadWalletsFromStore()
-        cleanOrphanedWalletCaches()
         // Defer price fetch until a wallet exists. Avoids leaking IP to
         // monero.one before the user has generated/restored a key.
         if (_walletState.value.hasWallet) {
@@ -241,33 +227,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     // =========================================================================
 
     private fun loadWalletsFromStore() {
-        var list = store.wallets()
-
-        // Stale onboarding cleanup: a wallet row without a stored seed, or a
-        // store where no wallet has a PIN hash yet (crash mid-onboarding),
-        // cannot be unlocked — clear it so the user can start fresh.
-        // Guarded: a keystore/EncryptedSharedPreferences read failure must
-        // NOT crash the constructor or be mistaken for "no seeds stored" —
-        // that would wipe live rows. Skip cleanup for this launch instead.
-        try {
-            val withSeeds = list.filter { secrets.hasSeed(it.id) }
-            if (withSeeds.size != list.size) {
-                Timber.w("Clearing ${list.size - withSeeds.size} wallet row(s) without stored seed")
-                list.filterNot { secrets.hasSeed(it.id) }.forEach { secrets.deleteWalletSecrets(it.id) }
-                store.saveWallets(withSeeds)
-                list = withSeeds
-            }
-            if (list.isNotEmpty() && !store.hasUndecodableRows() &&
-                list.none { secrets.pinHash(it.id) != null }
-            ) {
-                Timber.w("Clearing wallet store: no wallet has a PIN hash (incomplete onboarding)")
-                list.forEach { secrets.deleteWalletSecrets(it.id) }
-                store.deleteAll()
-                list = emptyList()
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Secret store unreadable; skipping onboarding cleanup this launch")
-        }
+        // Missing secrets/PIN metadata does not prove a wallet is disposable.
+        // Retain its row and files for recovery; only explicit removal may erase them.
+        val list = store.wallets()
 
         _wallets.value = list
         val active = list.firstOrNull { it.id == store.activeWalletId() } ?: list.firstOrNull()
@@ -319,43 +281,28 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /**
-     * Launch sweep of orphaned wallet cache files (port of iOS
-     * `cleanOrphanedWalletCaches`). Runs once at startup, after migration.
-     * Bails entirely when any wallet's cache id is unresolved.
-     */
-    private fun cleanOrphanedWalletCaches() {
-        if (!store.migrated) return
-        // Rows this build cannot decode (a newer build's rows, a damaged
-        // value) have unknown cache ids: nothing on disk can be proven
-        // orphaned, so sweep nothing.
-        val undecodable = try { store.hasUndecodableRows() } catch (e: Exception) { true }
-        if (undecodable) {
-            Timber.w("Orphan cache sweep skipped: wallet store has undecodable rows")
-            return
-        }
-        val list = _wallets.value
-        // A legacy single wallet whose prefs still exist (fragments the
-        // migration refused to wipe) owns its UUID cache; never sweep it.
-        val legacyCacheId = WalletMigration.legacyCacheId(prefs)
-        val knownIds = (list.mapNotNull { it.derivedWalletId } +
-            list.mapNotNull { it.deviceWalletId } +
-            listOfNotNull(legacyCacheId)).toSet()
-        val allKnown = list.all { it.derivedWalletId != null || it.deviceWalletId != null }
+    // Never sweep unknown wallet files at startup. Missing/corrupt metadata cannot
+    // prove that their keys (including transaction keys) are safe to destroy.
 
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val root = Helper.getWalletRoot(context)
-                val entries = root.listFiles()?.map { it.name } ?: return@launch
-                val orphans = WalletCacheIds.orphanedCacheBaseNames(entries, knownIds, allKnown)
-                orphans.forEach { name ->
-                    Timber.i("Sweeping orphaned wallet cache: $name")
-                    deleteWalletFiles(name)
+    /** Choose a fresh cache id without touching any existing wallet files. */
+    private suspend fun retainFilesForRebuild(info: WalletInfo, words: List<String>): WalletInfo {
+        val reserved = store.wallets().flatMap { it.allCacheIds }.toSet()
+        val rebuilt = withContext(Dispatchers.IO) {
+            val root = Helper.getWalletRoot(context)
+            WalletRecovery.rebuild(info, words, reserved) { id ->
+                listOf("", ".keys", ".address.txt", ".unportable").any { suffix ->
+                    File(root, id + suffix).exists()
                 }
-            } catch (e: Exception) {
-                Timber.e(e, "Orphan cache sweep failed")
             }
         }
+        // Merge only recovery fields: a rename or address update may have landed while suspended.
+        return checkNotNull(mergeWalletUpdate(info.id) {
+            it.copy(
+                syncResetCount = rebuilt.syncResetCount,
+                derivedWalletId = rebuilt.derivedWalletId,
+                retainedCacheIds = (it.retainedCacheIds + rebuilt.retainedCacheIds).distinct()
+            )
+        }) { "Wallet was removed during recovery" }
     }
 
     /**
@@ -618,7 +565,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 Timber.w("openActiveWallet: cache $cacheId failed to load; rebuilding it from the seed")
                 cancelKitObservers()
                 WalletManager.stopAndRelease()
-                withContext(Dispatchers.IO) { deleteWalletFiles(cacheId) }
+                check(!hasSeedMismatch(info.id)) { "Seed phrase doesn't match current wallet; original files preserved" }
+                retainFilesForRebuild(info, seedData.first)
                 openActiveWallet(healed = true)
                 return
             }
@@ -656,7 +604,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         maxOf(info.userCreatedSubaddressIndices.maxOrNull() ?: 0, selectedAddressIndex(info.id) + 1)
 
     /** One read of a kit's addresses (see [publishAddresses]). */
-    private class AddressRead(val list: List<Subaddress>, val complete: Boolean, val keyMismatch: Boolean)
+    private class AddressRead(val list: List<Subaddress>, val complete: Boolean, val keyMismatch: Boolean, val fileChecked: Boolean)
 
     /**
      * Read [kit]'s receive addresses and publish them for [info]. This is the
@@ -687,13 +635,13 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
         if (seq < appliedAddressReadSeq) return
         appliedAddressReadSeq = seq
-        if (read.keyMismatch) {
-            keyMismatchCacheIds = keyMismatchCacheIds + cacheId
-        } else if (read.complete) {
-            // The open file derives from the seed again (a heal rebuilt it).
-            keyMismatchCacheIds = keyMismatchCacheIds - cacheId
-        }
         val primary = read.list.firstOrNull { it.addressIndex == 0 }?.address
+        _seedVerification.update { states ->
+            states + (cacheId to SeedVerification.afterRead(
+                states[cacheId], read.fileChecked,
+                read.keyMismatch || !SeedValidation.isPlausiblePrimaryAddress(primary)
+            ))
+        }
         val blocked = cacheId in keyMismatchCacheIds || !SeedValidation.isPlausiblePrimaryAddress(primary)
         if (blocked) {
             Timber.e("Receive addresses of wallet ${info.id} blocked: its keys failed a check")
@@ -735,9 +683,11 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
         if (kit.isWalletOpen != open) return null
         val primary = list.firstOrNull { it.addressIndex == 0 }?.address
-        val mismatch = primary != null && primary != kit.seedPrimaryAddress()
+        val filePrimary = if (open) primary else kit.checkedWalletFilePrimaryAddress
+        val mismatch = (primary != null && primary != kit.seedPrimaryAddress()) ||
+            (filePrimary != null && filePrimary != kit.seedPrimaryAddress())
         if (mismatch) Timber.e("Wallet file primary address differs from the stored seed's")
-        return AddressRead(list, open, mismatch)
+        return AddressRead(list, open, mismatch, filePrimary != null)
     }
 
     /**
@@ -1049,12 +999,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             failoverAttempts = 0
             cancelKitObservers()
             WalletManager.stopAndRelease()
-            added.derivedWalletId?.let { id ->
-                // Never touch another row's files (the dup check guarantees uniqueness).
-                if (store.wallets().none { it.id != added.id && it.derivedWalletId == id }) {
-                    withContext(Dispatchers.IO) { deleteWalletFiles(id) }
-                }
-            }
+            // The attempted restore may have opened pre-existing recovery files.
+            // Keep all artifacts rather than guessing which keys are disposable.
             secrets.deleteWalletSecrets(added.id)
             store.removeWallet(added.id)
             store.setActiveWalletId(previous?.id)
@@ -1283,9 +1229,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Delete one wallet: per-wallet secret wipe + store removal + cancel all
-     * per-wallet work. The cache files are intentionally LEFT on disk for the
-     * next launch sweep (iOS parity). Auto-switches to the first remaining
+     * Delete one wallet and its retained recovery files, then cancel all
+     * per-wallet work. Auto-switches to the first remaining
      * wallet, or falls back to Welcome when none remain.
      */
     fun deleteWallet(id: String) {
@@ -1307,13 +1252,23 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun deleteWalletLocked(id: String, wasActive: Boolean) {
+        val removed = store.wallets().firstOrNull { it.id == id } ?: return
         // Cancel per-wallet work first so nothing fires against the next wallet.
         if (wasActive) {
             cancelKitObservers()
             failoverJob?.cancel()
             failoverAttempts = 0
+            WalletManager.clear()
         }
 
+        // Explicit removal includes recovery copies, but never files referenced by another row.
+        val otherIds = (store.wallets().filterNot { it.id == id }.flatMap { it.allCacheIds } +
+            listOfNotNull(WalletMigration.legacyCacheId(prefs))).toSet()
+        if (!store.hasUndecodableRows()) {
+            withContext(NonCancellable + Dispatchers.IO) {
+                (removed.allCacheIds - otherIds).forEach { deleteWalletFiles(it) }
+            }
+        }
         secrets.deleteWalletSecrets(id)
         store.removeWallet(id)
         prefs.edit().remove("wallet.$id.selected_address_index").apply()
@@ -1324,8 +1279,6 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             refreshHasWallet()
             return
         }
-
-        WalletManager.clear()
 
         // A wallet with its own delete queued must not become active.
         val next = remaining.firstOrNull { it.id !in pendingDeleteIds }
@@ -1378,9 +1331,11 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
 
                 val all = store.wallets()
                 withContext(Dispatchers.IO) {
-                    all.forEach { w ->
-                        w.derivedWalletId?.let { deleteWalletFiles(it) }
-                    }
+                    // An explicit full wipe also removes retained or unrecognized wallet artifacts.
+                    val diskIds = Helper.getWalletRoot(context).listFiles().orEmpty()
+                        .map { WalletCacheIds.cacheBaseName(it.name) }
+                        .filter { WalletCacheIds.isCacheIdShaped(it) }
+                    (all.flatMap { it.allCacheIds } + diskIds).toSet().forEach { deleteWalletFiles(it) }
                 }
                 all.forEach { secrets.deleteWalletSecrets(it.id) }
                 prefs.edit().apply {
@@ -1399,7 +1354,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 // Reset state
                 _wallets.value = emptyList()
                 _activeWallet.value = null
-                keyMismatchCacheIds = emptySet()
+                _seedVerification.value = emptyMap()
                 _pendingSeed.value = null
                 _pin.value = null
                 _isLocked.value = true
@@ -1932,10 +1887,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Reset sync data for the ACTIVE wallet: bump syncResetCount, re-derive
-     * the cache id through the single shared function and PERSIST it BEFORE
-     * touching disk or reopening (iOS 6f1053f lockstep rule — getting this
-     * order wrong makes the launch sweep delete a live cache).
+     * Reset sync under a fresh cache id after verifying its seed. Keep the old
+     * files (including spend and transaction keys) until explicit wallet removal.
      */
     fun resetSync() {
         failoverAttempts = 0
@@ -1953,34 +1906,22 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 return
             }
 
-            val oldCacheId = active.derivedWalletId
-            val newCount = active.syncResetCount + 1
-            val newCacheId = WalletCacheIds.derivedWalletId(seedData.first, newCount)
-
-            // Persist the new id FIRST — lockstep with what open will use.
-            // Merge onto the freshest stored row (M2).
-            mergeWalletUpdate(active.id) {
-                it.copy(syncResetCount = newCount, derivedWalletId = newCacheId)
-            } ?: return
-            Timber.i("resetSync: count=$newCount cacheId $oldCacheId -> $newCacheId")
-
+            // Never replace a wallet whose stored seed has not been verified against its file.
+            check(verifySeedForExport(active.id)) {
+                "Cannot reset sync until the seed matches the wallet file. Original files preserved."
+            }
+            cancelKitObservers()
+            WalletManager.stopAndRelease()
+            retainFilesForRebuild(active, seedData.first)
             _walletState.update {
                 it.copy(
                     balance = Balance(0, 0),
                     transactions = emptyList(),
                     addresses = null,
-                    syncState = SyncState.Connecting(waiting = false)
+                    syncState = SyncState.Connecting(waiting = false),
+                    error = null
                 )
             }
-
-            cancelKitObservers()
-            WalletManager.stopAndRelease()
-
-            // Delete ONLY this wallet's old cache files.
-            oldCacheId?.let {
-                withContext(Dispatchers.IO) { deleteWalletFiles(it) }
-            }
-
             openActiveWallet()
             Timber.d("resetSync: Wallet resync started successfully")
         } catch (e: Exception) {
@@ -2058,29 +1999,21 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun send(address: String, amount: Long, memo: String? = null, isSweepAll: Boolean = false) {
-        // Reentrancy guard at the source of truth, so a UI regression can never
-        // broadcast the same transaction twice.
-        if (_sendState.value is SendState.Sending) {
-            Timber.w("send() ignored: a transaction is already in flight")
-            return
-        }
-        if (!isSweepAll && amount <= 0L) {
-            Timber.w("send() ignored: non-positive amount")
-            _sendState.value = SendState.Error("Invalid amount")
-            return
-        }
+    fun send(flow: SendFlow, address: String, amount: Long, memo: String? = null, isSweepAll: Boolean = false) {
+        val operation = sendCoordinator.begin(flow, _activeWallet.value?.id, isSweepAll || amount > 0L)
+            ?: return
         viewModelScope.launch {
-            _sendState.value = SendState.Sending
+            var error: String? = null
             try {
                 // Null kit (switch/reset/node-change teardown window) must be a
                 // LOUD failure — a silent no-op here reported Success for a
                 // payment that was never sent (M3).
                 val kit = WalletManager.kit
-                if (kit == null || WalletManager.currentWalletId != _activeWallet.value?.derivedWalletId) {
-                    _sendState.value = SendState.Error(
+                if (flow.walletId != _activeWallet.value?.id || kit == null ||
+                    WalletManager.currentWalletId != _activeWallet.value?.derivedWalletId
+                ) {
+                    error =
                         "Wallet is not connected yet. Wait for the wallet to reconnect and try again."
-                    )
                     return@launch
                 }
                 withContext(Dispatchers.IO) {
@@ -2088,16 +2021,17 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 // MoneroKit.send() doesn't return txHash, we'll show success without it
                 // The transaction will appear in the transactions list after sync
-                _sendState.value = SendState.Success("")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to send transaction")
-                _sendState.value = SendState.Error(e.message ?: "Transaction failed")
+                error = e.message ?: "Transaction failed"
+            } finally {
+                sendCoordinator.finish(operation, error)
             }
         }
     }
 
-    fun resetSendState() {
-        _sendState.value = SendState.Idle
+    fun resetSendState(flow: SendFlow) {
+        sendCoordinator.dismiss(flow)
     }
 
     fun estimateFee(address: String, amount: Long, isSweepAll: Boolean = false): Long {
@@ -2109,15 +2043,28 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /**
-     * False when the open wallet file of [walletId] failed the key check: it does
-     * not derive from the stored seed, so a backup of those words would not back
-     * up the wallet's funds (iOS seedMismatch). Unknown until the file has opened
-     * once in this session; true then.
-     */
-    fun seedMatchesWalletFile(walletId: String): Boolean {
-        val cacheId = _wallets.value.firstOrNull { it.id == walletId }?.derivedWalletId ?: return true
-        return cacheId !in keyMismatchCacheIds
+    fun seedVerificationFor(walletId: String): SeedVerification {
+        val cacheId = _wallets.value.firstOrNull { it.id == walletId }?.derivedWalletId
+        return _seedVerification.value[cacheId] ?: SeedVerification.UNKNOWN
+    }
+
+    fun hasSeedMismatch(walletId: String): Boolean = seedVerificationFor(walletId) == SeedVerification.MISMATCH
+
+    fun seedMatchesWalletFile(walletId: String): Boolean = seedVerificationFor(walletId) == SeedVerification.VERIFIED
+
+    /** Check the local file directly: backing up does not require a working node connection. */
+    suspend fun verifySeedForExport(walletId: String): Boolean = withContext(Dispatchers.Main) {
+        val info = _activeWallet.value?.takeIf { it.id == walletId } ?: return@withContext false
+        val kit = WalletManager.kit ?: return@withContext false
+        if (WalletManager.currentWalletId != info.derivedWalletId) return@withContext false
+        info.derivedWalletId?.let { cacheId ->
+            _seedVerification.update { states ->
+                if (states[cacheId] == SeedVerification.MISMATCH) states
+                else states + (cacheId to SeedVerification.UNKNOWN)
+            }
+        }
+        publishAddresses(info, kit)
+        _activeWallet.value?.id == walletId && seedMatchesWalletFile(walletId)
     }
 
     /** Read the active wallet's addresses again (Receive or the picker came back to the front). */

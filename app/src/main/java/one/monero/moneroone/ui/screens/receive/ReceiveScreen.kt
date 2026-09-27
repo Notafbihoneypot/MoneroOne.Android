@@ -143,21 +143,21 @@ fun ReceiveScreen(
         else "monero:$address?tx_amount=$requestAmount"
     }
 
-    // Generate QR code off the main thread. Each bitmap remembers the address it
-    // encodes: while a new one is drawn, a QR of the previous address is never shown.
+    // Match the full payment request: an old address or amount must not remain
+    // visible while the replacement QR code is generated off the main thread.
     var qrCode by remember { mutableStateOf<Pair<String, Bitmap>?>(null) }
     LaunchedEffect(qrData) {
         if (qrData.isNotBlank()) {
-            val encodedAddress = address
+            val encodedRequest = qrData
             val bitmap = withContext(Dispatchers.Default) {
                 generateQRCode(qrData, 512, context)
             }
-            qrCode = bitmap?.let { encodedAddress to it }
+            qrCode = bitmap?.let { encodedRequest to it }
         } else {
             qrCode = null
         }
     }
-    val qrBitmap = qrCode?.takeIf { it.first == address && canShareAddress }?.second
+    val qrBitmap = qrCode?.takeIf { it.first == qrData && canShareAddress }?.second
 
     // Copy and Share act only on a shown address (iOS disables both without one).
     val copyAddress = {
