@@ -54,6 +54,9 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import one.monero.moneroone.data.util.MoneyFormat
 import one.monero.moneroone.data.util.nearestIndexByTimestamp
@@ -102,7 +105,8 @@ fun SampledLineChart(
     speech: ChartSpeech,
     onSelect: (Int?) -> Unit,
     modifier: Modifier = Modifier,
-    markers: List<ChartMarker> = emptyList()
+    markers: List<ChartMarker> = emptyList(),
+    axisLabelWidth: Dp? = null
 ) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
@@ -110,8 +114,9 @@ fun SampledLineChart(
     val labelStyle = MaterialTheme.typography.labelSmall.copy(
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
-    val layout = remember(points, domain, axes, markers, labelStyle, textMeasurer, density) {
-        ChartLayout.of(points, domain, axes, markers, textMeasurer, labelStyle, with(density) { LABEL_GAP.toPx() })
+    val labelWidth = with(density) { axisLabelWidth?.toPx()?.times(fontScale) }
+    val layout = remember(points, domain, axes, markers, labelStyle, textMeasurer, density, labelWidth) {
+        ChartLayout.of(points, domain, axes, markers, textMeasurer, labelStyle, with(density) { LABEL_GAP.toPx() }, labelWidth)
     }
 
     val gridColor = MoneroTheme.colors.separator
@@ -378,11 +383,12 @@ private class ChartLayout(
     private val yLabels: List<TextLayoutResult>,
     private val xTicks: List<Long>,
     private val xLabels: List<TextLayoutResult>,
-    private val labelGap: Float
+    private val labelGap: Float,
+    fixedLabelWidth: Float? = null
 ) {
     private val t0 = points.firstOrNull()?.timestamp ?: 0L
     private val t1 = points.lastOrNull()?.timestamp ?: 0L
-    private val yLabelWidth = yLabels.maxOfOrNull { it.size.width }?.toFloat() ?: 0f
+    private val yLabelWidth = fixedLabelWidth ?: (yLabels.maxOfOrNull { it.size.width }?.toFloat() ?: 0f)
     private val xLabelHeight = xLabels.maxOfOrNull { it.size.height }?.toFloat() ?: 0f
     private val markerByTimestamp = markers.associateBy { it.timestamp }
 
@@ -466,7 +472,8 @@ private class ChartLayout(
             markers: List<ChartMarker>,
             measurer: TextMeasurer,
             style: TextStyle,
-            labelGap: Float
+            labelGap: Float,
+            labelWidth: Float?
         ): ChartLayout {
             if (axes == null || points.isEmpty()) {
                 return ChartLayout(points, domain, markers, emptyList(), emptyList(), emptyList(), emptyList(), labelGap)
@@ -476,12 +483,27 @@ private class ChartLayout(
             // for a portfolio that moved 80 cents.
             val digits = if (span < 5) 2 else 0
             val yTicks = niceTicks(domain.start, domain.endInclusive, count = 3)
-            val yLabels = yTicks.map { measurer.measure(MoneyFormat.format(it, axes.currency, digits), style) }
+            val yLabels = yTicks.map {
+                val text = MoneyFormat.format(it, axes.currency, digits)
+                var fitted = style
+                if (labelWidth != null) {
+                    while (fitted.fontSize.value * 0.95f >= style.fontSize.value * 0.75f &&
+                        measurer.measure(text, fitted, maxLines = 1, softWrap = false).size.width > labelWidth
+                    ) {
+                        fitted = fitted.copy(fontSize = fitted.fontSize * 0.95f)
+                    }
+                }
+                measurer.measure(
+                    text, fitted, maxLines = 1, softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    constraints = Constraints(maxWidth = labelWidth?.toInt() ?: Constraints.Infinity)
+                )
+            }
 
             val formats = axes.formats
             val xTicks = axes.time.ticks(points.first().timestamp, points.last().timestamp, formats.timeZone, formats.locale)
             val xLabels = xTicks.map { measurer.measure(formats.tickLabel(axes.time, it), style) }
-            return ChartLayout(points, domain, markers, yTicks, yLabels, xTicks, xLabels, labelGap)
+            return ChartLayout(points, domain, markers, yTicks, yLabels, xTicks, xLabels, labelGap, labelWidth)
         }
 
         /**

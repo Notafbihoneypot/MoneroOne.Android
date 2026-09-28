@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import one.monero.moneroone.core.wallet.WalletViewModel
 import androidx.compose.runtime.collectAsState
+import one.monero.moneroone.ui.screens.chart.ChartMode
 import one.monero.moneroone.ui.screens.chart.ChartScreen
 import one.monero.moneroone.ui.screens.chart.ChartViewModel
 import one.monero.moneroone.ui.screens.settings.SettingsScreen
@@ -72,6 +74,7 @@ fun MainScreen(
     // plain remember reset the tab to Wallet and Back from Security/Sync/etc.
     // landed on the wallet home instead of Settings (GitHub issue #4).
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var selectedChartMode by rememberSaveable { mutableStateOf(ChartMode.PORTFOLIO) }
     val context = LocalContext.current
     val chartUiState by chartViewModel.uiState.collectAsState()
     val walletState by walletViewModel.walletState.collectAsState()
@@ -186,7 +189,12 @@ fun MainScreen(
                             navController.navigate("transaction_list")
                         },
                         onBalanceClick = {
-                            navController.navigate("portfolio_chart")
+                            selectedChartMode = ChartMode.PORTFOLIO
+                            selectedTab = 1
+                        },
+                        onPriceClick = {
+                            selectedChartMode = ChartMode.PRICE
+                            selectedTab = 1
                         },
                         onAddWalletClick = {
                             navController.navigate("add_wallet")
@@ -195,6 +203,9 @@ fun MainScreen(
                     )
                     1 -> ChartScreen(
                         viewModel = chartViewModel,
+                        walletViewModel = walletViewModel,
+                        selectedMode = selectedChartMode,
+                        onModeSelected = { selectedChartMode = it },
                         onPriceAlertsClick = { navController.navigate("price_alerts") }
                     )
                     2 -> SettingsScreen(

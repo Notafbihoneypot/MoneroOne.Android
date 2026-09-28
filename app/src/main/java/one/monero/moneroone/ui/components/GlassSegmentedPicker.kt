@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -45,6 +46,7 @@ fun <T> GlassSegmentedPicker(
     selectedOption: T,
     onOptionSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
+    accessibilityLabel: ((T) -> String)? = null,
     labelSelector: (T) -> String = { it.toString() }
 ) {
     val density = LocalDensity.current
@@ -102,7 +104,10 @@ fun <T> GlassSegmentedPicker(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .semantics { selected = isSelected }
+                        .semantics {
+                            selected = isSelected
+                            accessibilityLabel?.let { contentDescription = it(option) }
+                        }
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,

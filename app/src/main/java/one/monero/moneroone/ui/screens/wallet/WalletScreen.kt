@@ -120,6 +120,7 @@ fun WalletScreen(
     onTransactionClick: (TransactionInfo) -> Unit,
     onSeeAllTransactionsClick: () -> Unit,
     onBalanceClick: (() -> Unit)? = null,
+    onPriceClick: (() -> Unit)? = null,
     onAddWalletClick: () -> Unit = {},
     priceChange24h: Double? = null
 ) {
@@ -312,7 +313,8 @@ fun WalletScreen(
                             syncState = walletState.syncState,
                             isOnline = isOnline,
                             priceChange24h = priceChange24h,
-                            onClick = onBalanceClick
+                            onClick = onBalanceClick,
+                            onPriceClick = onPriceClick
                         )
 
                         // Action buttons
@@ -447,7 +449,8 @@ private fun BalanceCard(
     syncState: SyncState,
     isOnline: Boolean,
     priceChange24h: Double? = null,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    onPriceClick: (() -> Unit)? = null
 ) {
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -480,7 +483,7 @@ private fun BalanceCard(
 
                 // Price change indicator (moved from bottom to top right like iOS)
                 if (priceChange24h != null) {
-                    PriceChangeIndicator(priceChange = priceChange24h)
+                    PriceChangeIndicator(priceChange = priceChange24h, onClick = onPriceClick)
                 }
             }
 
@@ -614,7 +617,7 @@ private fun BalanceCard(
 }
 
 @Composable
-private fun PriceChangeIndicator(priceChange: Double) {
+private fun PriceChangeIndicator(priceChange: Double, onClick: (() -> Unit)? = null) {
     val isPositive = priceChange >= 0
     val color = if (isPositive) SuccessGreen else ErrorRed
     val icon = if (isPositive) Icons.Default.NorthEast else Icons.Default.SouthEast
@@ -625,6 +628,11 @@ private fun PriceChangeIndicator(priceChange: Double) {
         modifier = Modifier
             .clip(CapsuleShape)
             .background(color.copy(alpha = 0.15f))
+            .then(if (onClick != null) Modifier.clickable(
+                role = androidx.compose.ui.semantics.Role.Button,
+                onClickLabel = "Price",
+                onClick = onClick
+            ) else Modifier)
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Icon(

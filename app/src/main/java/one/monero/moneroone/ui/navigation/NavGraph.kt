@@ -43,7 +43,6 @@ import one.monero.moneroone.ui.screens.transactions.TransactionDetailScreen
 import one.monero.moneroone.ui.screens.transactions.TransactionListScreen
 import one.monero.moneroone.ui.screens.unlock.UnlockScreen
 import one.monero.moneroone.ui.screens.wallet.AddWalletScreen
-import one.monero.moneroone.ui.screens.wallet.PortfolioChartScreen
 import one.monero.moneroone.ui.screens.settings.BackupSeedScreen
 import one.monero.moneroone.ui.screens.settings.ChangePinScreen
 import one.monero.moneroone.ui.screens.settings.CurrencyScreen
@@ -85,7 +84,6 @@ sealed class Screen(val route: String) {
     }
     data object TransactionList : Screen("transaction_list")
     data object AddressPicker : Screen("address_picker")
-    data object PortfolioChart : Screen("portfolio_chart")
     data object Settings : Screen("settings")
     data object BackupSeed : Screen("backup_seed")
     data object Security : Screen("security")
@@ -408,14 +406,6 @@ fun MoneroOneNavHost(
                     onTransactionClick = { txId ->
                         navController.navigate(Screen.TransactionDetail.createRoute(txId))
                     }
-                )
-            }
-
-            composable(Screen.PortfolioChart.route) {
-                PortfolioChartScreen(
-                    walletViewModel = walletViewModel,
-                    onBack = { navController.popBackStack() },
-                    chartViewModel = chartViewModel
                 )
             }
 
