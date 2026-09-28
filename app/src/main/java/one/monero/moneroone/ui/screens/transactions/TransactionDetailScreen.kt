@@ -1,403 +1,151 @@
 package one.monero.moneroone.ui.screens.transactions
 
-import one.monero.moneroone.core.locale.tr
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.horizontalsystems.monerokit.model.TransactionInfo
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import one.monero.moneroone.core.wallet.WalletViewModel
-import one.monero.moneroone.ui.components.GlassCard
-import one.monero.moneroone.ui.components.CapsuleShape
-import one.monero.moneroone.ui.components.MoneroRefreshIndicator
-import one.monero.moneroone.ui.components.PrimaryButton
-import one.monero.moneroone.ui.theme.MonoCaption
-import one.monero.moneroone.ui.components.StatusDot
-import one.monero.moneroone.ui.components.TransactionStatus
-import one.monero.moneroone.ui.theme.ErrorRed
-import one.monero.moneroone.ui.theme.MoneroOrange
-import one.monero.moneroone.ui.theme.PendingOrange
-import one.monero.moneroone.ui.theme.SuccessGreen
-import java.text.SimpleDateFormat
+import one.monero.moneroone.core.locale.tr
+import one.monero.moneroone.core.util.SeedClipboard
+import one.monero.moneroone.core.wallet.*
+import one.monero.moneroone.data.util.MoneyFormat
+import one.monero.moneroone.ui.components.*
+import one.monero.moneroone.ui.theme.*
+import io.horizontalsystems.monerokit.model.TransactionInfo
+import java.text.DateFormat
 import java.util.Date
-import java.util.Locale
+
+@Composable
+fun TransactionDetailScreen(walletViewModel: WalletViewModel, txId: String, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val state by walletViewModel.walletState.collectAsState()
+    val wallet by walletViewModel.activeWallet.collectAsState()
+    val history by walletViewModel.priceHistory.collectAsState()
+    val price by walletViewModel.currentPrice.collectAsState()
+    val currency by walletViewModel.selectedCurrency.collectAsState()
+    val transaction = state.transactions.find { it.hash == txId }
+    val rows = remember(state.addresses, state.transactions, wallet) {
+        ReceiveAddressLogic.rows(state.addressesOf(wallet?.id)?.list.orEmpty(), state.transactions, wallet?.addressLabels.orEmpty())
+    }
+    var txKey by remember(wallet?.id, txId) { mutableStateOf<String?>(null) }
+    var keyLoading by remember(wallet?.id, txId) { mutableStateOf(false) }
+    var keyUnavailable by remember(wallet?.id, txId) { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val fields = transaction?.let {
+        TransactionHistoryLogic.details(it, rows,
+            DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(it.timestamp * 1000)),
+            transactionFiat(it, history, price?.price, currency),
+            price?.price?.let { live -> MoneyFormat.format(it.amount / 1e12 * live, currency, fractionDigits = 2) }, txKey)
+    }.orEmpty()
+
+    fun copy(fieldsToCopy: List<TransactionDetailField>) {
+        val text = if (fieldsToCopy.size == 1) fieldsToCopy.single().value else TransactionHistoryLogic.copyAll(fieldsToCopy)
+        if (fieldsToCopy.any { it.secret }) SeedClipboard.copy(context, text, tr("Transaction details"))
+        else (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            .setPrimaryClip(ClipData.newPlainText(tr("Transaction details"), text))
+        Toast.makeText(context, tr("Copied to clipboard"), Toast.LENGTH_SHORT).show()
+    }
+
+    TransactionDetailsContent(
+        transaction = transaction, fields = fields, onBack = onBack, onCopy = { copy(listOf(it)) },
+        onCopyAll = { copy(fields) },
+        onExplorer = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://xmrchain.net/tx/$txId"))) },
+        keyLoading = keyLoading, keyUnavailable = keyUnavailable,
+        onShowKey = {
+            val id = wallet?.id
+            if (id != null && !keyLoading) {
+                keyLoading = true
+                scope.launch {
+                    try {
+                        txKey = walletViewModel.transactionKey(id, txId)
+                        keyUnavailable = txKey == null
+                    } finally { keyLoading = false }
+                }
+            }
+        }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransactionDetailScreen(
-    walletViewModel: WalletViewModel,
-    txId: String,
-    onBack: () -> Unit
+internal fun TransactionDetailsContent(
+    transaction: TransactionInfo?, fields: List<TransactionDetailField>, onBack: () -> Unit,
+    onCopy: (TransactionDetailField) -> Unit, onCopyAll: () -> Unit, onExplorer: () -> Unit,
+    keyLoading: Boolean, keyUnavailable: Boolean, onShowKey: () -> Unit
 ) {
-    val context = LocalContext.current
-    val walletState by walletViewModel.walletState.collectAsState()
-    val scope = rememberCoroutineScope()
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    val transaction = walletState.transactions.find { it.hash == txId }
-    val isIncoming = transaction?.direction == TransactionInfo.Direction.Direction_In
-    val navTitle = if (isIncoming) tr("Received") else tr("Sent")
-
+    val incoming = transaction?.direction == TransactionInfo.Direction.Direction_In
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0.dp),
-        topBar = {
-            TopAppBar(
-                title = { Text(navTitle, style = MaterialTheme.typography.titleMedium) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                ),
-                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)
-            )
-        }
+        containerColor = MoneroTheme.colors.bgGrouped,
+        topBar = { TopAppBar(
+            title = { Text(tr(if (incoming) "Received" else "Sent"), style = MaterialTheme.typography.titleMedium) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MoneroTheme.colors.bgGrouped)
+        ) }
     ) { padding ->
-        val refreshState = rememberPullToRefreshState()
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            state = refreshState,
-            indicator = {
-                MoneroRefreshIndicator(
-                    state = refreshState,
-                    isRefreshing = isRefreshing,
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
-            },
-            onRefresh = {
-                scope.launch {
-                    isRefreshing = true
-                    delay(1000)
-                    isRefreshing = false
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+        if (transaction == null) Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Text(tr("Transaction not found"))
+        } else Column(
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (transaction == null) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = tr("Transaction not found"),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                TransactionDetailContent(
-                    transaction = transaction,
-                    formatXmr = walletViewModel::formatXmr,
-                    context = context
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TransactionDetailContent(
-    transaction: TransactionInfo,
-    formatXmr: (Long) -> String,
-    context: Context
-) {
-    val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
-    // Incoming: green disc and green amount. Outgoing: brand disc, amount in
-    // the label color (tokens.json color.status, iOS TransactionDetailView).
-    val discColor = if (isIncoming) SuccessGreen else MoneroOrange
-    val amountColor = if (isIncoming) SuccessGreen else MaterialTheme.colorScheme.onSurface
-    val amountPrefix = if (isIncoming) "+" else "-"
-    val typeLabel = if (isIncoming) tr("Received") else tr("Sent")
-
-    val status = when {
-        transaction.isFailed -> TransactionStatus.Failed
-        transaction.confirmations == 0L -> TransactionStatus.Pending
-        transaction.confirmations < 10 -> TransactionStatus.Locked
-        else -> TransactionStatus.Confirmed
-    }
-
-    val statusColor = when (status) {
-        TransactionStatus.Pending -> PendingOrange
-        TransactionStatus.Locked -> MoneroOrange
-        TransactionStatus.Confirmed -> SuccessGreen
-        TransactionStatus.Failed -> ErrorRed
-    }
-
-    val statusText = when (status) {
-        TransactionStatus.Pending -> tr("Pending")
-        TransactionStatus.Locked -> "Locked (${transaction.confirmations}/10 confirmations)"
-        TransactionStatus.Confirmed -> tr("Confirmed")
-        TransactionStatus.Failed -> tr("Failed")
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-    ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Amount Section
-        GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Direction icon
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(discColor.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                        contentDescription = null,
-                        tint = discColor,
-                        modifier = Modifier.size(28.dp).rotate(45f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = typeLabel,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "$amountPrefix${formatXmr(transaction.amount)} XMR",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = amountColor
-                )
-
-                if (transaction.fee > 0) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = tr("Fee: %s XMR", formatXmr(transaction.fee)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Status badge
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(CapsuleShape)
-                        .background(statusColor.copy(alpha = 0.15f))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    StatusDot(color = statusColor, size = 8.dp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = statusColor,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Details Section
-        GlassCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = tr("Details"),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Date
-                DetailRow(
-                    label = tr("Date"),
-                    value = formatDate(transaction.timestamp * 1000)
-                )
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
-
-                // Confirmations
-                DetailRow(
-                    label = tr("Confirmations"),
-                    value = if (transaction.confirmations >= 10) "10+" else transaction.confirmations.toString()
-                )
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
-
-                // Block height
-                DetailRow(
-                    label = tr("Block Height"),
-                    value = if (transaction.blockheight > 0) transaction.blockheight.toString() else tr("Pending")
-                )
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
-
-                // Transaction ID
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = tr("Transaction ID"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        // The whole hash, wrapped rather than cut.
-                        Text(
-                            text = transaction.hash,
-                            style = MonoCaption
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText(tr("Transaction ID"), transaction.hash))
-                            Toast.makeText(context, tr("Transaction ID copied"), Toast.LENGTH_SHORT).show()
+            GlassCard(Modifier.fillMaxWidth(), shadow = false, cornerRadius = 16.dp) {
+                Column {
+                    fields.forEachIndexed { index, field ->
+                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text(field.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(field.value, style = if (field.secret || field.value.length > 60) MonoCaption else MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (field.label == tr("Amount")) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (field.label == tr("Amount") && incoming) SuccessGreen else MaterialTheme.colorScheme.onSurface)
+                            }
+                            IconButton(onClick = { onCopy(field) }) {
+                                Icon(Icons.Default.ContentCopy, tr("Copy %s", field.label), tint = MoneroOrange, modifier = Modifier.size(18.dp))
+                            }
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = tr("Copy"),
-                            tint = MoneroOrange,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        if (index != fields.lastIndex) HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }
+            if (!incoming && fields.none { it.secret }) {
+                TextButton(onClick = onShowKey, enabled = !keyLoading, modifier = Modifier.fillMaxWidth()) {
+                    if (keyLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text(tr("Show transaction key"))
+                }
+                if (keyUnavailable) Text(tr("Transaction key unavailable on this device"), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (fields.any { it.secret }) Text(
+                tr("Stored only on the device that originally sent this transaction. Recipients use this key with the transaction ID and destination address to verify the payment."),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            GlassButton(onClick = onCopyAll, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ContentCopy, null, tint = MoneroOrange, modifier = Modifier.size(18.dp))
+                    Text(tr("Copy All Details"))
+                }
+            }
+            TextButton(onClick = onExplorer, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(tr("View in Block Explorer"))
+            }
+            Spacer(Modifier.height(16.dp))
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Actions Section
-        PrimaryButton(
-            onClick = {
-                val explorerUrl = "https://xmrchain.net/tx/${transaction.hash}"
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(explorerUrl))
-                context.startActivity(intent)
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Text(text = tr("View in Block Explorer"))
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
     }
-}
-
-@Composable
-private fun DetailRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-private fun formatDate(timestamp: Long): String {
-    val dateFormat = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
-    return dateFormat.format(Date(timestamp))
 }

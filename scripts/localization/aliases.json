@@ -92,5 +92,6 @@
   "This removes wallet data from this device only. Your wallet still exists on the blockchain and can be recovered with your seed phrase.": "This removes the wallet from this device. You can recover it with the seed phrase.",
   "Remove Wallet from Device?": "Delete Wallet?",
   "Block Height": "Current Block Height",
-  "amount": "Amount"
+  "amount": "Amount",
+  "Unable to create address": "Couldn't Create Address"
 }

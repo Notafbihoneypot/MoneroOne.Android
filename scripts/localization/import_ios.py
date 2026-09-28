@@ -37,11 +37,16 @@ def main():
     plurals = {}
     for source, item in catalog.items():
         locs = item.get('localizations', {})
-        if not all('plural' in locs.get(lang, {}).get('variations', {}) for lang in ['en'] + LANGUAGES):
+        if 'plural' not in locs.get('en', {}).get('variations', {}):
             continue
+        if not all('plural' in locs.get(lang, {}).get('variations', {}) or 'stringUnit' in locs.get(lang, {})
+                   for lang in ['en'] + LANGUAGES):
+            continue
+        # Languages without grammatical plurals use a plain string in xcstrings.
+        # Android still needs an `other` item in the matching plural resource.
         key = re.sub(r'%\d+\$s', '%s', format_string(source))
         plurals[key] = {lang: {q: format_string(v['stringUnit']['value'])
-                              for q, v in locs[lang]['variations']['plural'].items()}
+                              for q, v in locs[lang].get('variations', {}).get('plural', {'other': locs[lang]}).items()}
                         for lang in ['en'] + LANGUAGES}
     for source, item in catalog.items():
         locs = item.get('localizations', {})

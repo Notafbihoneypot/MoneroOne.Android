@@ -27,6 +27,8 @@ data class WalletInfo(
     val syncResetCount: Int = 0,
     val userCreatedSubaddressIndices: List<Int> = emptyList(),
     val cachedPrimaryAddress: String? = null,
+    /** Names survive wallet cache rebuilds and stay scoped to this wallet. */
+    val addressLabels: Map<Int, String> = emptyMap(),
     /** Cached total balance in atomic units, painted instantly on switch. */
     val cachedBalance: Long? = null,
     /** Cached unlocked balance in atomic units. */

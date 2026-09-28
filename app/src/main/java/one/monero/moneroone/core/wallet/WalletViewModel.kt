@@ -54,6 +54,7 @@ data class WalletState(
     val transactions: List<TransactionInfo> = emptyList(),
     /** The only source of receive addresses for the UI; null while none are loaded. */
     val addresses: ReceiveAddresses? = null,
+    val receiveIndex: Int = 0,
     val error: String? = null
 )
 
@@ -683,6 +684,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
         _walletState.update {
             it.copy(
+                receiveIndex = selectedAddressIndex(info.id),
                 addresses = ReceiveAddresses(
                     walletId = info.id,
                     list = if (blocked) emptyList() else read.list,
@@ -696,6 +698,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 if (it.cachedPrimaryAddress == primary) it else it.copy(cachedPrimaryAddress = primary)
             }
         }
+        requestReceiveReconciliation()
     }
 
     /**
@@ -1506,6 +1509,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 kit.allTransactionsFlow.drop(1).collect { transactions ->
                     Timber.d("Transactions updated: count=${transactions.size}")
                     _walletState.update { it.copy(transactions = transactions) }
+                    requestReceiveReconciliation()
                     // Update transactions widget (store last 4 for the iOS-style large layout)
                     val txString = transactions
                         .sortedByDescending { it.timestamp }
@@ -1834,8 +1838,67 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setSelectedAddressIndex(index: Int) {
         val active = _activeWallet.value ?: return
-        prefs.edit().putInt("wallet.${active.id}.selected_address_index", index).apply()
+        val addresses = _walletState.value.addressesOf(active.id) ?: return
+        if (addresses.blocked || addresses.list.none { it.addressIndex == index }) return
+        val count = ReceiveAddressLogic.usage(_walletState.value.transactions)[index]?.payments ?: 0
+        storeReceiveSelection(active.id, index, count)
     }
+
+    private fun storeReceiveSelection(walletId: String, index: Int, baseline: Int?) {
+        val prefix = "wallet.$walletId"
+        prefs.edit().putInt("$prefix.selected_address_index", index).apply {
+            if (baseline == null) remove("$prefix.receive_manual_count")
+            else putInt("$prefix.receive_manual_count", baseline)
+        }.apply()
+        if (_activeWallet.value?.id == walletId) _walletState.update { it.copy(receiveIndex = index) }
+    }
+
+    val freshReceiveAddress: Boolean get() = prefs.getBoolean("fresh_receive_address", true)
+
+    fun setFreshReceiveAddress(enabled: Boolean) {
+        prefs.edit().putBoolean("fresh_receive_address", enabled).apply()
+        requestReceiveReconciliation()
+    }
+
+    fun renameReceiveAddress(walletId: String, index: Int, label: String): Boolean {
+        val info = _activeWallet.value?.takeIf { it.id == walletId } ?: return false
+        val addresses = _walletState.value.addressesOf(info.id) ?: return false
+        if (index == 0 || addresses.blocked || addresses.list.none { it.addressIndex == index }) return false
+        val clean = label.trim().take(80)
+        mergeWalletUpdate(info.id) {
+            it.copy(addressLabels = if (clean.isEmpty()) it.addressLabels - index else it.addressLabels + (index to clean))
+        }
+        requestReceiveReconciliation()
+        return true
+    }
+
+    // The worker serializes address creation with wallet switches and coalesces scan updates.
+    private val receiveReconciliations: Channel<Unit> by lazy {
+        Channel<Unit>(Channel.CONFLATED).also { requests ->
+            viewModelScope.launch {
+                for (ignored in requests) walletMutationMutex.withLock {
+                    val info = _activeWallet.value ?: return@withLock
+                    val kit = WalletManager.kit ?: return@withLock
+                    val state = _walletState.value
+                    val addresses = state.addressesOf(info.id) ?: return@withLock
+                    if (state.syncState !is SyncState.Synced || addresses.blocked || !addresses.complete ||
+                        WalletManager.currentWalletId != info.derivedWalletId) return@withLock
+                    val rows = ReceiveAddressLogic.rows(addresses.list, kit.allTransactionsFlow.value, info.addressLabels)
+                    val selected = selectedAddressIndex(info.id)
+                    val baselineKey = "wallet.${info.id}.receive_manual_count"
+                    val baseline = if (prefs.contains(baselineKey)) prefs.getInt(baselineKey, 0) else null
+                    val next = ReceiveAddressLogic.nextIndex(selected, baseline, rows, freshReceiveAddress)
+                    if (next != null) {
+                        if (next != selected) storeReceiveSelection(info.id, next, null)
+                    } else if (freshReceiveAddress) {
+                        createSubaddressLocked(info.id, manual = false)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun requestReceiveReconciliation() { receiveReconciliations.trySend(Unit) }
 
     fun changeNode(resetFailover: Boolean = true) {
         if (resetFailover) {
@@ -2050,6 +2113,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 withContext(Dispatchers.IO) {
                     kit.send(amount, address, memo, sweepAll = isSweepAll)
                 }
+                one.monero.moneroone.core.util.SoundFeedback.sendComplete(context)
                 // MoneroKit.send() doesn't return txHash, we'll show success without it
                 // The transaction will appear in the transactions list after sync
             } catch (e: Exception) {
@@ -2113,28 +2177,38 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
      * created.
      */
     suspend fun createSubaddress(): Boolean {
-        val info = _activeWallet.value ?: return false
+        val walletId = _activeWallet.value?.id ?: return false
+        return walletMutationMutex.withLock { createSubaddressLocked(walletId, manual = true) }
+    }
+
+    private suspend fun createSubaddressLocked(walletId: String, manual: Boolean): Boolean {
+        val info = _activeWallet.value?.takeIf { it.id == walletId } ?: return false
         val kit = WalletManager.kit ?: return false
-        val shown = _walletState.value.addresses
-        if (WalletManager.currentWalletId != info.derivedWalletId || shown == null ||
-            shown.walletId != info.id || !shown.complete || shown.blocked
-        ) {
-            return false
-        }
+        val shown = _walletState.value.addressesOf(info.id) ?: return false
+        if (WalletManager.currentWalletId != info.derivedWalletId || !shown.complete || shown.blocked) return false
+        val rows = ReceiveAddressLogic.rows(shown.list, kit.allTransactionsFlow.value, info.addressLabels)
+        if (ReceiveAddressLogic.unusedAfterLastUsed(rows) >= ReceiveAddressLogic.STOP_THRESHOLD) return false
         val created = withContext(Dispatchers.IO) {
-            runCatching { kit.addSubaddress() }
-                .onFailure { Timber.w(it, "createSubaddress failed") }
-                .getOrNull()
+            runCatching { kit.addSubaddress() }.onFailure { Timber.w(it, "createSubaddress failed") }.getOrNull()
         } ?: return false
-        // Record the subaddress count wallet2 must hold (indices 0..created) so a
-        // rebuilt cache (Reset Sync, heal) creates them again before it scans.
+        // Persist for the wallet that created it, even if a switch was requested during the native call.
         val required = created.addressIndex + 1
         mergeWalletUpdate(info.id) {
-            if (required in it.userCreatedSubaddressIndices) it
-            else it.copy(userCreatedSubaddressIndices = it.userCreatedSubaddressIndices + required)
+            it.copy(userCreatedSubaddressIndices = (it.userCreatedSubaddressIndices + required).distinct())
         }
+        storeReceiveSelection(info.id, created.addressIndex, if (manual) 0 else null)
         publishAddresses(info, kit)
-        return true
+        return _activeWallet.value?.id == info.id
+    }
+
+    suspend fun transactionKey(walletId: String, hash: String): String? = walletMutationMutex.withLock {
+        val info = _activeWallet.value?.takeIf { it.id == walletId } ?: return@withLock null
+        val kit = WalletManager.kit ?: return@withLock null
+        if (_isLocked.value || WalletManager.currentWalletId != info.derivedWalletId ||
+            _walletState.value.transactions.none { it.hash == hash && it.direction == TransactionInfo.Direction.Direction_Out }) return@withLock null
+        val key = withContext(Dispatchers.IO) { runCatching { kit.transactionKey(hash) }.getOrNull() }
+        if (_activeWallet.value?.id != walletId || WalletManager.kit !== kit || _isLocked.value) return@withLock null
+        key?.takeIf { it.length >= 64 && it.length % 64 == 0 && it.all { c -> c in '0'..'9' || c in 'a'..'f' } && it.any { c -> c != '0' } }
     }
 
     fun formatXmr(atomicUnits: Long): String = XmrFormat.format(atomicUnits)

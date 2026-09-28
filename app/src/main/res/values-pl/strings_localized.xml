@@ -340,6 +340,7 @@
     <string name="l10n_edit_location_c081701b" formatted="false">"Edytuj lokalizację"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"Edytuj węzeł"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"Edytuj proxy"</string>
+    <string name="l10n_emoji_61ad8976" formatted="false">"Emoji"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"Włącz"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"Włącz %1$s"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"Włączyć %1$s?"</string>
@@ -478,6 +479,7 @@
     <string name="l10n_location_status_warning_syncing_from_untrusted_location_56b090b6" formatted="false">"Stan lokalizacji: ostrzeżenie, synchronizacja w niezaufanej lokalizacji"</string>
     <string name="l10n_lock_after_3c95f2e7" formatted="false">"Blokuj po"</string>
     <string name="l10n_locked_a424e33d" formatted="false">"Zablokowana"</string>
+    <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"Zablokowane (%s/10 potwierdzeń)"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"Zablokowane do potwierdzenia ostatnich transakcji"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"Adres główny"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"Adres główny łączy wszystkie transakcje. Dla prywatności używaj podadresów."</string>
@@ -740,6 +742,7 @@
     <string name="l10n_search_address_116a5d3a" formatted="false">"Szukaj adresu"</string>
     <string name="l10n_search_by_id_address_or_memo_c6aa49e6" formatted="false">"Szukaj po ID, adresie lub notatce"</string>
     <string name="l10n_search_by_transaction_id_ef1ca1ac" formatted="false">"Szukaj według ID transakcji…"</string>
+    <string name="l10n_search_transactions_0fa80362" formatted="false">"Szukaj transakcji"</string>
     <string name="l10n_searching_for_trezor_ffd94f1d" formatted="false">"Szukanie Trezora"</string>
     <string name="l10n_searching_for_your_trezor_f948bb21" formatted="false">"Szukanie Trezora…"</string>
     <string name="l10n_security_8f6fb4eb" formatted="false">"Bezpieczeństwo"</string>
@@ -776,6 +779,7 @@
     <string name="l10n_sent_s_xmr_53edc03c" formatted="false">"Wysłano %1$s XMR"</string>
     <string name="l10n_sent_to_4e7201c7" formatted="false">"Wysłano do"</string>
     <string name="l10n_sent_to_s_of_s_751bb8d7" formatted="false">"Wysłano do (%1$s z %2$s)"</string>
+    <string name="l10n_sent_total_includes_fees_dabd62d7" formatted="false">"Suma wysłanych środków obejmuje opłaty"</string>
     <string name="l10n_sent_transactions_are_up_to_date_32ae215a" formatted="false">"Wysłane transakcje są aktualne."</string>
     <string name="l10n_sent_77d771c4" formatted="false">"Wysłano!"</string>
     <string name="l10n_separate_words_with_spaces_7ff3e225" formatted="false">"Oddzielaj słowa spacjami"</string>
@@ -800,6 +804,7 @@
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"Pokaż uwierzytelnianie"</string>
     <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"Pokazuj najpierw kwoty w walucie fiducjarnej"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"Pokaż hasło"</string>
+    <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Pokaż klucz transakcji"</string>
     <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"Zezwalaj widżetom na wyświetlanie danych portfela"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Pokazano nowy adres, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Pokazuje kod na pełnym ekranie. Dostępne czynności: zachowaj w Zdjęciach lub udostępnij"</string>
@@ -908,6 +913,7 @@
     <string name="l10n_transaction_id_copied_efe6a726" formatted="false">"Skopiowano ID transakcji"</string>
     <string name="l10n_transaction_key_4504bdfb" formatted="false">"Klucz transakcji"</string>
     <string name="l10n_transaction_broadcast_8981f8bd" formatted="false">"Transakcja wysłana do sieci."</string>
+    <string name="l10n_transaction_details_e208c466" formatted="false">"Szczegóły transakcji"</string>
     <string name="l10n_transaction_key_unavailable_on_this_device_8d497a79" formatted="false">"Klucz transakcji jest niedostępny na tym urządzeniu"</string>
     <string name="l10n_transaction_not_found_eb7c4fd4" formatted="false">"Nie znaleziono transakcji"</string>
     <string name="l10n_transactions_are_irreversible_95e5dd6b" formatted="false">"Transakcje są nieodwracalne"</string>
@@ -936,8 +942,10 @@
     <string name="l10n_us_dollar_4a60464c" formatted="false">"Dolar amerykański"</string>
     <string name="l10n_ukrainian_hryvnia_d9d4b648" formatted="false">"Hrywna ukraińska"</string>
     <string name="l10n_unable_to_connect_to_node_please_try_a_different_node_i_08cfe01b" formatted="false">"Nie można połączyć się z węzłem. Wybierz inny węzeł w Ustawieniach."</string>
+    <string name="l10n_unable_to_create_address_b96d7b52" formatted="false">"Nie udało się utworzyć adresu"</string>
     <string name="l10n_unable_to_fetch_price_b1924948" formatted="false">"Cena niedostępna"</string>
     <string name="l10n_unable_to_load_chart_0dd141f8" formatted="false">"Nie można wczytać wykresu"</string>
+    <string name="l10n_unavailable_ca184496" formatted="false">"Niedostępne"</string>
     <string name="l10n_unencrypted_d5c28194" formatted="false">"Nieszyfrowane"</string>
     <string name="l10n_unknown_b764cdc0" formatted="false">"Nieznany"</string>
     <string name="l10n_unknown_error_27c2ccd9" formatted="false">"Nieznany błąd"</string>
@@ -1067,6 +1075,12 @@
         <item quantity="one">"%1$s lokalizacja"</item>
         <item quantity="other">"%1$s lokalizacji"</item>
     </plurals>
+    <plurals name="l10n_s_payments_bfee8c12">
+        <item quantity="few">"%1$s płatności"</item>
+        <item quantity="many">"%1$s płatności"</item>
+        <item quantity="one">"%1$s płatność"</item>
+        <item quantity="other">"%1$s płatności"</item>
+    </plurals>
     <plurals name="l10n_s_pending_transactions_b2f1910c">
         <item quantity="few">"%1$s oczekujące transakcje"</item>
         <item quantity="many">"%1$s oczekujących transakcji"</item>
@@ -1090,6 +1104,12 @@
         <item quantity="many">"%1$s transakcji"</item>
         <item quantity="one">"%1$s transakcja"</item>
         <item quantity="other">"%1$s transakcji"</item>
+    </plurals>
+    <plurals name="l10n_s_unused_addresses_in_a_row_a_restore_from_the_seed_fin_aae15758">
+        <item quantity="few">"%1$s nieużywane adresy z rzędu. Przywracanie z frazy seed znajduje płatności tylko do 200 po ostatnim użytym."</item>
+        <item quantity="many">"%1$s nieużywanych adresów z rzędu. Przywracanie z frazy seed znajduje płatności tylko do 200 po ostatnim użytym."</item>
+        <item quantity="one">"%1$s nieużywany adres z rzędu. Przywracanie z frazy seed znajduje płatności tylko do 200 po ostatnim użytym."</item>
+        <item quantity="other">"%1$s nieużywanego adresu z rzędu. Przywracanie z frazy seed znajduje płatności tylko do 200 po ostatnim użytym."</item>
     </plurals>
     <plurals name="l10n_s_words_e508145b">
         <item quantity="few">"%1$s słowa"</item>

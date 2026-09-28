@@ -340,6 +340,7 @@
     <string name="l10n_edit_location_c081701b" formatted="false">"Wijzig locatie"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"Wijzig node"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"Wijzig proxy"</string>
+    <string name="l10n_emoji_61ad8976" formatted="false">"Emoji"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"Schakel in"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"Schakel %1$s in"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"%1$s inschakelen?"</string>
@@ -478,6 +479,7 @@
     <string name="l10n_location_status_warning_syncing_from_untrusted_location_56b090b6" formatted="false">"Locatiestatus: waarschuwing, synchroniseert vanaf niet-vertrouwde locatie"</string>
     <string name="l10n_lock_after_3c95f2e7" formatted="false">"Vergrendel na"</string>
     <string name="l10n_locked_a424e33d" formatted="false">"Vergrendeld"</string>
+    <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"Vergrendeld (%s/10 bevestigingen)"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"Vergrendeld tot recente transacties zijn bevestigd"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"Hoofdadres"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"Het hoofdadres koppelt alle transacties. Gebruik subadressen voor privacy."</string>
@@ -740,6 +742,7 @@
     <string name="l10n_search_address_116a5d3a" formatted="false">"Zoek adres"</string>
     <string name="l10n_search_by_id_address_or_memo_c6aa49e6" formatted="false">"Zoek op ID, adres of notitie"</string>
     <string name="l10n_search_by_transaction_id_ef1ca1ac" formatted="false">"Zoeken op transactie-ID…"</string>
+    <string name="l10n_search_transactions_0fa80362" formatted="false">"Transacties zoeken"</string>
     <string name="l10n_searching_for_trezor_ffd94f1d" formatted="false">"Zoeken naar Trezor"</string>
     <string name="l10n_searching_for_your_trezor_f948bb21" formatted="false">"Zoeken naar je Trezor…"</string>
     <string name="l10n_security_8f6fb4eb" formatted="false">"Beveiliging"</string>
@@ -776,6 +779,7 @@
     <string name="l10n_sent_s_xmr_53edc03c" formatted="false">"%1$s XMR verzonden"</string>
     <string name="l10n_sent_to_4e7201c7" formatted="false">"Verzonden naar"</string>
     <string name="l10n_sent_to_s_of_s_751bb8d7" formatted="false">"Verzonden naar (%1$s van %2$s)"</string>
+    <string name="l10n_sent_total_includes_fees_dabd62d7" formatted="false">"Verzonden totaal is inclusief kosten"</string>
     <string name="l10n_sent_transactions_are_up_to_date_32ae215a" formatted="false">"Verzonden transacties zijn actueel."</string>
     <string name="l10n_sent_77d771c4" formatted="false">"Verzonden!"</string>
     <string name="l10n_separate_words_with_spaces_7ff3e225" formatted="false">"Scheid woorden met spaties"</string>
@@ -800,6 +804,7 @@
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"Authenticatie tonen"</string>
     <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"Fiatbedragen eerst tonen"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"Wachtwoord tonen"</string>
+    <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Transactiesleutel tonen"</string>
     <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"Toon portemonneegegevens in widgets"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Nieuw adres getoond, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Toont de code op volledig scherm. Beschikbare acties: bewaren in Foto\'s of delen"</string>
@@ -908,6 +913,7 @@
     <string name="l10n_transaction_id_copied_efe6a726" formatted="false">"Transactie-ID gekopieerd"</string>
     <string name="l10n_transaction_key_4504bdfb" formatted="false">"Transactiesleutel"</string>
     <string name="l10n_transaction_broadcast_8981f8bd" formatted="false">"Transactie uitgezonden."</string>
+    <string name="l10n_transaction_details_e208c466" formatted="false">"Transactiegegevens"</string>
     <string name="l10n_transaction_key_unavailable_on_this_device_8d497a79" formatted="false">"Transactiesleutel niet beschikbaar op dit apparaat"</string>
     <string name="l10n_transaction_not_found_eb7c4fd4" formatted="false">"Transactie niet gevonden"</string>
     <string name="l10n_transactions_are_irreversible_95e5dd6b" formatted="false">"Transacties zijn onomkeerbaar"</string>
@@ -936,8 +942,10 @@
     <string name="l10n_us_dollar_4a60464c" formatted="false">"Amerikaanse dollar"</string>
     <string name="l10n_ukrainian_hryvnia_d9d4b648" formatted="false">"Oekraïense hryvnja"</string>
     <string name="l10n_unable_to_connect_to_node_please_try_a_different_node_i_08cfe01b" formatted="false">"Kan geen verbinding maken met de node. Kies een andere node in Instellingen."</string>
+    <string name="l10n_unable_to_create_address_b96d7b52" formatted="false">"Adres aanmaken mislukt"</string>
     <string name="l10n_unable_to_fetch_price_b1924948" formatted="false">"Prijs niet beschikbaar"</string>
     <string name="l10n_unable_to_load_chart_0dd141f8" formatted="false">"Kan grafiek niet laden"</string>
+    <string name="l10n_unavailable_ca184496" formatted="false">"Niet beschikbaar"</string>
     <string name="l10n_unencrypted_d5c28194" formatted="false">"Onversleuteld"</string>
     <string name="l10n_unknown_b764cdc0" formatted="false">"Onbekend"</string>
     <string name="l10n_unknown_error_27c2ccd9" formatted="false">"Onbekende fout"</string>
@@ -1065,6 +1073,10 @@
         <item quantity="one">"%1$s locatie"</item>
         <item quantity="other">"%1$s locaties"</item>
     </plurals>
+    <plurals name="l10n_s_payments_bfee8c12">
+        <item quantity="one">"%1$s betaling"</item>
+        <item quantity="other">"%1$s betalingen"</item>
+    </plurals>
     <plurals name="l10n_s_pending_transactions_b2f1910c">
         <item quantity="one">"%1$s transactie in afwachting"</item>
         <item quantity="other">"%1$s transacties in afwachting"</item>
@@ -1080,6 +1092,10 @@
     <plurals name="l10n_s_transactions_bd40af78">
         <item quantity="one">"%1$s transactie"</item>
         <item quantity="other">"%1$s transacties"</item>
+    </plurals>
+    <plurals name="l10n_s_unused_addresses_in_a_row_a_restore_from_the_seed_fin_aae15758">
+        <item quantity="one">"%1$s ongebruikt adres op rij. Herstellen met de seedzin vindt betalingen alleen tot 200 na het laatst gebruikte."</item>
+        <item quantity="other">"%1$s ongebruikte adressen op rij. Herstellen met de seedzin vindt betalingen alleen tot 200 na het laatst gebruikte."</item>
     </plurals>
     <plurals name="l10n_s_words_e508145b">
         <item quantity="one">"%1$s woord"</item>

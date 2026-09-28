@@ -63,6 +63,7 @@ class MoneroOneApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        one.monero.moneroone.core.util.SoundFeedback.initialize(this)
         one.monero.moneroone.core.locale.AppStrings.initialize(this)
 
         // Initialize Timber for logging

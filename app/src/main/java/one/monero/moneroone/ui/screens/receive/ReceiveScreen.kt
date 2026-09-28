@@ -1,8 +1,13 @@
 package one.monero.moneroone.ui.screens.receive
 
 import one.monero.moneroone.core.locale.tr
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import one.monero.moneroone.core.wallet.ReceiveAddressLogic
 import androidx.compose.foundation.layout.aspectRatio
 import java.util.Locale
 import android.content.ClipData
@@ -50,7 +55,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -106,18 +110,15 @@ fun ReceiveScreen(
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     val context = LocalContext.current
 
-    // Use a refresh key to force re-read from prefs when screen resumes
-    var refreshKey by remember { mutableIntStateOf(0) }
-    val selectedAddressIndex = remember(refreshKey, activeWallet?.id) {
-        walletViewModel.selectedAddressIndex()
-    }
+    val selectedAddressIndex = walletState.receiveIndex
+    val scope = rememberCoroutineScope()
+    var creating by remember(activeWallet?.id) { mutableStateOf(false) }
 
     // Re-read when screen resumes (e.g., returning from AddressPickerScreen)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                refreshKey++
                 walletViewModel.refreshAddresses()
             }
         }
@@ -131,8 +132,13 @@ fun ReceiveScreen(
     val keysUnavailable = addresses?.blocked == true
     val sub = addresses?.shownAddress(selectedAddressIndex)
     val address = sub?.address.orEmpty()
-    val addressLabel =
-        if (sub == null || sub.addressIndex == 0) tr("Main Address") else tr("Subaddress #%s", sub.addressIndex)
+    val addressLabel = ReceiveAddressLogic.name(sub?.addressIndex ?: 0,
+        activeWallet?.addressLabels?.get(sub?.addressIndex) ?: sub?.label.orEmpty())
+    val addressRows = remember(addresses, walletState.transactions, activeWallet?.addressLabels) {
+        ReceiveAddressLogic.rows(addresses?.list.orEmpty(), walletState.transactions, activeWallet?.addressLabels.orEmpty())
+    }
+    val canCreate = addresses?.complete == true && !keysUnavailable && !creating &&
+        ReceiveAddressLogic.unusedAfterLastUsed(addressRows) < ReceiveAddressLogic.STOP_THRESHOLD
     val canShareAddress = address.isNotBlank() && !keysUnavailable
 
     var requestAmount by remember { mutableStateOf("") }
@@ -156,35 +162,14 @@ fun ReceiveScreen(
         if (qrData.isNotBlank()) {
             val encodedRequest = qrData
             val bitmap = withContext(Dispatchers.Default) {
-                generateQRCode(qrData, 512, context)
+                generateQRCode(qrData, 1024, context)
             }
             qrCode = bitmap?.let { encodedRequest to it }
         } else {
             qrCode = null
         }
     }
-    var qrExpanded by remember(qrData) { mutableStateOf(false) }
     val qrBitmap = qrCode?.takeIf { it.first == qrData && canShareAddress }?.second
-
-    if (qrExpanded && qrBitmap != null) {
-        Dialog(onDismissRequest = { qrExpanded = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Box(
-                Modifier.fillMaxSize().background(Color.White).clickable { qrExpanded = false }.padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    bitmap = qrBitmap.asImageBitmap(),
-                    contentDescription = tr("QR Code"),
-                    modifier = Modifier.fillMaxWidth().aspectRatio(1f)
-                )
-                Text(
-                    tr("Done"),
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(24.dp),
-                    color = Color.Black
-                )
-            }
-        }
-    }
 
     // Copy and Share act only on a shown address (iOS disables both without one).
     val copyAddress = {
@@ -203,6 +188,7 @@ fun ReceiveScreen(
         context.startActivity(Intent.createChooser(intent, tr("Share Address")))
     }
 
+    QrFocusContainer(qrBitmap, qrData) { qrModifier, expandQr ->
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0.dp),
@@ -238,7 +224,7 @@ fun ReceiveScreen(
 
             // QR Code
             GlassCard(
-                modifier = Modifier.size(280.dp).clickable(enabled = qrBitmap != null) { qrExpanded = true },
+                modifier = Modifier.size(280.dp).clickable(enabled = qrBitmap != null) { expandQr() },
                 cornerRadius = 20.dp
             ) {
                 Box(
@@ -256,6 +242,7 @@ fun ReceiveScreen(
                             contentDescription = tr("QR Code"),
                             modifier = Modifier
                                 .fillMaxSize()
+                                .then(qrModifier)
                                 .clip(RoundedCornerShape(12.dp))
                         )
                     } else {
@@ -367,13 +354,13 @@ fun ReceiveScreen(
             // Address card (truncated, matching iOS): radius 12 on the fill
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = onSelectAddress,
                 cornerRadius = 12.dp,
                 shadow = false,
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
+                Column {
                 Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().clickable(enabled = onSelectAddress != null) { onSelectAddress?.invoke() }.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -389,6 +376,10 @@ fun ReceiveScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    addressRows.firstOrNull { it.index == sub?.addressIndex }?.let { row ->
+                        Text(row.description, style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp).width(100.dp))
+                    }
                     if (onSelectAddress != null) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -398,6 +389,27 @@ fun ReceiveScreen(
                         )
                     }
                 }
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                TextButton(
+                    onClick = {
+                        creating = true
+                        scope.launch {
+                            try {
+                                if (!walletViewModel.createSubaddress()) Toast.makeText(context, tr("Unable to create address"), Toast.LENGTH_SHORT).show()
+                            } finally { creating = false }
+                        }
+                    }, enabled = canCreate, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                ) {
+                    if (creating) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.Default.Add, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("New Address"))
+                }
+                }
+            }
+            ReceiveAddressLogic.creationWarning(addressRows)?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp))
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -444,6 +456,7 @@ fun ReceiveScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
         }
+    }
     }
 }
 

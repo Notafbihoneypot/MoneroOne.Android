@@ -340,6 +340,7 @@
     <string name="l10n_edit_location_c081701b" formatted="false">"위치 편집"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"노드 편집"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"프록시 편집"</string>
+    <string name="l10n_emoji_61ad8976" formatted="false">"이모지"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"활성화"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"%1$s 활성화"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"%1$s를 활성화하시겠습니까?"</string>
@@ -478,6 +479,7 @@
     <string name="l10n_location_status_warning_syncing_from_untrusted_location_56b090b6" formatted="false">"위치 상태: 경고, 신뢰할 수 없는 위치에서 동기화 중"</string>
     <string name="l10n_lock_after_3c95f2e7" formatted="false">"잠금 시간"</string>
     <string name="l10n_locked_a424e33d" formatted="false">"잠김"</string>
+    <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"잠김 (확인 %s/10)"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"최근 거래가 확인될 때까지 잠김"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"기본 주소"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"기본 주소는 모든 거래를 연결합니다. 개인정보 보호를 위해 하위 주소를 사용하세요."</string>
@@ -740,6 +742,7 @@
     <string name="l10n_search_address_116a5d3a" formatted="false">"주소 검색"</string>
     <string name="l10n_search_by_id_address_or_memo_c6aa49e6" formatted="false">"ID, 주소 또는 메모로 검색"</string>
     <string name="l10n_search_by_transaction_id_ef1ca1ac" formatted="false">"거래 ID로 검색…"</string>
+    <string name="l10n_search_transactions_0fa80362" formatted="false">"거래 검색"</string>
     <string name="l10n_searching_for_trezor_ffd94f1d" formatted="false">"Trezor 검색 중"</string>
     <string name="l10n_searching_for_your_trezor_f948bb21" formatted="false">"Trezor를 찾는 중…"</string>
     <string name="l10n_security_8f6fb4eb" formatted="false">"보안"</string>
@@ -776,6 +779,7 @@
     <string name="l10n_sent_s_xmr_53edc03c" formatted="false">"%1$s XMR 보냄"</string>
     <string name="l10n_sent_to_4e7201c7" formatted="false">"보낸 주소"</string>
     <string name="l10n_sent_to_s_of_s_751bb8d7" formatted="false">"보낸 주소(%1$s/%2$s)"</string>
+    <string name="l10n_sent_total_includes_fees_dabd62d7" formatted="false">"보낸 총액에는 수수료가 포함됩니다"</string>
     <string name="l10n_sent_transactions_are_up_to_date_32ae215a" formatted="false">"보낸 거래가 최신 상태입니다."</string>
     <string name="l10n_sent_77d771c4" formatted="false">"보냈습니다"</string>
     <string name="l10n_separate_words_with_spaces_7ff3e225" formatted="false">"단어를 공백으로 구분하세요"</string>
@@ -800,6 +804,7 @@
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"인증 정보 표시"</string>
     <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"법정 화폐 금액 먼저 표시"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"비밀번호 표시"</string>
+    <string name="l10n_show_transaction_key_a69e0052" formatted="false">"거래 키 표시"</string>
     <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"위젯에 지갑 정보 표시 허용"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"새 주소 표시 중, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"코드를 전체 화면으로 표시합니다. 사용 가능한 동작: 사진에 저장 또는 공유"</string>
@@ -908,6 +913,7 @@
     <string name="l10n_transaction_id_copied_efe6a726" formatted="false">"거래 ID 복사됨"</string>
     <string name="l10n_transaction_key_4504bdfb" formatted="false">"거래 키"</string>
     <string name="l10n_transaction_broadcast_8981f8bd" formatted="false">"거래가 전송되었습니다."</string>
+    <string name="l10n_transaction_details_e208c466" formatted="false">"거래 상세 정보"</string>
     <string name="l10n_transaction_key_unavailable_on_this_device_8d497a79" formatted="false">"이 기기에서는 거래 키를 사용할 수 없음"</string>
     <string name="l10n_transaction_not_found_eb7c4fd4" formatted="false">"거래를 찾을 수 없음"</string>
     <string name="l10n_transactions_are_irreversible_95e5dd6b" formatted="false">"거래는 되돌릴 수 없습니다"</string>
@@ -936,8 +942,10 @@
     <string name="l10n_us_dollar_4a60464c" formatted="false">"미국 달러"</string>
     <string name="l10n_ukrainian_hryvnia_d9d4b648" formatted="false">"우크라이나 그리브나"</string>
     <string name="l10n_unable_to_connect_to_node_please_try_a_different_node_i_08cfe01b" formatted="false">"노드에 연결할 수 없습니다. 설정에서 다른 노드를 사용해 보세요."</string>
+    <string name="l10n_unable_to_create_address_b96d7b52" formatted="false">"주소를 생성할 수 없음"</string>
     <string name="l10n_unable_to_fetch_price_b1924948" formatted="false">"가격을 사용할 수 없음"</string>
     <string name="l10n_unable_to_load_chart_0dd141f8" formatted="false">"차트를 불러올 수 없음"</string>
+    <string name="l10n_unavailable_ca184496" formatted="false">"사용할 수 없음"</string>
     <string name="l10n_unencrypted_d5c28194" formatted="false">"암호화되지 않음"</string>
     <string name="l10n_unknown_b764cdc0" formatted="false">"알 수 없음"</string>
     <string name="l10n_unknown_error_27c2ccd9" formatted="false">"알 수 없는 오류"</string>
@@ -1064,6 +1072,9 @@
     <plurals name="l10n_s_locations_cdc8a004">
         <item quantity="other">"위치 %1$s개"</item>
     </plurals>
+    <plurals name="l10n_s_payments_bfee8c12">
+        <item quantity="other">"결제 %1$s건"</item>
+    </plurals>
     <plurals name="l10n_s_pending_transactions_b2f1910c">
         <item quantity="other">"대기 중인 거래 %1$s건"</item>
     </plurals>
@@ -1075,6 +1086,9 @@
     </plurals>
     <plurals name="l10n_s_transactions_bd40af78">
         <item quantity="other">"거래 %1$s건"</item>
+    </plurals>
+    <plurals name="l10n_s_unused_addresses_in_a_row_a_restore_from_the_seed_fin_aae15758">
+        <item quantity="other">"사용하지 않은 주소가 %1$s개 연속입니다. 시드 문구로 복원하면 마지막으로 사용한 주소 이후 200개까지의 결제만 찾습니다."</item>
     </plurals>
     <plurals name="l10n_s_words_e508145b">
         <item quantity="other">"%1$s단어"</item>

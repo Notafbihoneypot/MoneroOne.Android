@@ -47,6 +47,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -262,6 +268,8 @@ fun WalletManagerRows(
                         },
                     onClick = { if (!suppressClick) onSwitch(wallet) },
                     onRenameRequest = { renameTarget = wallet },
+                    onMoveUp = if (index > 0) ({ onMove(wallet.id, wallets[index - 1].id) }) else null,
+                    onMoveDown = if (index < wallets.lastIndex) ({ onMove(wallet.id, wallets.getOrNull(index + 2)?.id) }) else null,
                     // The active wallet is deleted from Settings, not by a swipe.
                     onDeleteRequest = if (isActive) null else ({ deleteCandidate = wallet })
                 )
@@ -331,6 +339,8 @@ private fun WalletRow(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onRenameRequest: () -> Unit,
+    onMoveUp: (() -> Unit)?,
+    onMoveDown: (() -> Unit)?,
     onDeleteRequest: (() -> Unit)?
 ) {
     val density = LocalDensity.current
@@ -371,6 +381,17 @@ private fun WalletRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(animatedOffset.roundToInt(), 0) }
+                .clearAndSetSemantics {
+                    contentDescription = "${wallet.name}, $balanceText"
+                    selected = isActive
+                    onClick(label = tr(if (isActive) "Close" else "Switch wallet")) { onClick(); true }
+                    customActions = buildList {
+                        add(CustomAccessibilityAction(tr("Rename")) { onRenameRequest(); true })
+                        onDeleteRequest?.let { add(CustomAccessibilityAction(tr("Delete")) { it(); true }) }
+                        onMoveUp?.let { add(CustomAccessibilityAction(tr("Move up")) { it(); true }) }
+                        onMoveDown?.let { add(CustomAccessibilityAction(tr("Move down")) { it(); true }) }
+                    }
+                }
                 .then(
                     if (isActive) Modifier.border(1.5.dp, MoneroOrange.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
                     else Modifier

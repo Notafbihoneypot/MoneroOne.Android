@@ -44,10 +44,10 @@ object SeedClipboard {
     /** Bumped by every copy. 0 in a process that made none (the copying process was killed). */
     private val latestCopy = AtomicInteger(0)
 
-    fun copy(context: Context, text: String) {
+    fun copy(context: Context, text: String, label: String = "Seed Phrase") {
         val app = context.applicationContext
         val clipboard = app.getSystemService(ClipboardManager::class.java) ?: return
-        val clip = ClipData.newPlainText("Seed Phrase", text)
+        val clip = ClipData.newPlainText(label, text)
         clip.description.extras = PersistableBundle().apply {
             val key = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ClipDescription.EXTRA_IS_SENSITIVE

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
@@ -97,6 +98,7 @@ fun SettingsScreen(
     var showRemoveAllDialog by remember { mutableStateOf(false) }
     var showResetSyncDialog by remember { mutableStateOf(false) }
 
+    var freshAddress by remember { mutableStateOf(walletViewModel.freshReceiveAddress) }
     val fiatMode by walletViewModel.fiatMode.collectAsState()
     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
 
@@ -137,6 +139,14 @@ fun SettingsScreen(
                 title = tr("Security"),
                 subtitle = tr("PIN and authentication settings"),
                 onClick = onSecurityClick,
+                iconColor = SettingsBlue
+            )
+            SettingsToggleItem(
+                icon = Icons.Default.QrCode,
+                title = tr("Fresh Receive Address"),
+                subtitle = tr("After an address receives a payment, Receive shows a new unused address. Old addresses keep working."),
+                checked = freshAddress,
+                onCheckedChange = { freshAddress = it; walletViewModel.setFreshReceiveAddress(it) },
                 iconColor = SettingsBlue
             )
         }

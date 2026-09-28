@@ -340,6 +340,7 @@
     <string name="l10n_edit_location_c081701b" formatted="false">"場所を編集"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"ノードを編集"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"プロキシを編集"</string>
+    <string name="l10n_emoji_61ad8976" formatted="false">"絵文字"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"有効にする"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"%1$sを有効にする"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"%1$sを有効にしますか?"</string>
@@ -478,6 +479,7 @@
     <string name="l10n_location_status_warning_syncing_from_untrusted_location_56b090b6" formatted="false">"位置情報の状態：警告、信頼されていない場所で同期中"</string>
     <string name="l10n_lock_after_3c95f2e7" formatted="false">"ロックまでの時間"</string>
     <string name="l10n_locked_a424e33d" formatted="false">"ロック中"</string>
+    <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"ロック中（承認 %s/10）"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"最近のトランザクションが承認されるまでロック中"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"メインアドレス"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"メインアドレスではすべてのトランザクションが紐付けられます。プライバシーを守るにはサブアドレスを使用してください。"</string>
@@ -740,6 +742,7 @@
     <string name="l10n_search_address_116a5d3a" formatted="false">"アドレスを検索"</string>
     <string name="l10n_search_by_id_address_or_memo_c6aa49e6" formatted="false">"ID、アドレス、メモで検索"</string>
     <string name="l10n_search_by_transaction_id_ef1ca1ac" formatted="false">"取引IDで検索…"</string>
+    <string name="l10n_search_transactions_0fa80362" formatted="false">"取引を検索"</string>
     <string name="l10n_searching_for_trezor_ffd94f1d" formatted="false">"Trezorを検索中"</string>
     <string name="l10n_searching_for_your_trezor_f948bb21" formatted="false">"Trezorを検索中…"</string>
     <string name="l10n_security_8f6fb4eb" formatted="false">"セキュリティ"</string>
@@ -776,6 +779,7 @@
     <string name="l10n_sent_s_xmr_53edc03c" formatted="false">"送金済み %1$s XMR"</string>
     <string name="l10n_sent_to_4e7201c7" formatted="false">"送金先"</string>
     <string name="l10n_sent_to_s_of_s_751bb8d7" formatted="false">"送金先（%2$s件中%1$s件目）"</string>
+    <string name="l10n_sent_total_includes_fees_dabd62d7" formatted="false">"送金合計には手数料が含まれます"</string>
     <string name="l10n_sent_transactions_are_up_to_date_32ae215a" formatted="false">"送金トランザクションは最新です。"</string>
     <string name="l10n_sent_77d771c4" formatted="false">"送金しました"</string>
     <string name="l10n_separate_words_with_spaces_7ff3e225" formatted="false">"単語はスペースで区切ってください"</string>
@@ -800,6 +804,7 @@
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"認証情報を表示"</string>
     <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"法定通貨の金額を先に表示"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"パスワードを表示"</string>
+    <string name="l10n_show_transaction_key_a69e0052" formatted="false">"取引キーを表示"</string>
     <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"ウィジェットにウォレット情報を表示"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"新しいアドレスを表示中、%1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"コードを全画面で表示します。利用できるアクション：写真に保存、共有"</string>
@@ -908,6 +913,7 @@
     <string name="l10n_transaction_id_copied_efe6a726" formatted="false">"トランザクションIDをコピーしました"</string>
     <string name="l10n_transaction_key_4504bdfb" formatted="false">"トランザクションキー"</string>
     <string name="l10n_transaction_broadcast_8981f8bd" formatted="false">"トランザクションをブロードキャストしました。"</string>
+    <string name="l10n_transaction_details_e208c466" formatted="false">"取引の詳細"</string>
     <string name="l10n_transaction_key_unavailable_on_this_device_8d497a79" formatted="false">"このデバイスではトランザクションキーを利用できません"</string>
     <string name="l10n_transaction_not_found_eb7c4fd4" formatted="false">"取引が見つかりません"</string>
     <string name="l10n_transactions_are_irreversible_95e5dd6b" formatted="false">"トランザクションは取り消せません"</string>
@@ -936,8 +942,10 @@
     <string name="l10n_us_dollar_4a60464c" formatted="false">"米ドル"</string>
     <string name="l10n_ukrainian_hryvnia_d9d4b648" formatted="false">"ウクライナフリヴニャ"</string>
     <string name="l10n_unable_to_connect_to_node_please_try_a_different_node_i_08cfe01b" formatted="false">"ノードに接続できません。「設定」で別のノードをお試しください。"</string>
+    <string name="l10n_unable_to_create_address_b96d7b52" formatted="false">"アドレスを作成できませんでした"</string>
     <string name="l10n_unable_to_fetch_price_b1924948" formatted="false">"価格を取得できません"</string>
     <string name="l10n_unable_to_load_chart_0dd141f8" formatted="false">"チャートを読み込めません"</string>
+    <string name="l10n_unavailable_ca184496" formatted="false">"利用できません"</string>
     <string name="l10n_unencrypted_d5c28194" formatted="false">"暗号化なし"</string>
     <string name="l10n_unknown_b764cdc0" formatted="false">"不明"</string>
     <string name="l10n_unknown_error_27c2ccd9" formatted="false">"不明なエラー"</string>
@@ -1064,6 +1072,9 @@
     <plurals name="l10n_s_locations_cdc8a004">
         <item quantity="other">"%1$sか所"</item>
     </plurals>
+    <plurals name="l10n_s_payments_bfee8c12">
+        <item quantity="other">"%1$s件の支払い"</item>
+    </plurals>
     <plurals name="l10n_s_pending_transactions_b2f1910c">
         <item quantity="other">"保留中のトランザクション%1$s件"</item>
     </plurals>
@@ -1075,6 +1086,9 @@
     </plurals>
     <plurals name="l10n_s_transactions_bd40af78">
         <item quantity="other">"トランザクション%1$s件"</item>
+    </plurals>
+    <plurals name="l10n_s_unused_addresses_in_a_row_a_restore_from_the_seed_fin_aae15758">
+        <item quantity="other">"未使用のアドレスが%1$s件続いています。シードフレーズから復元すると、最後に使用したアドレスから200件先までの支払いしか見つかりません。"</item>
     </plurals>
     <plurals name="l10n_s_words_e508145b">
         <item quantity="other">"%1$s語"</item>

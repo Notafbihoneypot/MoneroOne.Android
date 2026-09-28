@@ -340,6 +340,7 @@
     <string name="l10n_edit_location_c081701b" formatted="false">"Modifier le lieu"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"Modifier le nœud"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"Modifier le proxy"</string>
+    <string name="l10n_emoji_61ad8976" formatted="false">"Émoji"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"Activer"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"Activer %1$s"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"Activer %1$s ?"</string>
@@ -478,6 +479,7 @@
     <string name="l10n_location_status_warning_syncing_from_untrusted_location_56b090b6" formatted="false">"État de la localisation : avertissement, synchronisation depuis un lieu non fiable"</string>
     <string name="l10n_lock_after_3c95f2e7" formatted="false">"Verrouiller après"</string>
     <string name="l10n_locked_a424e33d" formatted="false">"Verrouillée"</string>
+    <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"Verrouillé (%s/10 confirmations)"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"Verrouillé jusqu’à la confirmation des transactions récentes"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"Adresse principale"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"L’adresse principale relie toutes vos transactions. Utilisez des sous-adresses pour préserver votre confidentialité."</string>
@@ -740,6 +742,7 @@
     <string name="l10n_search_address_116a5d3a" formatted="false">"Rechercher une adresse"</string>
     <string name="l10n_search_by_id_address_or_memo_c6aa49e6" formatted="false">"Rechercher par ID, adresse ou note"</string>
     <string name="l10n_search_by_transaction_id_ef1ca1ac" formatted="false">"Rechercher par ID de transaction…"</string>
+    <string name="l10n_search_transactions_0fa80362" formatted="false">"Rechercher des transactions"</string>
     <string name="l10n_searching_for_trezor_ffd94f1d" formatted="false">"Recherche du Trezor"</string>
     <string name="l10n_searching_for_your_trezor_f948bb21" formatted="false">"Recherche de votre Trezor…"</string>
     <string name="l10n_security_8f6fb4eb" formatted="false">"Sécurité"</string>
@@ -776,6 +779,7 @@
     <string name="l10n_sent_s_xmr_53edc03c" formatted="false">"Envoyé : %1$s XMR"</string>
     <string name="l10n_sent_to_4e7201c7" formatted="false">"Envoyé à"</string>
     <string name="l10n_sent_to_s_of_s_751bb8d7" formatted="false">"Envoyé à (%1$s sur %2$s)"</string>
+    <string name="l10n_sent_total_includes_fees_dabd62d7" formatted="false">"Le total envoyé inclut les frais"</string>
     <string name="l10n_sent_transactions_are_up_to_date_32ae215a" formatted="false">"Les transactions envoyées sont à jour."</string>
     <string name="l10n_sent_77d771c4" formatted="false">"Envoyé !"</string>
     <string name="l10n_separate_words_with_spaces_7ff3e225" formatted="false">"Séparez les mots par des espaces"</string>
@@ -800,6 +804,7 @@
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"Afficher l’authentification"</string>
     <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"Afficher les montants en monnaie fiat en premier"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"Afficher le mot de passe"</string>
+    <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Afficher la clé de transaction"</string>
     <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"Autoriser les widgets à afficher les informations du portefeuille"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Nouvelle adresse affichée, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Affiche le code en plein écran. Actions disponibles : enregistrer dans Photos ou partager"</string>
@@ -908,6 +913,7 @@
     <string name="l10n_transaction_id_copied_efe6a726" formatted="false">"ID de transaction copié"</string>
     <string name="l10n_transaction_key_4504bdfb" formatted="false">"Clé de transaction"</string>
     <string name="l10n_transaction_broadcast_8981f8bd" formatted="false">"Transaction diffusée."</string>
+    <string name="l10n_transaction_details_e208c466" formatted="false">"Détails de la transaction"</string>
     <string name="l10n_transaction_key_unavailable_on_this_device_8d497a79" formatted="false">"Clé de transaction indisponible sur cet appareil"</string>
     <string name="l10n_transaction_not_found_eb7c4fd4" formatted="false">"Transaction introuvable"</string>
     <string name="l10n_transactions_are_irreversible_95e5dd6b" formatted="false">"Les transactions sont irréversibles"</string>
@@ -936,8 +942,10 @@
     <string name="l10n_us_dollar_4a60464c" formatted="false">"Dollar américain"</string>
     <string name="l10n_ukrainian_hryvnia_d9d4b648" formatted="false">"Hryvnia ukrainienne"</string>
     <string name="l10n_unable_to_connect_to_node_please_try_a_different_node_i_08cfe01b" formatted="false">"Impossible de se connecter au nœud. Essayez un autre nœud dans Réglages."</string>
+    <string name="l10n_unable_to_create_address_b96d7b52" formatted="false">"Impossible de créer l’adresse"</string>
     <string name="l10n_unable_to_fetch_price_b1924948" formatted="false">"Prix indisponible"</string>
     <string name="l10n_unable_to_load_chart_0dd141f8" formatted="false">"Impossible de charger le graphique"</string>
+    <string name="l10n_unavailable_ca184496" formatted="false">"Indisponible"</string>
     <string name="l10n_unencrypted_d5c28194" formatted="false">"Non chiffré"</string>
     <string name="l10n_unknown_b764cdc0" formatted="false">"Inconnue"</string>
     <string name="l10n_unknown_error_27c2ccd9" formatted="false">"Erreur inconnue"</string>
@@ -1066,6 +1074,11 @@
         <item quantity="one">"%1$s lieu"</item>
         <item quantity="other">"%1$s lieux"</item>
     </plurals>
+    <plurals name="l10n_s_payments_bfee8c12">
+        <item quantity="many">"%1$s paiements"</item>
+        <item quantity="one">"%1$s paiement"</item>
+        <item quantity="other">"%1$s paiements"</item>
+    </plurals>
     <plurals name="l10n_s_pending_transactions_b2f1910c">
         <item quantity="many">"%1$s transactions en attente"</item>
         <item quantity="one">"%1$s transaction en attente"</item>
@@ -1085,6 +1098,11 @@
         <item quantity="many">"%1$s transactions"</item>
         <item quantity="one">"%1$s transaction"</item>
         <item quantity="other">"%1$s transactions"</item>
+    </plurals>
+    <plurals name="l10n_s_unused_addresses_in_a_row_a_restore_from_the_seed_fin_aae15758">
+        <item quantity="many">"%1$s adresses inutilisées d’affilée. Une restauration depuis la phrase de récupération ne trouve les paiements que jusqu’à 200 après la dernière utilisée."</item>
+        <item quantity="one">"%1$s adresse inutilisée d’affilée. Une restauration depuis la phrase de récupération ne trouve les paiements que jusqu’à 200 après la dernière utilisée."</item>
+        <item quantity="other">"%1$s adresses inutilisées d’affilée. Une restauration depuis la phrase de récupération ne trouve les paiements que jusqu’à 200 après la dernière utilisée."</item>
     </plurals>
     <plurals name="l10n_s_words_e508145b">
         <item quantity="many">"%1$s mots"</item>

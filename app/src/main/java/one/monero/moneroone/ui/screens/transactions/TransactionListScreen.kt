@@ -1,5 +1,18 @@
 package one.monero.moneroone.ui.screens.transactions
 
+import one.monero.moneroone.core.locale.pluralTr
+import one.monero.moneroone.core.wallet.ReceiveAddressLogic
+import one.monero.moneroone.core.wallet.addressesOf
+import one.monero.moneroone.data.model.PriceHistory
+import one.monero.moneroone.data.util.MoneyFormat
+import one.monero.moneroone.data.util.XmrFormat
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.saveable.rememberSaveable
+import one.monero.moneroone.ui.components.ShrinkToFitText
 import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -86,27 +99,23 @@ fun TransactionListScreen(
     val priceHistory by walletViewModel.priceHistory.collectAsState()
     val currentPrice by walletViewModel.currentPrice.collectAsState()
     val currency by walletViewModel.selectedCurrency.collectAsState()
-    var selectedFilter by remember { mutableStateOf(TransactionFilter.ALL) }
+    val activeWallet by walletViewModel.activeWallet.collectAsState()
+    var receivingIndex by rememberSaveable(activeWallet?.id) { mutableStateOf<Int?>(null) }
+    var showAddresses by remember { mutableStateOf(false) }
+    var selectedFilter by rememberSaveable(activeWallet?.id) { mutableStateOf(TransactionFilter.ALL) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredTransactions = remember(walletState.transactions, selectedFilter, searchQuery) {
-        walletState.transactions
-            .filter { tx ->
-                when (selectedFilter) {
-                    TransactionFilter.ALL -> true
-                    TransactionFilter.RECEIVED -> tx.direction == TransactionInfo.Direction.Direction_In
-                    TransactionFilter.SENT -> tx.direction == TransactionInfo.Direction.Direction_Out
-                    TransactionFilter.PENDING -> tx.confirmations == 0L
-                }
-            }
-            .filter { tx ->
-                if (searchQuery.isBlank()) true
-                else tx.hash.contains(searchQuery, ignoreCase = true)
-            }
-            .sortedWith(
-                compareBy<TransactionInfo> { it.confirmations > 0L }  // pending (0 confirmations) first
-                    .thenByDescending { it.timestamp }  // newest first within each group
-            )
+    val addressRows = remember(walletState.addresses, walletState.transactions, activeWallet?.addressLabels) {
+        ReceiveAddressLogic.rows(walletState.addressesOf(activeWallet?.id)?.list.orEmpty(), walletState.transactions, activeWallet?.addressLabels.orEmpty())
+    }
+    val filteredTransactions = remember(walletState.transactions, selectedFilter, searchQuery, receivingIndex, addressRows) {
+        TransactionHistoryLogic.filter(walletState.transactions, selectedFilter, receivingIndex, searchQuery, addressRows)
+    }
+    val totals = remember(filteredTransactions) { TransactionHistoryLogic.totals(filteredTransactions) }
+    val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice) {
+        TransactionHistoryLogic.fiatTotals(filteredTransactions) {
+            PriceHistory.priceAt(it, priceHistory, currentPrice?.price, System.currentTimeMillis() / 1000)
+        }
     }
 
     Scaffold(
@@ -137,7 +146,7 @@ fun TransactionListScreen(
             MoneroTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text(tr("Search by transaction ID...")) },
+                placeholder = { Text(tr("Search transactions")) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
@@ -153,7 +162,7 @@ fun TransactionListScreen(
 
             // Filter chips
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 TransactionFilter.entries.forEach { filter ->
@@ -175,6 +184,36 @@ fun TransactionListScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            Box {
+                TextButton(onClick = { showAddresses = true }) {
+                    Text(tr("Receiving address") + ": " + (addressRows.firstOrNull { it.index == receivingIndex }?.name ?: tr("Any")))
+                }
+                DropdownMenu(expanded = showAddresses, onDismissRequest = { showAddresses = false }) {
+                    DropdownMenuItem(text = { Text(tr("Any")) }, onClick = { receivingIndex = null; showAddresses = false })
+                    addressRows.filter { it.index == 0 || it.labeled || it.usage.payments > 0 }.sortedBy { it.index }.forEach { row ->
+                        DropdownMenuItem(text = { Text(row.name) }, onClick = { receivingIndex = row.index; showAddresses = false })
+                    }
+                }
+            }
+            GlassCard(Modifier.fillMaxWidth(), shadow = false, cornerRadius = 16.dp) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(pluralTr("%s transactions", totals.count), style = MaterialTheme.typography.titleSmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        listOf(Triple(tr("Received"), totals.received, fiatTotals?.received), Triple(tr("Sent"), totals.sent, fiatTotals?.sent)).forEach { (title, amount, fiat) ->
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val fiatValue = fiat?.let { MoneyFormat.format(it.toDouble(), currency, fractionDigits = 2) }
+                                ShrinkToFitText(if (fiatMode && fiatValue != null) fiatValue else "${XmrFormat.format(amount)} XMR",
+                                    style = MaterialTheme.typography.titleMedium, minScale = 0.5f)
+                                if (fiatMode && fiatValue != null) Text("${XmrFormat.format(amount)} XMR", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                    Text(tr("Sent total includes fees"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
 
             if (filteredTransactions.isEmpty()) {
                 // Empty state

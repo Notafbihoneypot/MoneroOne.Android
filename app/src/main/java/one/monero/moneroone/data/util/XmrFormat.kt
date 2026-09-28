@@ -1,5 +1,6 @@
 package one.monero.moneroone.data.util
 
+import java.math.BigInteger
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -17,7 +18,9 @@ object XmrFormat {
             .let { if (it.scale() < 4) it.setScale(4) else it }.toPlainString()
     }
 
-    fun format(atomicUnits: Long): String {
+    fun format(atomicUnits: Long): String = format(BigInteger.valueOf(atomicUnits))
+
+    fun format(atomicUnits: BigInteger): String {
         val xmr = BigDecimal(atomicUnits).divide(ATOMIC_UNITS_PER_XMR)
         val full = xmr.setScale(12, RoundingMode.DOWN).stripTrailingZeros()
         // Always show at least 4 decimal places

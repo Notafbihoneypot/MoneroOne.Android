@@ -340,6 +340,7 @@
     <string name="l10n_edit_location_c081701b" formatted="false">"编辑位置"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"编辑节点"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"编辑代理"</string>
+    <string name="l10n_emoji_61ad8976" formatted="false">"表情符号"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"启用"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"启用%1$s"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"要启用%1$s 吗？"</string>
@@ -478,6 +479,7 @@
     <string name="l10n_location_status_warning_syncing_from_untrusted_location_56b090b6" formatted="false">"位置状态：警告，正在从不可信位置同步"</string>
     <string name="l10n_lock_after_3c95f2e7" formatted="false">"多久后锁定"</string>
     <string name="l10n_locked_a424e33d" formatted="false">"锁定中"</string>
+    <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"已锁定（%s/10 次确认）"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"锁定中，待最近的交易确认后解锁"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"主地址"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"主地址会关联所有交易。请使用子地址保护隐私。"</string>
@@ -740,6 +742,7 @@
     <string name="l10n_search_address_116a5d3a" formatted="false">"搜索地址"</string>
     <string name="l10n_search_by_id_address_or_memo_c6aa49e6" formatted="false">"按 ID、地址或备注搜索"</string>
     <string name="l10n_search_by_transaction_id_ef1ca1ac" formatted="false">"按交易 ID 搜索…"</string>
+    <string name="l10n_search_transactions_0fa80362" formatted="false">"搜索交易"</string>
     <string name="l10n_searching_for_trezor_ffd94f1d" formatted="false">"正在搜索 Trezor"</string>
     <string name="l10n_searching_for_your_trezor_f948bb21" formatted="false">"正在搜索你的 Trezor…"</string>
     <string name="l10n_security_8f6fb4eb" formatted="false">"安全"</string>
@@ -776,6 +779,7 @@
     <string name="l10n_sent_s_xmr_53edc03c" formatted="false">"已发送 %1$s XMR"</string>
     <string name="l10n_sent_to_4e7201c7" formatted="false">"发送至"</string>
     <string name="l10n_sent_to_s_of_s_751bb8d7" formatted="false">"发送至（%1$s/%2$s）"</string>
+    <string name="l10n_sent_total_includes_fees_dabd62d7" formatted="false">"发送总额包含手续费"</string>
     <string name="l10n_sent_transactions_are_up_to_date_32ae215a" formatted="false">"已发送交易已是最新。"</string>
     <string name="l10n_sent_77d771c4" formatted="false">"已发送！"</string>
     <string name="l10n_separate_words_with_spaces_7ff3e225" formatted="false">"单词之间用空格分隔"</string>
@@ -800,6 +804,7 @@
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"显示身份验证"</string>
     <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"优先显示法币金额"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"显示密码"</string>
+    <string name="l10n_show_transaction_key_a69e0052" formatted="false">"显示交易密钥"</string>
     <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"允许小组件显示钱包信息"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"正在显示新地址，%1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"全屏显示代码。可用操作：存储到“照片”或共享"</string>
@@ -908,6 +913,7 @@
     <string name="l10n_transaction_id_copied_efe6a726" formatted="false">"交易 ID 已拷贝"</string>
     <string name="l10n_transaction_key_4504bdfb" formatted="false">"交易密钥"</string>
     <string name="l10n_transaction_broadcast_8981f8bd" formatted="false">"交易已广播。"</string>
+    <string name="l10n_transaction_details_e208c466" formatted="false">"交易详情"</string>
     <string name="l10n_transaction_key_unavailable_on_this_device_8d497a79" formatted="false">"此设备上没有交易密钥"</string>
     <string name="l10n_transaction_not_found_eb7c4fd4" formatted="false">"未找到交易"</string>
     <string name="l10n_transactions_are_irreversible_95e5dd6b" formatted="false">"交易不可撤销"</string>
@@ -936,8 +942,10 @@
     <string name="l10n_us_dollar_4a60464c" formatted="false">"美元"</string>
     <string name="l10n_ukrainian_hryvnia_d9d4b648" formatted="false">"乌克兰格里夫纳"</string>
     <string name="l10n_unable_to_connect_to_node_please_try_a_different_node_i_08cfe01b" formatted="false">"无法连接到节点。请在“设置”中尝试其他节点。"</string>
+    <string name="l10n_unable_to_create_address_b96d7b52" formatted="false">"无法创建地址"</string>
     <string name="l10n_unable_to_fetch_price_b1924948" formatted="false">"价格不可用"</string>
     <string name="l10n_unable_to_load_chart_0dd141f8" formatted="false">"无法载入图表"</string>
+    <string name="l10n_unavailable_ca184496" formatted="false">"不可用"</string>
     <string name="l10n_unencrypted_d5c28194" formatted="false">"未加密"</string>
     <string name="l10n_unknown_b764cdc0" formatted="false">"未知"</string>
     <string name="l10n_unknown_error_27c2ccd9" formatted="false">"未知错误"</string>
@@ -1064,6 +1072,9 @@
     <plurals name="l10n_s_locations_cdc8a004">
         <item quantity="other">"%1$s 个位置"</item>
     </plurals>
+    <plurals name="l10n_s_payments_bfee8c12">
+        <item quantity="other">"%1$s 笔付款"</item>
+    </plurals>
     <plurals name="l10n_s_pending_transactions_b2f1910c">
         <item quantity="other">"%1$s 笔待确认交易"</item>
     </plurals>
@@ -1075,6 +1086,9 @@
     </plurals>
     <plurals name="l10n_s_transactions_bd40af78">
         <item quantity="other">"%1$s 笔交易"</item>
+    </plurals>
+    <plurals name="l10n_s_unused_addresses_in_a_row_a_restore_from_the_seed_fin_aae15758">
+        <item quantity="other">"已连续 %1$s 个地址未使用。用助记词恢复时，只能找到最后一个已用地址之后 200 个以内的付款。"</item>
     </plurals>
     <plurals name="l10n_s_words_e508145b">
         <item quantity="other">"%1$s 个单词"</item>

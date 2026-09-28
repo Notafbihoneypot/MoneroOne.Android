@@ -340,6 +340,7 @@
     <string name="l10n_edit_location_c081701b" formatted="false">"Изменить место"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"Изменить узел"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"Изменить прокси"</string>
+    <string name="l10n_emoji_61ad8976" formatted="false">"Эмодзи"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"Включить"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"Включить %1$s"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"Включить %1$s?"</string>
@@ -478,6 +479,7 @@
     <string name="l10n_location_status_warning_syncing_from_untrusted_location_56b090b6" formatted="false">"Статус геопозиции: внимание, синхронизация из недоверенного места"</string>
     <string name="l10n_lock_after_3c95f2e7" formatted="false">"Блокировать через"</string>
     <string name="l10n_locked_a424e33d" formatted="false">"Заблокирована"</string>
+    <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"Заблокировано (%s/10 подтверждений)"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"Заблокировано до подтверждения последних транзакций"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"Основной адрес"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"Основной адрес связывает все транзакции. Для конфиденциальности используйте субадреса."</string>
@@ -740,6 +742,7 @@
     <string name="l10n_search_address_116a5d3a" formatted="false">"Поиск адреса"</string>
     <string name="l10n_search_by_id_address_or_memo_c6aa49e6" formatted="false">"Поиск по ID, адресу или заметке"</string>
     <string name="l10n_search_by_transaction_id_ef1ca1ac" formatted="false">"Поиск по ID транзакции…"</string>
+    <string name="l10n_search_transactions_0fa80362" formatted="false">"Поиск транзакций"</string>
     <string name="l10n_searching_for_trezor_ffd94f1d" formatted="false">"Поиск Trezor"</string>
     <string name="l10n_searching_for_your_trezor_f948bb21" formatted="false">"Поиск вашего Trezor…"</string>
     <string name="l10n_security_8f6fb4eb" formatted="false">"Безопасность"</string>
@@ -776,6 +779,7 @@
     <string name="l10n_sent_s_xmr_53edc03c" formatted="false">"Отправлено %1$s XMR"</string>
     <string name="l10n_sent_to_4e7201c7" formatted="false">"Отправлено на"</string>
     <string name="l10n_sent_to_s_of_s_751bb8d7" formatted="false">"Отправлено на (%1$s из %2$s)"</string>
+    <string name="l10n_sent_total_includes_fees_dabd62d7" formatted="false">"Общая сумма отправленного включает комиссии"</string>
     <string name="l10n_sent_transactions_are_up_to_date_32ae215a" formatted="false">"Отправленные транзакции актуальны."</string>
     <string name="l10n_sent_77d771c4" formatted="false">"Отправлено!"</string>
     <string name="l10n_separate_words_with_spaces_7ff3e225" formatted="false">"Разделяйте слова пробелами"</string>
@@ -800,6 +804,7 @@
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"Показать аутентификацию"</string>
     <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"Сначала показывать суммы в фиатной валюте"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"Показать пароль"</string>
+    <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Показать ключ транзакции"</string>
     <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"Разрешить виджетам показывать данные кошелька"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Показан новый адрес, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Показывает код во весь экран. Доступные действия: сохранить в Фото или поделиться"</string>
@@ -908,6 +913,7 @@
     <string name="l10n_transaction_id_copied_efe6a726" formatted="false">"ID транзакции скопирован"</string>
     <string name="l10n_transaction_key_4504bdfb" formatted="false">"Ключ транзакции"</string>
     <string name="l10n_transaction_broadcast_8981f8bd" formatted="false">"Транзакция отправлена в сеть."</string>
+    <string name="l10n_transaction_details_e208c466" formatted="false">"Сведения о транзакции"</string>
     <string name="l10n_transaction_key_unavailable_on_this_device_8d497a79" formatted="false">"Ключ транзакции недоступен на этом устройстве"</string>
     <string name="l10n_transaction_not_found_eb7c4fd4" formatted="false">"Транзакция не найдена"</string>
     <string name="l10n_transactions_are_irreversible_95e5dd6b" formatted="false">"Транзакции необратимы"</string>
@@ -936,8 +942,10 @@
     <string name="l10n_us_dollar_4a60464c" formatted="false">"Доллар США"</string>
     <string name="l10n_ukrainian_hryvnia_d9d4b648" formatted="false">"Украинская гривна"</string>
     <string name="l10n_unable_to_connect_to_node_please_try_a_different_node_i_08cfe01b" formatted="false">"Не удалось подключиться к узлу. Выберите другой узел в Настройках."</string>
+    <string name="l10n_unable_to_create_address_b96d7b52" formatted="false">"Не удалось создать адрес"</string>
     <string name="l10n_unable_to_fetch_price_b1924948" formatted="false">"Цена недоступна"</string>
     <string name="l10n_unable_to_load_chart_0dd141f8" formatted="false">"Не удалось загрузить график"</string>
+    <string name="l10n_unavailable_ca184496" formatted="false">"Недоступно"</string>
     <string name="l10n_unencrypted_d5c28194" formatted="false">"Не зашифровано"</string>
     <string name="l10n_unknown_b764cdc0" formatted="false">"Неизвестно"</string>
     <string name="l10n_unknown_error_27c2ccd9" formatted="false">"Неизвестная ошибка"</string>
@@ -1067,6 +1075,12 @@
         <item quantity="one">"%1$s место"</item>
         <item quantity="other">"%1$s места"</item>
     </plurals>
+    <plurals name="l10n_s_payments_bfee8c12">
+        <item quantity="few">"%1$s платежа"</item>
+        <item quantity="many">"%1$s платежей"</item>
+        <item quantity="one">"%1$s платёж"</item>
+        <item quantity="other">"%1$s платежа"</item>
+    </plurals>
     <plurals name="l10n_s_pending_transactions_b2f1910c">
         <item quantity="few">"%1$s ожидающие транзакции"</item>
         <item quantity="many">"%1$s ожидающих транзакций"</item>
@@ -1090,6 +1104,12 @@
         <item quantity="many">"%1$s транзакций"</item>
         <item quantity="one">"%1$s транзакция"</item>
         <item quantity="other">"%1$s транзакции"</item>
+    </plurals>
+    <plurals name="l10n_s_unused_addresses_in_a_row_a_restore_from_the_seed_fin_aae15758">
+        <item quantity="few">"%1$s неиспользованных адреса подряд. При восстановлении из мнемонической фразы платежи находятся только до 200 после последнего использованного."</item>
+        <item quantity="many">"%1$s неиспользованных адресов подряд. При восстановлении из мнемонической фразы платежи находятся только до 200 после последнего использованного."</item>
+        <item quantity="one">"%1$s неиспользованный адрес подряд. При восстановлении из мнемонической фразы платежи находятся только до 200 после последнего использованного."</item>
+        <item quantity="other">"%1$s неиспользованного адреса подряд. При восстановлении из мнемонической фразы платежи находятся только до 200 после последнего использованного."</item>
     </plurals>
     <plurals name="l10n_s_words_e508145b">
         <item quantity="few">"%1$s слова"</item>
