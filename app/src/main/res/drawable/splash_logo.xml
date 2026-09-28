@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ splash icon, day and night: the glass Monero logo
+     (drawable-nodpi/monero_logo by day, drawable-night-nodpi/monero_logo by
+     night). The splash masks the icon to a circle 2/3 of its canvas (192 dp
+     of 288 dp, or 160 dp of 240 dp with an icon background). The art is the
+     circle iOS shows (the coin on a thin ring of plate in the splash
+     background color), so a 1/6 inset on each side puts that circle on the
+     splash circle and the whole coin, rim and outline, fits inside it. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="16.667%">
+    <bitmap
+        android:src="@drawable/monero_logo"
+        android:mipMap="true" />
+</inset>

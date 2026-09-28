@@ -45,31 +45,44 @@ import androidx.compose.ui.unit.dp
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.MoneroTheme
+import one.monero.moneroone.ui.theme.setSystemNightMode
 
 enum class ThemeOption(
     val title: String,
     val subtitle: String,
     val icon: ImageVector,
-    val nightMode: Int
+    val nightMode: Int,
+    // Value on the Settings > Appearance row, worded as the iOS row.
+    val rowValue: String
 ) {
     SYSTEM(
-        "System Default",
+        "System",
         "Match device settings",
         Icons.Default.PhoneAndroid,
-        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+        "System"
     ),
     LIGHT(
         "Light",
         "Always use light theme",
         Icons.Default.LightMode,
-        AppCompatDelegate.MODE_NIGHT_NO
+        AppCompatDelegate.MODE_NIGHT_NO,
+        "Light"
     ),
     DARK(
         "Dark",
         "Always use dark theme",
         Icons.Default.DarkMode,
-        AppCompatDelegate.MODE_NIGHT_YES
-    )
+        AppCompatDelegate.MODE_NIGHT_YES,
+        "Dark"
+    );
+
+    companion object {
+        // The option for a saved "theme_mode" value. An unknown value follows
+        // the system, as MainActivity does.
+        fun fromNightMode(nightMode: Int): ThemeOption =
+            entries.find { it.nightMode == nightMode } ?: SYSTEM
+    }
 }
 
 @Composable
@@ -81,7 +94,7 @@ fun ThemeScreen(
 
     var selectedTheme by remember {
         val savedMode = prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        mutableStateOf(ThemeOption.entries.find { it.nightMode == savedMode } ?: ThemeOption.SYSTEM)
+        mutableStateOf(ThemeOption.fromNightMode(savedMode))
     }
 
     Column(
@@ -143,6 +156,10 @@ fun ThemeScreen(
                         AppCompatDelegate.setDefaultNightMode(theme.nightMode)
                         // Recreate activity to apply theme immediately
                         (context as? Activity)?.recreate()
+                        // AppCompat never tells the system, so the splash followed
+                        // the phone. Called after recreate(): the system's own
+                        // relaunch for this change then joins the pending one.
+                        setSystemNightMode(context, theme.nightMode)
                     }
                 )
             }

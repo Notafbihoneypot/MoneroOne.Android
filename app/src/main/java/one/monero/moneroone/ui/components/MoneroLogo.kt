@@ -15,29 +15,40 @@ import androidx.compose.ui.unit.dp
 import one.monero.moneroone.R
 
 /**
- * The official flat Monero mark (vector, #FF6600 / #4C4C4C). By day the M is
- * white (drawable/monero_mark); by night it is see-through, so the dark
- * background shows through it (drawable-night/monero_mark). Every logo in
- * the app uses it except the glossy hero art ([MoneroHeroLogo]).
+ * The glass Monero logo (drawable-nodpi/monero_logo by day,
+ * drawable-night-nodpi by night), clipped to a circle. Every logo in the app
+ * uses it.
+ *
+ * The art is the circle iOS shows: the iOS hero art scaled 1.15 and clipped
+ * to a circle, so the coin keeps its rim, bevel and outline on a thin ring of
+ * plate (white by day, black by night). The art is already cropped, so both
+ * modes draw it at scale 1.
  */
 @Composable
 fun MoneroLogo(
     modifier: Modifier = Modifier,
     size: Dp = 48.dp
 ) {
-    Image(
-        painter = painterResource(id = R.drawable.monero_mark),
-        contentDescription = "Monero",
-        modifier = modifier.size(size)
-    )
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.monero_logo),
+            contentDescription = "Monero",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.matchParentSize()
+        )
+    }
 }
 
 /**
  * Glossy hero art from the iOS app (light and night variants, converted to
- * sRGB). Hero use only: Welcome and Add Wallet. Like iOS, the art is scaled
- * 1.15 and clipped to a circle so only the coin shows, not its plate. The
- * art is 1024px in drawable-nodpi, as on iOS, so the 240dp welcome hero
- * stays sharp and decodes at its own size on every screen density.
+ * sRGB). Not in use: Welcome and Add Wallet show the glass [MoneroLogo]. Like
+ * iOS, the art is scaled 1.15 and clipped to a circle so only the coin shows,
+ * not its plate. The art is 1024px in drawable-nodpi, as on iOS, so a 240dp
+ * hero stays sharp and decodes at its own size on every screen density.
  */
 @Composable
 fun MoneroHeroLogo(

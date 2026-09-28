@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Monero brand (monero-one-brand tokens.json color.brand). Compose reads ui/theme. -->
-    <color name="monero_orange">#FFFF6600</color>
-    <!-- Pressed orange; the XML themes use it as colorPrimaryDark. -->
-    <color name="monero_orange_dark">#FFE65C00</color>
+    <!-- Monero brand: the glass logo orange as the phone shows it, as ui/theme
+         MoneroOrangeDay. values-night holds the night value (MoneroOrangeNight).
+         Compose reads ui/theme; widgets and notifications read these. -->
+    <color name="monero_orange">#FFFF7719</color>
+    <!-- 15% brand orange: widget badge and sent-transaction icon fills. -->
+    <color name="monero_orange_tint">#26FF7719</color>
+    <!-- Pressed orange: 90% of each channel of monero_orange, as ui/theme
+         MoneroOrangePressedDay. The XML themes use it as colorPrimaryDark. -->
+    <color name="monero_orange_dark">#FFE66B17</color>
 
     <!-- Status colors (light values; Compose switches light/dark in ui/theme) -->
     <color name="success_green">#FF34C759</color>

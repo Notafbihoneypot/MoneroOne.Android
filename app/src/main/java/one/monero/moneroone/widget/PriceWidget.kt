@@ -51,7 +51,8 @@ class PriceWidget : AppWidgetProvider() {
     }
 
     companion object {
-        private const val ORANGE = 0xFFFF6600.toInt()
+        /** Brand orange for the current night mode (values or values-night monero_orange). */
+        private fun orange(context: Context) = context.getColor(R.color.monero_orange)
         private const val X_LABEL_INSET = 4f
         private const val X_LABEL_GAP = 8f
 
@@ -171,7 +172,7 @@ class PriceWidget : AppWidgetProvider() {
                 val bitmap = if (size == Size.LARGE) {
                     renderFullChart(context, points, data.sparklineEndMs, symbol, 800, 600)
                 } else {
-                    renderSparkline(points, 400, 200)
+                    renderSparkline(context, points, 400, 200)
                 }
                 views.setImageViewBitmap(R.id.price_chart, bitmap)
             }
@@ -295,7 +296,7 @@ class PriceWidget : AppWidgetProvider() {
 
             // Sparkline (line + gradient fill)
             val linePaint = Paint().apply {
-                color = ORANGE
+                color = orange(context)
                 strokeWidth = 4f
                 style = Paint.Style.STROKE
                 isAntiAlias = true
@@ -305,7 +306,7 @@ class PriceWidget : AppWidgetProvider() {
             val fillPaint = Paint().apply {
                 shader = LinearGradient(
                     0f, plotTop, 0f, plotBottom,
-                    (ORANGE and 0x00FFFFFF) or 0x66000000,
+                    (orange(context) and 0x00FFFFFF) or 0x66000000,
                     0x00000000,
                     Shader.TileMode.CLAMP
                 )
@@ -337,7 +338,7 @@ class PriceWidget : AppWidgetProvider() {
             return bitmap
         }
 
-        private fun renderSparkline(points: List<Double>, width: Int, height: Int): Bitmap {
+        private fun renderSparkline(context: Context, points: List<Double>, width: Int, height: Int): Bitmap {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
 
@@ -347,7 +348,7 @@ class PriceWidget : AppWidgetProvider() {
             val padding = range * 0.05
 
             val linePaint = Paint().apply {
-                color = ORANGE
+                color = orange(context)
                 strokeWidth = 4f
                 style = Paint.Style.STROKE
                 isAntiAlias = true
@@ -358,7 +359,7 @@ class PriceWidget : AppWidgetProvider() {
             val fillPaint = Paint().apply {
                 shader = LinearGradient(
                     0f, 0f, 0f, height.toFloat(),
-                    (ORANGE and 0x00FFFFFF) or 0x66000000, // 40% alpha orange
+                    (orange(context) and 0x00FFFFFF) or 0x66000000, // 40% alpha orange
                     0x00000000, // transparent
                     Shader.TileMode.CLAMP
                 )

@@ -22,11 +22,11 @@ import androidx.core.view.WindowCompat
  */
 
 private val LightColorScheme = lightColorScheme(
-    primary = MoneroOrange,
+    primary = MoneroOrangeDay,
     onPrimary = Color.White,
-    primaryContainer = MoneroOrange.copy(alpha = 0.15f).compositeOver(LightBackground),
+    primaryContainer = MoneroOrangeDay.copy(alpha = 0.15f).compositeOver(LightBackground),
     onPrimaryContainer = LightLabel,
-    inversePrimary = MoneroOrange,
+    inversePrimary = MoneroOrangeDay,
     secondary = Gray,
     onSecondary = Color.White,
     secondaryContainer = LightFill,
@@ -61,11 +61,11 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = MoneroOrange,
+    primary = MoneroOrangeNight,
     onPrimary = Color.White,
-    primaryContainer = MoneroOrange.copy(alpha = 0.15f).compositeOver(DarkBackground),
+    primaryContainer = MoneroOrangeNight.copy(alpha = 0.15f).compositeOver(DarkBackground),
     onPrimaryContainer = DarkLabel,
-    inversePrimary = MoneroOrange,
+    inversePrimary = MoneroOrangeNight,
     secondary = Gray,
     onSecondary = Color.White,
     secondaryContainer = DarkFillElevated,

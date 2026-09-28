@@ -2,6 +2,7 @@ package one.monero.moneroone.ui.screens.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -96,6 +97,12 @@ fun SettingsScreen(
 
     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
 
+    // The saved Appearance choice. Settings leaves composition while the
+    // Appearance screen shows, so this read is fresh when the row shows again.
+    val appearance = ThemeOption.fromNightMode(
+        prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -136,7 +143,8 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Default.Brush,
                 title = "Appearance",
-                subtitle = "System default",
+                // TalkBack reads the title and this value as one row.
+                subtitle = appearance.rowValue,
                 onClick = onThemeClick,
                 iconColor = SettingsIndigo,
                 showDivider = false

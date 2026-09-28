@@ -1271,6 +1271,7 @@ private const val SpinnerInnerTrim = 0.4f
 @Composable
 private fun GradientSpinner() {
     val infiniteTransition = rememberInfiniteTransition(label = "spinner")
+    val orange = MoneroOrange  // read in the drawBehind lambdas, which are not composable
 
     val outerRotation by infiniteTransition.animateFloat(
         initialValue = 0f, targetValue = 360f,
@@ -1307,9 +1308,9 @@ private fun GradientSpinner() {
                     drawArc(
                         brush = Brush.sweepGradient(
                             listOf(
-                                MoneroOrange.copy(alpha = 0f),
-                                MoneroOrange,
-                                MoneroOrange.copy(alpha = 0f)
+                                orange.copy(alpha = 0f),
+                                orange,
+                                orange.copy(alpha = 0f)
                             )
                         ),
                         startAngle = 0f,
@@ -1329,9 +1330,9 @@ private fun GradientSpinner() {
                     drawArc(
                         brush = Brush.sweepGradient(
                             listOf(
-                                MoneroOrange.copy(alpha = 0f),
-                                MoneroOrange.copy(alpha = 0.6f),
-                                MoneroOrange.copy(alpha = 0f)
+                                orange.copy(alpha = 0f),
+                                orange.copy(alpha = 0.6f),
+                                orange.copy(alpha = 0f)
                             )
                         ),
                         startAngle = 0f,

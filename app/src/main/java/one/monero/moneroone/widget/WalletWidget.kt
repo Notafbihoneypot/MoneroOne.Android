@@ -58,12 +58,15 @@ class WalletWidget : AppWidgetProvider() {
             views.setViewVisibility(R.id.wallet_fiat, View.GONE)
             views.setViewVisibility(R.id.wallet_fiat_dot, View.GONE)
 
+            // Brand orange for the current night mode (values or values-night monero_orange).
+            val brandOrange = context.getColor(R.color.monero_orange)
+
             // Sync status (matches iOS: synced=green, syncing/connecting=brand, offline=gray)
             val status = WidgetDataStore.getSyncStatus(context)
             val (statusText, statusColor) = when (status) {
                 "synced" -> "● Synced" to 0xFF34C759.toInt()
-                "syncing" -> "● Syncing" to 0xFFFF6600.toInt()
-                "connecting" -> "● Connecting" to 0xFFFF6600.toInt()
+                "syncing" -> "● Syncing" to brandOrange
+                "connecting" -> "● Connecting" to brandOrange
                 else -> "● Offline" to 0xFF8E8E93.toInt()
             }
             views.setTextViewText(R.id.wallet_sync_status, statusText)
@@ -106,7 +109,7 @@ class WalletWidget : AppWidgetProvider() {
 
                     val iconBg = if (tx.isIncoming) R.drawable.widget_tx_icon_green else R.drawable.widget_tx_icon_orange
                     val iconRes = if (tx.isIncoming) R.drawable.ic_widget_arrow_down else R.drawable.ic_widget_arrow_up
-                    val iconColor = if (tx.isIncoming) 0xFF34C759.toInt() else 0xFFFF6600.toInt()
+                    val iconColor = if (tx.isIncoming) 0xFF34C759.toInt() else brandOrange
                     views.setInt(row.iconId, "setBackgroundResource", iconBg)
                     views.setImageViewResource(row.iconId, iconRes)
                     views.setInt(row.iconId, "setColorFilter", iconColor)

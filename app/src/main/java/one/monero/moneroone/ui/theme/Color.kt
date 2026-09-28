@@ -12,17 +12,36 @@ import androidx.compose.ui.graphics.Color
  * colors switch between their light and dark values like iOS system colors do.
  */
 
-// Brand: the one action color, #FF6600 in light and dark.
-val MoneroOrange = Color(0xFFFF6600)
+// Brand: the orange of the glass Monero logo as the phone shows it (median of
+// its orange pixels after the Display P3 art is converted to the sRGB window).
+// The night art is darker, so the brand orange follows the mode like
+// drawable-night-nodpi/monero_logo does. XML twin: @color/monero_orange.
+val MoneroOrangeDay = Color(0xFFFF7719)
+val MoneroOrangeNight = Color(0xFFED6002)
 
-/** Pressed fill of a prominent (filled) button. */
-val MoneroOrangePressed = Color(0xFFE65C00)
+/** True inside a dark [MoneroOneTheme]. The brand and semantic colors read it. */
+val LocalDarkTheme = staticCompositionLocalOf { false }
+
+/** The one action color: [MoneroOrangeDay] or [MoneroOrangeNight] for the current theme. */
+val MoneroOrange: Color
+    @Composable @ReadOnlyComposable
+    get() = if (LocalDarkTheme.current) MoneroOrangeNight else MoneroOrangeDay
+
+// Pressed fill of a prominent (filled) button: 90% of each channel of the mode
+// orange, the rule of the old pair (#FF6600 x 0.9 = #E65C00).
+// XML twin: @color/monero_orange_dark.
+val MoneroOrangePressedDay = Color(0xFFE66B17)
+val MoneroOrangePressedNight = Color(0xFFD55602)
+
+/** Pressed fill of a prominent (filled) button, for the current theme. */
+val MoneroOrangePressed: Color
+    @Composable @ReadOnlyComposable
+    get() = if (LocalDarkTheme.current) MoneroOrangePressedNight else MoneroOrangePressedDay
 
 /** Pending and in-flight states (connecting, syncing, 0-9 confirmations) use the brand orange. */
-val PendingOrange = MoneroOrange
-
-/** True inside a dark [MoneroOneTheme]. The semantic colors below read it. */
-val LocalDarkTheme = staticCompositionLocalOf { false }
+val PendingOrange: Color
+    @Composable @ReadOnlyComposable
+    get() = MoneroOrange
 
 // Semantic light / dark values (tokens.json color.semantic and color.tiles).
 internal val GreenLight = Color(0xFF34C759)
@@ -148,7 +167,7 @@ data class MoneroColors(
 )
 
 internal val LightMoneroColors = MoneroColors(
-    brand = MoneroOrange,
+    brand = MoneroOrangeDay,
     bgGrouped = LightGroupedBackground,
     labelTertiary = LightLabelTertiary,
     fill = LightFill,
@@ -161,7 +180,7 @@ internal val LightMoneroColors = MoneroColors(
 )
 
 internal val DarkMoneroColors = MoneroColors(
-    brand = MoneroOrange,
+    brand = MoneroOrangeNight,
     bgGrouped = DarkGroupedBackground,
     labelTertiary = DarkLabelTertiary,
     fill = DarkFill,

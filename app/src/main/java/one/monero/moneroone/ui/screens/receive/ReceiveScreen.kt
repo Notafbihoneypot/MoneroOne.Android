@@ -88,6 +88,7 @@ import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.truncateMiddle
+import one.monero.moneroone.ui.theme.withNightMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -499,8 +500,9 @@ private fun addMoneroLogoOverlay(qrBitmap: Bitmap, context: Context): Bitmap {
     }
     canvas.drawCircle(cx, cy, radius + 4f, bgPaint)
 
-    // Draw logo into a circle-clipped bitmap
-    val logoDrawable = ContextCompat.getDrawable(context, R.drawable.monero_mark) ?: return result
+    // Draw logo into a circle-clipped bitmap. The disc is white in both modes,
+    // so take the day art (its plate is white; the night plate is black).
+    val logoDrawable = ContextCompat.getDrawable(context.withNightMode(false), R.drawable.monero_logo) ?: return result
     val clipped = Bitmap.createBitmap(logoSize, logoSize, Bitmap.Config.ARGB_8888)
     val clipCanvas = android.graphics.Canvas(clipped)
 

@@ -67,6 +67,7 @@ import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.SuccessGreen
+import one.monero.moneroone.ui.theme.withNightMode
 
 private const val DONATION_ADDRESS = "86AWuSFkMKCNp4e7dWho3CBvFpvAzj8hnZNWM9fedD5LKb2mXVfnmH9XuDD9zYqzzR6LAFxUSsdGTVUDABzcgjMfFVfBHpP"
 private const val SUGGESTED_DONATION_AMOUNT = "0.25"
@@ -300,8 +301,9 @@ private fun addMoneroLogoOverlay(qrBitmap: Bitmap, context: Context): Bitmap {
     }
     canvas.drawCircle(centerX, centerY, logoSize / 2f + 4f, bgPaint)
 
-    // Render slightly larger than clip to cover corner padding, then circle-clip
-    val logoDrawable = ContextCompat.getDrawable(context, R.drawable.monero_mark) ?: return result
+    // Render slightly larger than clip to cover corner padding, then circle-clip.
+    // The disc is white in both modes, so take the day art (white plate).
+    val logoDrawable = ContextCompat.getDrawable(context.withNightMode(false), R.drawable.monero_logo) ?: return result
     val imgSize = (logoSize * 1.03f).toInt()
     val logoBitmap = logoDrawable.toBitmap(imgSize, imgSize, Bitmap.Config.ARGB_8888)
 

@@ -116,6 +116,7 @@ fun SampledLineChart(
 
     val gridColor = MoneroTheme.colors.separator
     val indicatorColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+    val orange = MoneroOrange  // read in the draw lambdas, which are not composable
     // Remembered, so a recomposition keeps the cached line instead of
     // rebuilding it for a new instance.
     val ring = MaterialTheme.colorScheme.surfaceContainer
@@ -269,7 +270,7 @@ fun SampledLineChart(
                     layout.points.lastOrNull()?.let { area.lineTo(layout.xOf(it.timestamp, plot), plot.bottom) }
                     area.close()
                     val fill = Brush.verticalGradient(
-                        colors = listOf(MoneroOrange.copy(alpha = 0.4f), MoneroOrange.copy(alpha = 0f)),
+                        colors = listOf(orange.copy(alpha = 0.4f), orange.copy(alpha = 0f)),
                         startY = plot.top,
                         endY = plot.bottom
                     )
@@ -279,7 +280,7 @@ fun SampledLineChart(
                     onDrawBehind {
                         layout.drawGrid(this, plot, gridColor)
                         drawPath(area, fill)
-                        drawPath(line, MoneroOrange, style = stroke)
+                        drawPath(line, orange, style = stroke)
                         layout.drawLabels(this, plot, gap)
                         for (marker in layout.markers) {
                             val center = Offset(layout.xOf(marker.timestamp, plot), layout.yOf(marker.value, plot))
@@ -307,7 +308,7 @@ fun SampledLineChart(
                         drawCircle(badge.tint(marker.style).copy(alpha = 0.15f), SELECTED_HALO_RADIUS.toPx(), Offset(x, y))
                         drawBadge(Offset(x, y), marker.style, badge, scale = SELECTED_BADGE_SCALE)
                     } else {
-                        drawCircle(MoneroOrange, DOT_RADIUS.toPx(), Offset(x, y))
+                        drawCircle(orange, DOT_RADIUS.toPx(), Offset(x, y))
                     }
                 }
         )

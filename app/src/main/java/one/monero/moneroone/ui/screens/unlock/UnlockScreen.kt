@@ -13,15 +13,20 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Fingerprint
@@ -58,15 +63,23 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import one.monero.moneroone.R
 import one.monero.moneroone.core.wallet.WalletViewModel
+import one.monero.moneroone.ui.components.AnimatedMoneroLogo
 import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.KeypadKey
-import one.monero.moneroone.ui.components.MoneroLogo
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.MoneroTheme
 
 private const val PIN_LENGTH = 6
+
+/**
+ * Height inside the status and navigation bars under which the unlock screen
+ * takes the iOS squat layout. The tall layout needs about 754 dp (the 138 dp
+ * logo box, the 356 dp number pad, the title, the dots and the gaps), so a
+ * 360x740 or 360x800 phone gets the squat layout and does not scroll.
+ */
+private val UnlockSquatHeight = 760.dp
 
 @Composable
 fun UnlockScreen(
@@ -198,86 +211,103 @@ fun UnlockScreen(
         }
     }
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .systemBarsPadding()
     ) {
-        Spacer(modifier = Modifier.weight(0.5f))
-
-        // Monero logo
-        MoneroLogo(size = 80.dp)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Monero One",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        // PIN dots
-        PinDots(
-            enteredLength = pin.length,
-            totalLength = PIN_LENGTH
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Lockout countdown
-        if (isLockedOut) {
-            Text(
-                text = "Too many attempts. Try again in ${lockoutSeconds}s",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ErrorRed
-            )
-        }
-
-        // Error message
-        AnimatedVisibility(
-            visible = errorMessage != null && !isLockedOut,
-            enter = fadeIn(),
-            exit = fadeOut()
+        // iOS UnlockView: a 120 logo and 32 between the stack items. Squat
+        // (iPhone SE, a 360x740 phone): an 88 logo, 20 between the items and
+        // 16 around the column (iOS .padding()).
+        val squat = maxHeight < UnlockSquatHeight
+        val logoSize = if (squat) 88.dp else 120.dp
+        val stackGap = if (squat) 20.dp else 32.dp
+        val scroll = rememberScrollState()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                // Fills the space inside the system bars; scrolls only when
+                // even the squat layout does not fit (landscape, large text).
+                .verticalScroll(scroll, enabled = scroll.maxValue > 0)
+                .heightIn(min = maxHeight)
+                .padding(horizontal = 24.dp, vertical = if (squat) 16.dp else 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.weight(0.5f))
+
+            // Monero logo: the iOS hero logo, with its float, glow and shine
+            AnimatedMoneroLogo(size = logoSize)
+
+            Spacer(modifier = Modifier.height(stackGap))
+
             Text(
-                text = errorMessage ?: "",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ErrorRed
+                text = "Monero One",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
             )
-        }
 
-        // Attempts remaining warning
-        if (attemptsRemaining in 1..10) {
-            Text(
-                text = "$attemptsRemaining attempts remaining before wallet wipe",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Spacer(modifier = Modifier.height(if (squat) stackGap else 48.dp))
+
+            // PIN dots
+            PinDots(
+                enteredLength = pin.length,
+                totalLength = PIN_LENGTH
             )
-        }
 
-        Spacer(modifier = Modifier.weight(0.5f))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Number pad
-        NumberPad(
-            onDigitPress = ::onDigitPress,
-            onBackspace = ::onBackspace,
-            onBiometric = if (biometricAvailable) ::showBiometricPrompt else null
-        )
+            // Lockout countdown
+            if (isLockedOut) {
+                Text(
+                    text = "Too many attempts. Try again in ${lockoutSeconds}s",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ErrorRed
+                )
+            }
 
-        TextButton(onClick = { showResetDialog = true }) {
-            Text(
-                text = "Forgot PIN?",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Error message
+            AnimatedVisibility(
+                visible = errorMessage != null && !isLockedOut,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Text(
+                    text = errorMessage ?: "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = ErrorRed
+                )
+            }
+
+            // Attempts remaining warning
+            if (attemptsRemaining in 1..10) {
+                Text(
+                    text = "$attemptsRemaining attempts remaining before wallet wipe",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(0.5f))
+
+            // Number pad
+            NumberPad(
+                onDigitPress = ::onDigitPress,
+                onBackspace = ::onBackspace,
+                onBiometric = if (biometricAvailable) ::showBiometricPrompt else null
             )
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            TextButton(onClick = { showResetDialog = true }) {
+                Text(
+                    text = "Forgot PIN?",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 
     if (showResetDialog) {

@@ -22,15 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import one.monero.moneroone.ui.components.MoneroHeroLogo
+import one.monero.moneroone.ui.components.AnimatedMoneroLogo
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ProminentButton
-
-/**
- * Windows shorter than this, system bars included, are squat (iOS
- * SquatScreenModifier: 720pt, true on the iPhone SE and in landscape).
- */
-private val SquatHeight = 720.dp
+import one.monero.moneroone.ui.components.SquatHeight
 
 @Composable
 fun WelcomeScreen(
@@ -56,11 +51,9 @@ fun WelcomeScreen(
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            // Hero art: the glossy render, white tile and white M by day, dark
-            // tile and dark M by night. It stands still here: the tokens.json
-            // motion.hero entrance, float and glow are not on Android yet
-            // (BRAND-GUIDE.md §10).
-            MoneroHeroLogo(size = heroSize)
+            // Hero: the glass Monero logo with the iOS entrance, float, glow
+            // and shine (tokens.json motion.hero), as on iOS WelcomeView.
+            AnimatedMoneroLogo(size = heroSize)
 
             Spacer(modifier = Modifier.height(32.dp))
 

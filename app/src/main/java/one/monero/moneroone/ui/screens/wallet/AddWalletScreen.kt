@@ -27,7 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.components.AddWalletFlowEffect
-import one.monero.moneroone.ui.components.MoneroHeroLogo
+import one.monero.moneroone.ui.components.MoneroLogo
 import one.monero.moneroone.ui.components.PrimaryButton
 
 /**
@@ -66,7 +66,7 @@ fun AddWalletScreen(
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            MoneroHeroLogo(size = 120.dp)
+            MoneroLogo(size = 120.dp)
 
             Spacer(modifier = Modifier.height(24.dp))
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night brand orange: the night glass logo
+         (drawable-night-nodpi/monero_logo) is darker, so the brand orange is
+         too. Same as ui/theme MoneroOrangeNight. -->
+    <color name="monero_orange">#FFED6002</color>
+    <color name="monero_orange_tint">#26ED6002</color>
+    <!-- Night pressed orange, as ui/theme MoneroOrangePressedNight. -->
+    <color name="monero_orange_dark">#FFD55602</color>
+</resources>

@@ -9,13 +9,16 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import androidx.core.content.ContextCompat
 import one.monero.moneroone.R
+import one.monero.moneroone.ui.theme.withNightMode
 
 object WidgetUtils {
     fun getCircularLogo(context: Context, sizeDp: Int): Bitmap {
         val density = context.resources.displayMetrics.density
         val sizePx = (sizeDp * density).toInt()
 
-        val drawable = ContextCompat.getDrawable(context, R.drawable.monero_mark) ?: return Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        // The widgets are dark in both modes (#1C1C1E), so take the night art
+        // (black plate). The day art would put a white ring round the coin.
+        val drawable = ContextCompat.getDrawable(context.withNightMode(true), R.drawable.monero_logo) ?: return Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
 
         // Draw source bitmap
         val src = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)

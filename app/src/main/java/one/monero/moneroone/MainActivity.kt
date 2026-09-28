@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import one.monero.moneroone.ui.navigation.MoneroOneNavHost
 import one.monero.moneroone.ui.theme.MoneroOneTheme
+import one.monero.moneroone.ui.theme.setSystemNightMode
 
 class MainActivity : AppCompatActivity() {
 
@@ -33,6 +34,8 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("monero_wallet", Context.MODE_PRIVATE)
         val themeMode = prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         AppCompatDelegate.setDefaultNightMode(themeMode)
+        // AppCompat never tells the system, so the splash followed the phone.
+        setSystemNightMode(this, themeMode)
 
         enableEdgeToEdge()
 
