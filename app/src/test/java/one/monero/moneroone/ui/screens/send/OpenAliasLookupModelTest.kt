@@ -97,22 +97,47 @@ class OpenAliasLookupModelTest {
     }
 
     @Test
-    fun aRedRowStaysWhileTheTextIsStillInvalid() {
+    fun aRedRowStaysWhileTheTextIsStillAnInvalidAddress() {
         model.onInputChanged("donate", immediate = true)
         model.onInputChanged("donatex", immediate = false)
         assertEquals(LookupStatus.Address("donate", valid = false), model.status)
-        model.onInputChanged("donatex@", immediate = false)
+        model.onInputChanged("donatexy", immediate = false)
         assertEquals(LookupStatus.Address("donate", valid = false), model.status)
         pauses.end()
         // Changed in place after the pause.
+        assertEquals(LookupStatus.Address("donatexy", valid = false), model.status)
+    }
+
+    @Test
+    fun aRedRowGoesAtOnceWhenAnInvalidAddressBecomesAnInvalidName() {
+        model.onInputChanged("donate", immediate = true)
+        model.onInputChanged("donate@", immediate = false)
+        // "Invalid address" goes at once: the name row never shows with it.
+        assertEquals(LookupStatus.Idle, model.status)
+        pauses.end()
         assertEquals(LookupStatus.Rejected(reserved = false), model.status)
     }
 
     @Test
-    fun aRedRowGoesAtOnceWhenTheTextBecomesAName() {
-        model.onInputChanged("donate", immediate = true)
-        model.onInputChanged("donate@", immediate = false)
+    fun aRedRowGoesAtOnceWhenAnInvalidNameBecomesAnInvalidAddress() {
+        model.onInputChanged("donate@", immediate = true)
+        assertEquals(LookupStatus.Rejected(reserved = false), model.status)
+        model.onInputChanged("donate", immediate = false)
+        assertEquals(LookupStatus.Idle, model.status)
+        pauses.end()
         assertEquals(LookupStatus.Address("donate", valid = false), model.status)
+
+        // The reserved row is a name row too.
+        model.onInputChanged("@joe", immediate = true)
+        assertEquals(LookupStatus.Rejected(reserved = true), model.status)
+        model.onInputChanged("joe", immediate = false)
+        assertEquals(LookupStatus.Idle, model.status)
+    }
+
+    @Test
+    fun aRedRowGoesAtOnceWhenTheTextBecomesAName() {
+        model.onInputChanged("donate@", immediate = true)
+        assertEquals(LookupStatus.Rejected(reserved = false), model.status)
         model.onInputChanged("donate@ge", immediate = false)
         assertEquals(LookupStatus.Idle, model.status)
         type("donate@getmonero.org")

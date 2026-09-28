@@ -1,6 +1,7 @@
 package one.monero.moneroone.ui.screens.send
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -8,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,7 +49,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import io.horizontalsystems.monerokit.model.NetworkType
 import io.horizontalsystems.monerokit.model.Wallet
@@ -143,18 +145,18 @@ internal class OpenAliasLookupModel(
                 val key = "name:" + name.query
                 // Same query name (a space added, other case): keep the state, with the new text.
                 if (key == activeKey) status = status.withName(name)
-                settle(key, immediate, invalid = false) { start(name) }
+                settle(key, immediate, redRow = null) { start(name) }
             }
             is RecipientInput.Address -> {
                 val valid = isValidAddress(input.text)
-                settle("address:" + input.text, immediate, invalid = !valid) {
+                settle("address:" + input.text, immediate, redRow = if (valid) null else RedRow.ADDRESS) {
                     status = LookupStatus.Address(input.text, valid)
                 }
             }
-            RecipientInput.Reserved -> settle("reserved:" + text.trim(), immediate, invalid = true) {
+            RecipientInput.Reserved -> settle("reserved:" + text.trim(), immediate, redRow = RedRow.NAME) {
                 status = LookupStatus.Rejected(reserved = true)
             }
-            RecipientInput.InvalidName -> settle("invalid:" + text.trim(), immediate, invalid = true) {
+            RecipientInput.InvalidName -> settle("invalid:" + text.trim(), immediate, redRow = RedRow.NAME) {
                 status = LookupStatus.Rejected(reserved = false)
             }
         }
@@ -177,9 +179,9 @@ internal class OpenAliasLookupModel(
 
     /**
      * Runs [action] after the typing delay, or at once when [immediate].
-     * [invalid]: the new text gets a red row too.
+     * [redRow]: the red row that the new text gets, if any.
      */
-    private fun settle(key: String, immediate: Boolean, invalid: Boolean, action: () -> Unit) {
+    private fun settle(key: String, immediate: Boolean, redRow: RedRow?, action: () -> Unit) {
         if (key == activeKey) {
             // The same text: keep the current state.
             when {
@@ -198,15 +200,22 @@ internal class OpenAliasLookupModel(
         }
         stopWork()
         activeKey = key
-        // A red row stays on screen while the text is still invalid; the
-        // action then changes it in place. Other rows go at once.
-        if (!(invalid && status.isRedRow)) status = LookupStatus.Idle
+        // A red row stays on screen while the new text gets the same red row;
+        // the action then changes it in place. Other rows go at once, so the
+        // address row and the name row never show together.
+        if (redRow == null || status.redRow != redRow) status = LookupStatus.Idle
         if (immediate) action() else schedule(action)
     }
 
-    /** "Invalid address", "Invalid name" or the reserved-name row. */
-    private val LookupStatus.isRedRow: Boolean
-        get() = (this is LookupStatus.Address && !valid) || this is LookupStatus.Rejected
+    /** The red rows: "Invalid address" in the address row; "Invalid name" or the reserved row in the name row. */
+    private enum class RedRow { ADDRESS, NAME }
+
+    private val LookupStatus.redRow: RedRow?
+        get() = when {
+            this is LookupStatus.Address && !valid -> RedRow.ADDRESS
+            this is LookupStatus.Rejected -> RedRow.NAME
+            else -> null
+        }
 
     private fun stopWork() {
         generation++
@@ -321,7 +330,9 @@ internal fun OpenAliasStatusRow(status: LookupStatus, onRetry: () -> Unit) {
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(openAliasFadeSpec),
-        exit = fadeOut(openAliasFadeSpec)
+        // When the address row takes this place, this row goes at once, so
+        // the two never show together (as on iOS).
+        exit = if (status is LookupStatus.Address) ExitTransition.None else fadeOut(openAliasFadeSpec)
     ) {
         val shown = last[0] ?: return@AnimatedVisibility
         StatusRowContent(shown, onRetry)
@@ -555,17 +566,49 @@ internal fun openAliasRecipientSemantics(summary: OpenAliasSummary?, address: St
     return Modifier.clearAndSetSemantics { contentDescription = label }
 }
 
+/**
+ * The review name, shortened to fit one line: only the part before "@" loses
+ * letters (from its end, with an ellipsis). "@domain" is the part to check,
+ * so it always stays whole. [fits] tells whether a text fits on the line.
+ * A name without "@" is all domain, so it comes back whole.
+ */
+internal fun shortenReviewName(display: String, fits: (String) -> Boolean): String {
+    if (fits(display)) return display
+    val at = display.indexOf('@')
+    if (at <= 0) return display
+    val local = display.substring(0, at)
+    val domain = display.substring(at)
+    // The longest start of the local part that fits; one letter at least.
+    var shortest = 1
+    var longest = local.length - 1
+    var best = 1
+    while (shortest <= longest) {
+        val count = (shortest + longest) / 2
+        if (fits(local.take(count) + "\u2026" + domain)) {
+            best = count
+            shortest = count + 1
+        } else {
+            longest = count - 1
+        }
+    }
+    return local.take(best) + "\u2026" + domain
+}
+
 @Composable
 internal fun OpenAliasReviewName(summary: OpenAliasSummary) {
-    // One line, as on iOS. iOS truncates in the middle; Compose 1.7 has no
-    // middle ellipsis, so the end of a long name is cut.
-    Text(
-        text = summary.name.display,
-        style = MaterialTheme.typography.bodyMedium,
-        fontWeight = FontWeight.Medium,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
-    )
+    // One line, as on iOS, with the domain always whole (see shortenReviewName).
+    // A text that still does not fit wraps, so the domain is never cut.
+    val style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints {
+        val width = constraints.maxWidth
+        val text = remember(summary.name.display, width, style) {
+            shortenReviewName(summary.name.display) { candidate ->
+                measurer.measure(candidate, style, softWrap = false, maxLines = 1).size.width <= width
+            }
+        }
+        Text(text = text, style = style)
+    }
 }
 
 /** Under the review recipient row: the DNSSEC line, and the first-payment note. */

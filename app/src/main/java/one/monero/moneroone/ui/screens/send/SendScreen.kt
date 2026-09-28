@@ -5,6 +5,7 @@ import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -1665,7 +1666,10 @@ private fun AddressCheckRow(valid: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-/** The address row fades in and out, as on iOS. */
+/**
+ * The address row fades in and out, as on iOS. When the name row takes its
+ * place, it goes at once, so the two never show together.
+ */
 @Composable
 private fun AddressCheckSlot(status: LookupStatus) {
     val checked = status as? LookupStatus.Address
@@ -1675,7 +1679,7 @@ private fun AddressCheckSlot(status: LookupStatus) {
     AnimatedVisibility(
         visible = checked != null,
         enter = fadeIn(openAliasFadeSpec),
-        exit = fadeOut(openAliasFadeSpec)
+        exit = if (status is LookupStatus.Idle) fadeOut(openAliasFadeSpec) else ExitTransition.None
     ) {
         last[0]?.let { AddressCheckRow(valid = it.valid) }
     }
