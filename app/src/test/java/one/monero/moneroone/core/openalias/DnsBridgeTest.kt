@@ -281,6 +281,78 @@ class DnsBridgeTest {
         assertTrue(client.isClosedByPeer())
     }
 
+    /** [query] with an EDNS OPT record: 4096-byte size, DO bit on. */
+    private fun withEdns(query: ByteArray): ByteArray {
+        val out = query.copyOf()
+        out[11] = 1 // ARCOUNT 1
+        return out + byteArrayOf(0, 0, 41, 0x10, 0, 0, 0, 0x80.toByte(), 0, 0, 0)
+    }
+
+    /** The frame libunbound 1.16.1 sometimes sends: the query with its ID written over its flags. */
+    private fun idOverFlags(query: ByteArray): ByteArray =
+        query.copyOfRange(0, 2) + query.copyOfRange(4, query.size)
+
+    @Test
+    fun wellFormedQueries() {
+        val q = query(3, "donate.getmonero.org")
+        assertTrue(DnsBridge.isWellFormedQuery(q))
+        assertTrue(DnsBridge.isWellFormedQuery(withEdns(q)))
+        assertFalse(DnsBridge.isWellFormedQuery(idOverFlags(q)))
+        assertFalse(DnsBridge.isWellFormedQuery(idOverFlags(withEdns(q))))
+        assertFalse(DnsBridge.isWellFormedQuery(goodReply(q).body)) // QR on
+        assertFalse(DnsBridge.isWellFormedQuery(q.copyOf().also { it[5] = 2 })) // two questions
+        assertFalse(DnsBridge.isWellFormedQuery(q + byteArrayOf(0))) // a byte left over
+        assertFalse(DnsBridge.isWellFormedQuery(q.copyOf(q.size - 1))) // cut short
+    }
+
+    @Test
+    fun aMalformedFrameGetsServfailAndNeverGoesUpstream() {
+        val transport = FakeTransport { _, q -> goodReply(q) }
+        val (bridge, port) = startBridge(transport)
+        val client = connect(port)
+        val bad = idOverFlags(query(0x4CA2, "_ta-4f66-9728"))
+        client.send(bad)
+        val reply = client.receive()
+        assertEquals(0x4CA2, id(reply))
+        assertEquals(2, reply[3].toInt() and 0x0F) // SERVFAIL, never NOTIMPL or FORMERR
+        assertEquals(0, transport.calls.size)
+        assertEquals(1, bridge.synthesizedCount)
+
+        // The bridge is not down: the next query goes out.
+        val good = withEdns(query(9, "org"))
+        client.send(good)
+        assertEquals(9, id(client.receive()))
+        assertEquals(1, transport.calls.size)
+        assertEquals(1, bridge.answeredCount)
+    }
+
+    @Test
+    fun formerrAndNotimplAreNeverPassedOn() {
+        for (rcode in listOf(1, 4)) {
+            val refused = { q: ByteArray ->
+                goodReply(q).let { DohReply(it.status, it.contentType, it.body.also { b -> b[3] = rcode.toByte() }) }
+            }
+            // One server: the next server answers.
+            val oneBad = FakeTransport { server, q -> if (server == "s1") refused(q) else goodReply(q) }
+            val (bridge, port) = startBridge(oneBad)
+            val client = connect(port)
+            client.send(withEdns(query(10, "org")))
+            val reply = client.receive()
+            assertEquals(0, reply[3].toInt() and 0x0F)
+            assertEquals(listOf("s1", "s2"), oneBad.calls.map { it.server })
+            assertEquals(1, bridge.answeredCount)
+
+            // Every server: a SERVFAIL made up by the bridge.
+            val allBad = FakeTransport { _, q -> refused(q) }
+            val (bridge2, port2) = startBridge(allBad)
+            val client2 = connect(port2)
+            val q = withEdns(query(11, "org"))
+            client2.send(q)
+            assertEquals(2, client2.receive()[3].toInt() and 0x0F)
+            assertEquals(1, bridge2.synthesizedCount)
+        }
+    }
+
     @Test
     fun servfailFlagsAndUnparsableQuestion() {
         val q = query(0xABCD, "a.example.com")

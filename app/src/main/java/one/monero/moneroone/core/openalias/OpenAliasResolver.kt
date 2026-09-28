@@ -70,6 +70,8 @@ class DnsBridge(
     private val transport: DohTransport,
     private val servers: List<String> = OpenAliasConfig.DOH_SERVERS,
     private val queryCap: Int = OpenAliasConfig.QUERY_CAP,
+    /** Debug builds only: one line per query and per upstream try. Null in release builds. */
+    private val trace: ((String) -> Unit)? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, _ -> })
     private val sockets: MutableSet<Socket> = ConcurrentHashMap.newKeySet()
@@ -78,6 +80,8 @@ class DnsBridge(
     private val synthesized = AtomicInteger()
     private val preferred = AtomicInteger()
     private val stopped = AtomicBoolean(false)
+    private val connections = AtomicInteger()
+    private val createdAt = System.nanoTime()
 
     @Volatile private var down = false
     @Volatile private var listener: ServerSocket? = null
@@ -120,11 +124,13 @@ class DnsBridge(
                 closeQuietly(socket)
                 return
             }
-            scope.launch { serve(socket) }
+            val connection = connections.incrementAndGet()
+            trace?.invoke("${since()} conn $connection open")
+            scope.launch { serve(socket, connection) }
         }
     }
 
-    private suspend fun serve(socket: Socket) {
+    private suspend fun serve(socket: Socket, connection: Int) {
         val writeLock = Any()
         val inFlight = mutableListOf<Job>()
         var peerDone = false
@@ -141,20 +147,23 @@ class DnsBridge(
                 val query = ByteArray(length)
                 input.readFully(query)
                 inFlight += scope.launch {
-                    val reply = answer(query)
+                    val reply = answer(query, connection)
                     synchronized(writeLock) {
                         try {
                             output.write(frame(reply))
                             output.flush()
                         } catch (e: IOException) {
                             // The connection is gone.
+                            trace?.invoke("${since()} conn $connection reply lost: ${e.javaClass.simpleName}")
                         }
                     }
                 }
             }
         } catch (e: IOException) {
             // Reset, or closed by stop().
+            trace?.invoke("${since()} conn $connection read ended: ${e.javaClass.simpleName}")
         }
+        trace?.invoke("${since()} conn $connection closed (peer end of stream: $peerDone, in flight: ${inFlight.count { it.isActive }})")
         try {
             // After the peer's end of stream, let the answers in flight go out.
             if (peerDone) inFlight.joinAll()
@@ -173,8 +182,27 @@ class DnsBridge(
         return (high shl 8) or low
     }
 
-    internal fun answer(query: ByteArray): ByteArray {
-        if (queryTotal.incrementAndGet() > queryCap || down || stopped.get()) return synthesize(query)
+    internal fun answer(query: ByteArray, connection: Int = 0): ByteArray {
+        val number = queryTotal.incrementAndGet()
+        val label = if (trace != null) {
+            val question = DnsDebug.question(query)
+            val raw = if (question.startsWith("(")) " query hex ${DnsDebug.hex(query)}" else ""
+            "#$number conn $connection $question (${DnsDebug.queryBits(query)})$raw"
+        } else {
+            ""
+        }
+        if (number > queryCap || down || stopped.get()) {
+            trace?.invoke("${since()} $label made up: cap ${number > queryCap}, down $down, stopped ${stopped.get()}")
+            return synthesize(query)
+        }
+        if (!isWellFormedQuery(query)) {
+            // Never sent upstream: a DoH server answers such a frame with NOTIMPL or
+            // FORMERR, and libunbound then stops sending EDNS to the bridge for the
+            // rest of the lookup. Without EDNS the answers carry no signatures, and
+            // the lookup fails as a DNSSEC failure. A SERVFAIL fails only this query.
+            trace?.invoke("${since()} $label made up: not one well-formed query")
+            return synthesize(query)
+        }
         val copy = query.copyOf()
         copy[0] = 0
         copy[1] = 0
@@ -182,12 +210,26 @@ class DnsBridge(
         for (step in servers.indices) {
             if (stopped.get()) break
             val index = (first + step) % servers.size
+            val postedAt = System.nanoTime()
+            var error: Exception? = null
             val reply = try {
                 transport.post(servers[index], copy)
             } catch (e: Exception) {
+                error = e
                 null
             }
-            if (reply != null && isGoodReply(reply)) {
+            val good = reply != null && isGoodReply(reply)
+            if (trace != null) {
+                val ms = (System.nanoTime() - postedAt) / 1_000_000
+                val result = if (reply == null) {
+                    "error ${error?.javaClass?.simpleName}: ${error?.message}"
+                } else {
+                    val text = DnsDebug.describe(reply.body)
+                    "http ${reply.status} $text" + if (text.startsWith("(")) " reply hex ${DnsDebug.hex(reply.body)}" else ""
+                }
+                trace.invoke("${since()} $label via ${DnsDebug.host(servers[index])}: $result in $ms ms, good $good")
+            }
+            if (reply != null && good) {
                 preferred.set(index)
                 answered.incrementAndGet()
                 val body = reply.body.copyOf()
@@ -197,8 +239,12 @@ class DnsBridge(
             }
         }
         down = true
+        trace?.invoke("${since()} $label made up: every server failed")
         return synthesize(query)
     }
+
+    /** The time since this bridge was made, for the trace. */
+    private fun since(): String = "t+${(System.nanoTime() - createdAt) / 1_000_000}ms"
 
     private fun synthesize(query: ByteArray): ByteArray {
         synthesized.incrementAndGet()
@@ -209,12 +255,64 @@ class DnsBridge(
         const val BACKLOG = 16
         private const val DNS_MESSAGE = "application/dns-message"
 
-        /** Status 200, a dns-message content type, 12 to 65535 bytes, and the QR bit set. */
+        private const val RCODE_FORMERR = 1
+        private const val RCODE_NOTIMPL = 4
+
+        /**
+         * Status 200, a dns-message content type, 12 to 65535 bytes, the QR bit
+         * set, and an rcode other than FORMERR and NOTIMPL. libunbound reads those
+         * two as "this server has no EDNS" and then asks without the DO bit, so
+         * the answers lose their signatures. Every DoH server has EDNS, so the
+         * bridge tries the next server instead.
+         */
         fun isGoodReply(reply: DohReply): Boolean =
             reply.status == 200 &&
                 reply.contentType?.trim()?.lowercase()?.startsWith(DNS_MESSAGE) == true &&
                 reply.body.size in 12..65535 &&
-                (reply.body[2].toInt() and 0x80) != 0
+                (reply.body[2].toInt() and 0x80) != 0 &&
+                (reply.body[3].toInt() and 0x0F).let { it != RCODE_FORMERR && it != RCODE_NOTIMPL }
+
+        /**
+         * One standard query: QR off, opcode 0, one question, no answer or
+         * authority records, and every byte used by the question and the
+         * additional records (EDNS). libunbound 1.16.1 sometimes sends a frame
+         * that fails this: a resent query with its ID written over its flags.
+         */
+        fun isWellFormedQuery(query: ByteArray): Boolean {
+            if (query.size < 17) return false
+            val flags = u16(query, 2)
+            if ((flags and 0x8000) != 0 || ((flags shr 11) and 0x0F) != 0) return false
+            if (u16(query, 4) != 1 || u16(query, 6) != 0 || u16(query, 8) != 0) return false
+            var at = skipName(query, 12, pointerAllowed = false) ?: return false
+            at += 4
+            repeat(u16(query, 10)) {
+                at = skipName(query, at, pointerAllowed = true) ?: return false
+                if (at + 10 > query.size) return false
+                at += 10 + u16(query, at + 8)
+            }
+            return at == query.size
+        }
+
+        private fun u16(message: ByteArray, at: Int): Int =
+            ((message[at].toInt() and 0xFF) shl 8) or (message[at + 1].toInt() and 0xFF)
+
+        /** The offset after the name at [start], or null when the name is bad or runs past the end. */
+        private fun skipName(message: ByteArray, start: Int, pointerAllowed: Boolean): Int? {
+            var at = start
+            var total = 0
+            while (at < message.size) {
+                val length = message[at].toInt() and 0xFF
+                if (length == 0) return at + 1
+                if ((length and 0xC0) == 0xC0) {
+                    return if (pointerAllowed && at + 2 <= message.size) at + 2 else null
+                }
+                if (length >= 64) return null
+                total += length + 1
+                if (total > 255) return null
+                at += 1 + length
+            }
+            return null
+        }
 
         /** A SERVFAIL for [query] (spec section 3.5). [query] has 12 bytes or more. */
         fun servfail(query: ByteArray): ByteArray {
@@ -261,6 +359,100 @@ class DnsBridge(
                 closeable?.close()
             } catch (e: IOException) {
                 // Nothing to do.
+            }
+        }
+    }
+}
+
+/**
+ * Debug builds only: short descriptions of DNS messages for the bridge trace.
+ * Every function gives a placeholder instead of throwing on a bad message.
+ */
+internal object DnsDebug {
+    private val typeNames = mapOf(
+        1 to "A", 2 to "NS", 5 to "CNAME", 6 to "SOA", 16 to "TXT", 28 to "AAAA", 41 to "OPT",
+        43 to "DS", 46 to "RRSIG", 47 to "NSEC", 48 to "DNSKEY", 50 to "NSEC3", 51 to "NSEC3PARAM",
+    )
+
+    private fun typeName(type: Int): String = typeNames[type] ?: "TYPE$type"
+
+    private fun u16(message: ByteArray, at: Int): Int =
+        ((message[at].toInt() and 0xFF) shl 8) or (message[at + 1].toInt() and 0xFF)
+
+    /** The name at [start], and the offset after it. Follows compression pointers. */
+    private fun readName(message: ByteArray, start: Int): Pair<String, Int> {
+        val labels = mutableListOf<String>()
+        var at = start
+        var after = -1
+        var jumps = 0
+        while (true) {
+            val length = message[at].toInt() and 0xFF
+            if (length == 0) {
+                at += 1
+                break
+            }
+            if ((length and 0xC0) == 0xC0) {
+                if (after < 0) after = at + 2
+                check(++jumps <= 64)
+                at = ((length and 0x3F) shl 8) or (message[at + 1].toInt() and 0xFF)
+                continue
+            }
+            labels += String(message, at + 1, length, Charsets.US_ASCII)
+            at += 1 + length
+        }
+        return (labels.joinToString(".") + ".") to (if (after >= 0) after else at)
+    }
+
+    /** The first 96 bytes as hex. */
+    fun hex(message: ByteArray): String =
+        message.take(96).joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+
+    /** The host of a DoH server URL. */
+    fun host(server: String): String = server.substringAfter("://").substringBefore('/')
+
+    /** "name TYPE" of the first question. */
+    fun question(message: ByteArray): String = try {
+        val (name, after) = readName(message, 12)
+        "$name ${typeName(u16(message, after))}"
+    } catch (e: Exception) {
+        "(unparsed question)"
+    }
+
+    /** The CD bit and the EDNS DO bit of a query. */
+    fun queryBits(message: ByteArray): String = try {
+        val sections = sections(message)
+        val cd = (u16(message, 2) shr 4) and 1
+        "cd $cd, ${if (sections[2].any { it == "OPT+DO" }) "do 1" else "do 0"}"
+    } catch (e: Exception) {
+        "unparsed"
+    }
+
+    /** The rcode, the TC, AD and CD bits, and the record types in each section. */
+    fun describe(message: ByteArray): String = try {
+        val flags = u16(message, 2)
+        val sections = sections(message)
+        "rcode ${flags and 0x0F}, tc ${(flags shr 9) and 1}, ad ${(flags shr 5) and 1}, " +
+            "cd ${(flags shr 4) and 1}, an ${sections[0]}, ns ${sections[1]}, ar ${sections[2]}, " +
+            "${message.size} bytes"
+    } catch (e: Exception) {
+        "(unparsed, ${message.size} bytes)"
+    }
+
+    /** The record types of the answer, authority and additional sections. */
+    private fun sections(message: ByteArray): List<List<String>> {
+        var at = 12
+        repeat(u16(message, 4)) { at = readName(message, at).second + 4 }
+        return listOf(u16(message, 6), u16(message, 8), u16(message, 10)).map { count ->
+            List(count) {
+                val after = readName(message, at).second
+                val type = u16(message, after)
+                val name = if (type == 41) {
+                    if ((u16(message, after + 6) and 0x8000) != 0) "OPT+DO" else "OPT"
+                } else {
+                    typeName(type)
+                }
+                at = after + 10 + u16(message, after + 8)
+                name
             }
         }
     }
@@ -399,7 +591,12 @@ class OpenAliasResolver(
             } catch (e: Exception) {
                 return@withContext netError.also { debugLog(it, startedAt, null) }
             }
-            val bridge = DnsBridge(transport, servers)
+            val trace: ((String) -> Unit)? = if (BuildConfig.DEBUG) {
+                { line -> Timber.tag(TRACE_TAG).d("%s", line) }
+            } else {
+                null
+            }
+            val bridge = DnsBridge(transport, servers, trace = trace)
             val port = bridge.start()
                 ?: return@withContext OpenAliasOutcome.Failed(OpenAliasFailure.NETWORK).also { debugLog(it, startedAt, null) }
             val timeoutMs = if (torOn) OpenAliasConfig.KIT_TIMEOUT_TOR_MS else OpenAliasConfig.KIT_TIMEOUT_DIRECT_MS
@@ -423,9 +620,19 @@ class OpenAliasResolver(
             } finally {
                 bridge.stop()
             }
+            trace?.invoke("kit ${kitFields(json)}")
             OpenAlias.mapAnswer(json, bridge.synthesizedCount, torOn, check)
                 .also { debugLog(it, startedAt, bridge) }
         }
+
+    /** Debug builds only: the kit result fields, without the records. */
+    private fun kitFields(json: String): String = try {
+        val obj = org.json.JSONObject(json)
+        obj.remove("records")
+        obj.toString()
+    } catch (e: Exception) {
+        "(unparsed, ${json.length} chars)"
+    }
 
     /** Debug builds only: the outcome, the time and the counts. Never the name, the records or the address. */
     private fun debugLog(outcome: OpenAliasOutcome, startedAt: Long, bridge: DnsBridge?) {
@@ -439,5 +646,9 @@ class OpenAliasResolver(
             "OpenAlias lookup %s in %d ms (answered %d, synthesized %d)",
             label, ms, bridge?.answeredCount ?: 0, bridge?.synthesizedCount ?: 0
         )
+    }
+
+    private companion object {
+        const val TRACE_TAG = "OpenAliasTrace"
     }
 }
