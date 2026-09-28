@@ -73,11 +73,12 @@ class OpenAliasPinStore(
 }
 
 /**
- * The Send flow's pin rule: write a pin only when a send to a resolved name
- * succeeds. Returns true when it wrote one.
+ * The Send flow's pin rule: write a pin only when a send to the address that
+ * a name resolved to succeeds (as on iOS). Returns true when it wrote one.
  */
 fun OpenAliasPinStore.recordAfterSend(state: SendState, summary: OpenAliasSummary?, sentAddress: String): Boolean {
     if (state !is SendState.Success || summary == null || sentAddress.isEmpty()) return false
+    if (summary.address != sentAddress) return false
     record(summary.name.query, sentAddress)
     return true
 }

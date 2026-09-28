@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.horizontalsystems.monerokit.model.NetworkType
 import io.horizontalsystems.monerokit.model.Wallet
@@ -142,15 +143,18 @@ internal class OpenAliasLookupModel(
                 val key = "name:" + name.query
                 // Same query name (a space added, other case): keep the state, with the new text.
                 if (key == activeKey) status = status.withName(name)
-                settle(key, immediate) { start(name) }
+                settle(key, immediate, invalid = false) { start(name) }
             }
-            is RecipientInput.Address -> settle("address:" + input.text, immediate) {
-                status = LookupStatus.Address(input.text, isValidAddress(input.text))
+            is RecipientInput.Address -> {
+                val valid = isValidAddress(input.text)
+                settle("address:" + input.text, immediate, invalid = !valid) {
+                    status = LookupStatus.Address(input.text, valid)
+                }
             }
-            RecipientInput.Reserved -> settle("reserved:" + text.trim(), immediate) {
+            RecipientInput.Reserved -> settle("reserved:" + text.trim(), immediate, invalid = true) {
                 status = LookupStatus.Rejected(reserved = true)
             }
-            RecipientInput.InvalidName -> settle("invalid:" + text.trim(), immediate) {
+            RecipientInput.InvalidName -> settle("invalid:" + text.trim(), immediate, invalid = true) {
                 status = LookupStatus.Rejected(reserved = false)
             }
         }
@@ -171,8 +175,11 @@ internal class OpenAliasLookupModel(
         pins?.recordAfterSend(state, summary, sentAddress)
     }
 
-    /** Runs [action] after the typing delay, or at once when [immediate]. */
-    private fun settle(key: String, immediate: Boolean, action: () -> Unit) {
+    /**
+     * Runs [action] after the typing delay, or at once when [immediate].
+     * [invalid]: the new text gets a red row too.
+     */
+    private fun settle(key: String, immediate: Boolean, invalid: Boolean, action: () -> Unit) {
         if (key == activeKey) {
             // The same text: keep the current state.
             when {
@@ -191,9 +198,15 @@ internal class OpenAliasLookupModel(
         }
         stopWork()
         activeKey = key
-        status = LookupStatus.Idle
+        // A red row stays on screen while the text is still invalid; the
+        // action then changes it in place. Other rows go at once.
+        if (!(invalid && status.isRedRow)) status = LookupStatus.Idle
         if (immediate) action() else schedule(action)
     }
+
+    /** "Invalid address", "Invalid name" or the reserved-name row. */
+    private val LookupStatus.isRedRow: Boolean
+        get() = (this is LookupStatus.Address && !valid) || this is LookupStatus.Rejected
 
     private fun stopWork() {
         generation++
@@ -292,7 +305,8 @@ internal fun OpenAliasClearButton(onClear: () -> Unit) {
     }
 }
 
-private val fadeSpec = tween<Float>(OpenAliasConfig.FADE_MS, easing = EaseOut)
+/** The fade of the rows under the recipient field, as on iOS (0.2 s ease-out). */
+internal val openAliasFadeSpec = tween<Float>(OpenAliasConfig.FADE_MS, easing = EaseOut)
 
 /**
  * The row under the field on the name path. One node keeps the live region,
@@ -306,8 +320,8 @@ internal fun OpenAliasStatusRow(status: LookupStatus, onRetry: () -> Unit) {
     if (visible) last[0] = status
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(fadeSpec),
-        exit = fadeOut(fadeSpec)
+        enter = fadeIn(openAliasFadeSpec),
+        exit = fadeOut(openAliasFadeSpec)
     ) {
         val shown = last[0] ?: return@AnimatedVisibility
         StatusRowContent(shown, onRetry)
@@ -436,8 +450,8 @@ internal fun OpenAliasResultBlock(status: LookupStatus) {
     if (resolved != null) last[0] = resolved
     AnimatedVisibility(
         visible = resolved != null,
-        enter = fadeIn(fadeSpec),
-        exit = fadeOut(fadeSpec)
+        enter = fadeIn(openAliasFadeSpec),
+        exit = fadeOut(openAliasFadeSpec)
     ) {
         val shown = last[0] ?: return@AnimatedVisibility
         val secondary = MaterialTheme.colorScheme.onSurfaceVariant
@@ -543,19 +557,23 @@ internal fun openAliasRecipientSemantics(summary: OpenAliasSummary?, address: St
 
 @Composable
 internal fun OpenAliasReviewName(summary: OpenAliasSummary) {
+    // One line, as on iOS. iOS truncates in the middle; Compose 1.7 has no
+    // middle ellipsis, so the end of a long name is cut.
     Text(
         text = summary.name.display,
         style = MaterialTheme.typography.bodyMedium,
-        fontWeight = FontWeight.Medium
+        fontWeight = FontWeight.Medium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
     )
 }
 
 /** Under the review recipient row: the DNSSEC line, and the first-payment note. */
 @Composable
-internal fun OpenAliasReviewNotes(summary: OpenAliasSummary) {
+internal fun OpenAliasReviewNotes(summary: OpenAliasSummary, modifier: Modifier = Modifier) {
     val secondary = MaterialTheme.colorScheme.onSurfaceVariant
     Column(
-        modifier = Modifier.padding(top = 8.dp),
+        modifier = modifier.padding(top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Row(

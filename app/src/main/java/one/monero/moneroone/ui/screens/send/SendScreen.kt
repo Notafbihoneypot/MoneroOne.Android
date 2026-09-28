@@ -80,6 +80,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -499,10 +500,9 @@ private fun AddressPhase(
     val kind = remember(input) { OpenAlias.classify(input) }
     val status = lookup.status
     val resolved = (status as? LookupStatus.Resolved)?.takeIf { kind is RecipientInput.Name }
-    // Typed text is classified after the typing delay; Paste, Scan and Return at once.
-    val checkedAddress = (status as? LookupStatus.Address)?.takeIf { kind is RecipientInput.Address }
     val isValid = when (kind) {
-        is RecipientInput.Address -> checkedAddress?.valid == true
+        // Continue follows the text at once; the row under the field waits for the typing delay.
+        is RecipientInput.Address -> isValidMoneroAddress(kind.text)
         is RecipientInput.Name -> resolved != null
         else -> false
     }
@@ -569,7 +569,8 @@ private fun AddressPhase(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Addresses and names are mono caption, as on iOS.
+        // Addresses and names are mono caption, as on iOS. TalkBack reads the
+        // typed text, then this label (checked with TalkBack 14.2).
         val fieldLabel = stringResource(R.string.send_recipient_field_a11y)
         MoneroTextField(
             value = input,
@@ -597,28 +598,15 @@ private fun AddressPhase(
         )
 
         // Inline validation indicator (addresses). On the name path the
-        // OpenAlias row takes its place.
-        if (checkedAddress != null) {
-            val valid = checkedAddress.valid
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 6.dp)
-            ) {
-                Icon(
-                    if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                    contentDescription = null,
-                    tint = if (valid) SuccessGreen else ErrorRed,
-                    modifier = Modifier.size(14.dp)
-                )
-                Text(
-                    if (valid) tr("Valid address") else tr("Invalid address"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (valid) SuccessGreen else ErrorRed
-                )
+        // OpenAlias row takes its place, in a slot one row high while the
+        // field has text, so the buttons keep their positions (as on iOS).
+        if (input.isNotEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                AddressCheckRow(valid = false, modifier = Modifier.alpha(0f).clearAndSetSemantics { })
+                AddressCheckSlot(status)
+                OpenAliasStatusRow(status = status, onRetry = lookup::retry)
             }
         }
-        OpenAliasStatusRow(status = status, onRetry = lookup::retry)
         OpenAliasResultBlock(status = if (kind is RecipientInput.Name) status else LookupStatus.Idle)
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -1080,7 +1068,8 @@ private fun ReviewPhase(
                         )
                     }
                 }
-                openAliasSummary?.let { OpenAliasReviewNotes(it) }
+                // The notes start at the text column: the 40 dp disc plus the 12 dp gap.
+                openAliasSummary?.let { OpenAliasReviewNotes(it, modifier = Modifier.padding(start = 52.dp)) }
 
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1652,6 +1641,44 @@ private fun GradientSpinner() {
 
 private fun atomicToXmr(atomic: Long): Double {
     return atomic.toDouble() / 1_000_000_000_000.0
+}
+
+/** The "Valid address" / "Invalid address" row under the recipient field. */
+@Composable
+private fun AddressCheckRow(valid: Boolean, modifier: Modifier = Modifier) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(top = 6.dp)
+    ) {
+        Icon(
+            if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
+            contentDescription = null,
+            tint = if (valid) SuccessGreen else ErrorRed,
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            if (valid) tr("Valid address") else tr("Invalid address"),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (valid) SuccessGreen else ErrorRed
+        )
+    }
+}
+
+/** The address row fades in and out, as on iOS. */
+@Composable
+private fun AddressCheckSlot(status: LookupStatus) {
+    val checked = status as? LookupStatus.Address
+    // The last row stays in place while it fades out.
+    val last = remember { arrayOfNulls<LookupStatus.Address>(1) }
+    if (checked != null) last[0] = checked
+    AnimatedVisibility(
+        visible = checked != null,
+        enter = fadeIn(openAliasFadeSpec),
+        exit = fadeOut(openAliasFadeSpec)
+    ) {
+        last[0]?.let { AddressCheckRow(valid = it.valid) }
+    }
 }
 
 internal fun isValidMoneroAddress(address: String): Boolean {

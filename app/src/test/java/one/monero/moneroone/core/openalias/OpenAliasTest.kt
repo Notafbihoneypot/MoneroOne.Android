@@ -465,6 +465,8 @@ class OpenAliasTest {
         assertFalse(store.recordAfterSend(SendState.Sending(sendFlow), named, getmoneroXmr))
         assertFalse(store.recordAfterSend(SendState.Error(sendFlow, "failed"), named, getmoneroXmr))
         assertFalse(store.recordAfterSend(SendState.Success(sendFlow, "tx"), null, getmoneroXmr))
+        // A send to an address other than the resolved one writes no pin.
+        assertFalse(store.recordAfterSend(SendState.Success(sendFlow, "tx"), named, testnetAddress))
         assertEquals(0, store.count())
         assertTrue(store.recordAfterSend(SendState.Success(sendFlow, "tx"), named, getmoneroXmr))
         assertTrue(store.state("donate.getmonero.org", getmoneroXmr) is PinState.Same)

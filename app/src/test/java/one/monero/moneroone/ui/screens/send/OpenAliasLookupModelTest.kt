@@ -97,15 +97,57 @@ class OpenAliasLookupModelTest {
     }
 
     @Test
-    fun typingAfterACheckedAddressHidesTheRowUntilThePause() {
+    fun aRedRowStaysWhileTheTextIsStillInvalid() {
         model.onInputChanged("donate", immediate = true)
+        model.onInputChanged("donatex", immediate = false)
         assertEquals(LookupStatus.Address("donate", valid = false), model.status)
-        type("donate@getmonero.org")
+        model.onInputChanged("donatex@", immediate = false)
+        assertEquals(LookupStatus.Address("donate", valid = false), model.status)
+        pauses.end()
+        // Changed in place after the pause.
+        assertEquals(LookupStatus.Rejected(reserved = false), model.status)
+    }
+
+    @Test
+    fun aRedRowGoesAtOnceWhenTheTextBecomesAName() {
+        model.onInputChanged("donate", immediate = true)
+        model.onInputChanged("donate@", immediate = false)
+        assertEquals(LookupStatus.Address("donate", valid = false), model.status)
+        model.onInputChanged("donate@ge", immediate = false)
         assertEquals(LookupStatus.Idle, model.status)
+        type("donate@getmonero.org")
         assertTrue(lookups.isEmpty())
         pauses.end()
         assertEquals(listOf("donate.getmonero.org"), lookups.map { it.query })
         assertTrue(model.status is LookupStatus.Resolved)
+    }
+
+    @Test
+    fun aRedRowGoesAtOnceWhenTheTextBecomesAValidAddress() {
+        model.onInputChanged(validAddress.dropLast(1), immediate = true)
+        assertEquals(LookupStatus.Address(validAddress.dropLast(1), valid = false), model.status)
+        model.onInputChanged(validAddress, immediate = false)
+        assertEquals(LookupStatus.Idle, model.status)
+        pauses.end()
+        assertEquals(LookupStatus.Address(validAddress, valid = true), model.status)
+    }
+
+    @Test
+    fun aGreenRowGoesOnTheNextKey() {
+        model.onInputChanged(validAddress, immediate = true)
+        model.onInputChanged(validAddress + "x", immediate = false)
+        assertEquals(LookupStatus.Idle, model.status)
+        pauses.end()
+        assertEquals(LookupStatus.Address(validAddress + "x", valid = false), model.status)
+    }
+
+    @Test
+    fun aFailedLookupRowGoesOnTheNextKey() {
+        outcome = OpenAliasOutcome.Failed(OpenAliasFailure.NETWORK)
+        model.onInputChanged("donate@getmonero.org", immediate = true)
+        assertTrue(model.status is LookupStatus.Failed)
+        model.onInputChanged("donate@getmonero.or", immediate = false)
+        assertEquals(LookupStatus.Idle, model.status)
     }
 
     @Test
@@ -136,8 +178,9 @@ class OpenAliasLookupModelTest {
         pauses.end()
         assertEquals(LookupStatus.Rejected(reserved = true), model.status)
 
+        // The reserved row stays until the invalid-name row takes its place.
         model.onInputChanged("a@@b.org", immediate = false)
-        assertEquals(LookupStatus.Idle, model.status)
+        assertEquals(LookupStatus.Rejected(reserved = true), model.status)
         pauses.end()
         assertEquals(LookupStatus.Rejected(reserved = false), model.status)
 
