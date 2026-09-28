@@ -272,7 +272,7 @@ fun UnlockScreen(
         TextButton(onClick = { showResetDialog = true }) {
             Text(
                 text = "Forgot PIN?",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

@@ -134,7 +134,7 @@ fun WalletSwitcherButton(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(1.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(text = wallet?.emoji ?: "💰", fontSize = 22.sp)
             Text(
@@ -422,7 +422,7 @@ private fun WalletRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 14.dp, top = 14.dp, bottom = 14.dp, end = 6.dp),
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 EmojiCircle(emoji = wallet.emoji, size = 44.dp)
@@ -473,12 +473,10 @@ private fun WalletRow(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Active wallet",
                         tint = SuccessGreen,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(20.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 } else {
-                    Spacer(modifier = Modifier.width(28.dp))
+                    Spacer(modifier = Modifier.width(20.dp))
                 }
             }
         }
@@ -494,7 +492,7 @@ private fun AddWalletRow(onClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -508,15 +506,15 @@ private fun AddWalletRow(onClick: () -> Unit) {
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
                     tint = MoneroOrange,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
+            // A button label, as on iOS: callout semibold in brand.
             Text(
                 text = "Add Wallet",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.labelLarge,
+                color = MoneroOrange
             )
         }
     }

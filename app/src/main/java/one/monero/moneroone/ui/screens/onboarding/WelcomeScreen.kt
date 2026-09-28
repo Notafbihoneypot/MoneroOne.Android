@@ -2,7 +2,7 @@ package one.monero.moneroone.ui.screens.onboarding
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,16 +26,26 @@ import one.monero.moneroone.ui.components.MoneroHeroLogo
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ProminentButton
 
+/**
+ * Windows shorter than this, system bars included, are squat (iOS
+ * SquatScreenModifier: 720pt, true on the iPhone SE and in landscape).
+ */
+private val SquatHeight = 720.dp
+
 @Composable
 fun WelcomeScreen(
     onCreateWallet: () -> Unit,
     onRestoreWallet: () -> Unit
 ) {
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // iOS WelcomeView: a 240 hero on a tall window, 120 on a squat one,
+        // so the buttons still fit a 360x640 phone.
+        val heroSize = if (maxHeight < SquatHeight) 120.dp else 240.dp
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -50,7 +60,7 @@ fun WelcomeScreen(
             // tile and dark M by night. It stands still here: the tokens.json
             // motion.hero entrance, float and glow are not on Android yet
             // (BRAND-GUIDE.md §10).
-            MoneroHeroLogo(size = 120.dp)
+            MoneroHeroLogo(size = heroSize)
 
             Spacer(modifier = Modifier.height(32.dp))
 

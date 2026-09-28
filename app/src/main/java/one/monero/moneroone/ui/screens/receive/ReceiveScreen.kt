@@ -259,7 +259,7 @@ fun ReceiveScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier
                             .clip(CapsuleShape)
-                            .background(MoneroOrange.copy(alpha = 0.1f))
+                            .background(MoneroOrange.copy(alpha = 0.15f))
                             .clickable {
                                 if (isFiatMode) {
                                     isFiatMode = false

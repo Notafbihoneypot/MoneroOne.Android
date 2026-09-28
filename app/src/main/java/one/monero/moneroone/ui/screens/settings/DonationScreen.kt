@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,7 +66,7 @@ import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.MoneroOrange
-import one.monero.moneroone.ui.theme.SettingsGreen
+import one.monero.moneroone.ui.theme.SuccessGreen
 
 private const val DONATION_ADDRESS = "86AWuSFkMKCNp4e7dWho3CBvFpvAzj8hnZNWM9fedD5LKb2mXVfnmH9XuDD9zYqzzR6LAFxUSsdGTVUDABzcgjMfFVfBHpP"
 private const val SUGGESTED_DONATION_AMOUNT = "0.25"
@@ -78,6 +79,13 @@ fun DonationScreen(
 ) {
     val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
+    // Back to the copy label after 2 s, as on iOS
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2000)
+            copied = false
+        }
+    }
 
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
     LaunchedEffect(Unit) {
@@ -209,7 +217,7 @@ fun DonationScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Copy: glass with a label-color title, green once copied (iOS)
+                // Copy: glass with the brand label, green once copied (iOS)
                 PrimaryButton(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -219,7 +227,7 @@ fun DonationScreen(
                         Toast.makeText(context, "Address copied", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.weight(1f),
-                    contentColor = if (copied) SettingsGreen else MaterialTheme.colorScheme.onSurface
+                    contentColor = if (copied) SuccessGreen else MoneroOrange
                 ) {
                     Icon(
                         imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,

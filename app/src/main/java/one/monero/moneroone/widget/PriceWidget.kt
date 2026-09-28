@@ -156,7 +156,7 @@ class PriceWidget : AppWidgetProvider() {
 
                 val sign = if (change >= 0) "+" else ""
                 views.setTextViewText(R.id.price_change, " $sign${String.format("%.2f", change)}% ")
-                val changeColor = if (change >= 0) 0xFF34C759.toInt() else 0xFFFF3B30.toInt()
+                val changeColor = if (change >= 0) 0xFF34C759.toInt() else 0xFFFF383C.toInt()
                 val badgeBg = if (change >= 0) R.drawable.widget_badge_green else R.drawable.widget_badge_red
                 views.setTextColor(R.id.price_change, changeColor)
                 views.setInt(R.id.price_change, "setBackgroundResource", badgeBg)

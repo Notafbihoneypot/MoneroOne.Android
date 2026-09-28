@@ -81,18 +81,21 @@ private const val TOTAL_STEPS = 6
 /** Sync and status dots (tokens.json size.statusDot). */
 val StatusDotSize = 8.dp
 
+/**
+ * Balance card sync status, in the iOS BalanceCard order: synced, then no
+ * network (the ladder waits at stage 0, iOS ConnectionStage.noNetwork), then
+ * the ladder, then the error. Text is caption in the secondary color; the
+ * error text is red, as on iOS.
+ */
 @Composable
 fun SyncStatusIndicator(
     status: SyncStatus,
     progress: Double? = null,
     modifier: Modifier = Modifier,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
-    syncState: SyncState? = null
+    syncState: SyncState? = null,
+    isOnline: Boolean = true
 ) {
-    // If we have a full SyncState, use the step indicator
-    if (syncState != null && syncState !is SyncState.Synced && syncState !is SyncState.NotSynced) {
-        ConnectionStepIndicator(syncState = syncState, modifier = modifier)
-    } else if (status == SyncStatus.Synced) {
+    if (status == SyncStatus.Synced) {
         // Simple synced display: green dot + "Synced"
         Row(
             modifier = modifier,
@@ -103,9 +106,15 @@ fun SyncStatusIndicator(
             Text(
                 text = "Synced",
                 style = MaterialTheme.typography.bodySmall,
-                color = textColor.copy(alpha = 0.8f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    } else if (!isOnline) {
+        ConnectionStepIndicator(currentStage = 0, statusText = "No network", modifier = modifier)
+    } else if (syncState != null && syncState !is SyncState.Synced && syncState !is SyncState.NotSynced) {
+        // If we have a full SyncState, use the step indicator
+        val (currentStage, statusText) = syncStateToStage(syncState)
+        ConnectionStepIndicator(currentStage = currentStage, statusText = statusText, modifier = modifier)
     } else if (status == SyncStatus.NotConnected) {
         Row(
             modifier = modifier,
@@ -116,7 +125,7 @@ fun SyncStatusIndicator(
             Text(
                 text = "Not connected",
                 style = MaterialTheme.typography.bodySmall,
-                color = textColor.copy(alpha = 0.8f)
+                color = ErrorRed
             )
         }
     } else {
@@ -126,17 +135,17 @@ fun SyncStatusIndicator(
             SyncStatus.Syncing -> SyncState.Syncing(progress = progress)
             else -> SyncState.NotSynced(error = Throwable("Unknown"))
         }
-        ConnectionStepIndicator(syncState = fallbackState, modifier = modifier)
+        val (currentStage, statusText) = syncStateToStage(fallbackState)
+        ConnectionStepIndicator(currentStage = currentStage, statusText = statusText, modifier = modifier)
     }
 }
 
 @Composable
 private fun ConnectionStepIndicator(
-    syncState: SyncState,
+    currentStage: Int,
+    statusText: String,
     modifier: Modifier = Modifier
 ) {
-    val (currentStage, statusText) = syncStateToStage(syncState)
-
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.Start
@@ -189,7 +198,7 @@ private fun ConnectionStepIndicator(
         // Status text below dots
         Text(
             text = statusText,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

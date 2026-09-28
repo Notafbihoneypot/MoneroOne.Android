@@ -79,6 +79,7 @@ import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.R
 import one.monero.moneroone.core.wallet.WalletViewModel
+import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.Motion
 import one.monero.moneroone.ui.components.RollingText
@@ -238,7 +239,7 @@ fun WalletScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Balance card + actions <-> wallet rows (iOS WalletView: rows slide in
-            // from the trailing edge on .snappy(0.4) while the balance block
+            // from the trailing edge on .snappy(0.35) while the balance block
             // collapses; reversed on the way back). Recent activity below hides
             // instantly, as on iOS.
             AnimatedContent(
@@ -309,6 +310,7 @@ fun WalletScreen(
                             fiatValue = fiatValue,
                             unlockedFiatValue = unlockedFiatValue,
                             syncState = walletState.syncState,
+                            isOnline = isOnline,
                             priceChange24h = priceChange24h,
                             onClick = onBalanceClick
                         )
@@ -443,6 +445,7 @@ private fun BalanceCard(
     fiatValue: String?,
     unlockedFiatValue: String?,
     syncState: SyncState,
+    isOnline: Boolean,
     priceChange24h: Double? = null,
     onClick: (() -> Unit)? = null
 ) {
@@ -471,7 +474,8 @@ private fun BalanceCard(
                 SyncStatusIndicator(
                     status = status,
                     progress = progress,
-                    syncState = syncState
+                    syncState = syncState,
+                    isOnline = isOnline
                 )
 
                 // Price change indicator (moved from bottom to top right like iOS)
@@ -619,8 +623,8 @@ private fun PriceChangeIndicator(priceChange: Double) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(color.copy(alpha = 0.1f))
+            .clip(CapsuleShape)
+            .background(color.copy(alpha = 0.15f))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Icon(
@@ -657,9 +661,10 @@ private fun ActionButton(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // iOS arrow.up/down.circle.fill at 20pt
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(20.dp)
                     .clip(CircleShape)
                     .background(color),
                 contentAlignment = Alignment.Center
@@ -668,7 +673,7 @@ private fun ActionButton(
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.background,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))

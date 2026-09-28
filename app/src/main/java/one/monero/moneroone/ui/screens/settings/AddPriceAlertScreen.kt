@@ -42,7 +42,7 @@ import one.monero.moneroone.data.model.PriceAlert
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.GlassSegmentedPicker
 import one.monero.moneroone.ui.components.MoneroTextField
-import one.monero.moneroone.ui.components.PrimaryButton
+import one.monero.moneroone.ui.components.ProminentButton
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.TabularFigures
 import java.text.NumberFormat
@@ -158,9 +158,11 @@ fun AddPriceAlertScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        PrimaryButton(
+        // The one filled button on the screen, as on iOS: brand capsule,
+        // white label, 40% brand while no valid price is entered.
+        ProminentButton(
             onClick = {
-                val price = targetPrice.toDoubleOrNull() ?: return@PrimaryButton
+                val price = targetPrice.toDoubleOrNull() ?: return@ProminentButton
                 val alert = PriceAlert(
                     id = UUID.randomUUID().toString(),
                     condition = condition,
@@ -174,7 +176,7 @@ fun AddPriceAlertScreen(
             modifier = Modifier.fillMaxWidth(),
             enabled = targetPrice.toDoubleOrNull() != null && targetPrice.toDoubleOrNull()!! > 0
         ) {
-            Text(text = "Create Alert")
+            Text(text = "Save Alert")
         }
 
         Spacer(modifier = Modifier.height(32.dp))
