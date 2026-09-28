@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -93,6 +94,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -106,6 +108,10 @@ import io.horizontalsystems.monerokit.MoneroKit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import one.monero.moneroone.R
+import one.monero.moneroone.core.openalias.OpenAlias
+import one.monero.moneroone.core.openalias.OpenAliasSummary
+import one.monero.moneroone.core.openalias.RecipientInput
 import one.monero.moneroone.core.util.NetworkMonitor
 import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.SendFlow
@@ -160,6 +166,7 @@ fun SendScreen(
     prefillSource: SendPrefillSource? = null,
     incomingLink: OpenSendLink? = null,
     onIncomingLink: (link: OpenSendLink, accepted: Boolean) -> Unit = { _, _ -> },
+    initialName: String? = null,
     onBack: () -> Unit,
     onScanQr: () -> Unit,
     onSent: () -> Unit
@@ -174,6 +181,14 @@ fun SendScreen(
     // the phase where the dropped value would have been entered.
     val prefilledAddress = remember {
         initialAddress?.trim()?.takeIf { isValidMoneroAddress(it) }
+    }
+    // An OpenAlias name from a QR code: the flow starts on the address step and
+    // looks the name up at once.
+    val prefilledName = remember {
+        initialName?.trim()?.takeIf { name ->
+            prefilledAddress == null &&
+                OpenAlias.classify(name).let { it is RecipientInput.Name || it == RecipientInput.Reserved }
+        }
     }
     val prefilledAmount = remember {
         initialAmount?.trim()?.takeIf { walletViewModel.parseXmr(it) > 0 }
@@ -202,6 +217,12 @@ fun SendScreen(
 
     // Send flow state
     var address by rememberSaveable { mutableStateOf(prefilledAddress ?: "") }
+    // The field text (an address or an OpenAlias name). `address` stays the
+    // only value that reaches the fee estimate and the send.
+    var recipientInput by remember { mutableStateOf(prefilledAddress ?: prefilledName ?: "") }
+    var openAliasSummary by remember { mutableStateOf<OpenAliasSummary?>(null) }
+    val openAlias = rememberOpenAliasLookup()
+    LaunchedEffect(Unit) { prefilledName?.let { openAlias.onInputChanged(it, immediate = true) } }
     var amount by rememberSaveable { mutableStateOf(prefilledAmount ?: "") }
     var isSweepAll by rememberSaveable { mutableStateOf(false) }
     var memo by rememberSaveable { mutableStateOf("") }
@@ -223,7 +244,10 @@ fun SendScreen(
     LaunchedEffect(sendState) {
         when (sendState) {
             is SendState.Sending -> phase = SendPhase.SENDING
-            is SendState.Success -> { phase = SendPhase.SUCCESS; sendInProgress = false }
+            is SendState.Success -> {
+                phase = SendPhase.SUCCESS; sendInProgress = false
+                openAlias.onSendState(sendState, openAliasSummary, address)
+            }
             is SendState.Error -> { phase = SendPhase.ERROR; sendInProgress = false }
             // Sending, restored with no send in progress: the process stopped
             // during the send, so its result is lost. Leave Send. The wallet
@@ -254,6 +278,11 @@ fun SendScreen(
         val accepted = acceptsPaymentLink(phase, confirmed = sendInProgress)
         if (accepted) {
             address = link.address
+            // A link holds an address only (iOS SendFlowView.apply): the field
+            // shows it, its row shows at once, and no looked-up name stays.
+            recipientInput = link.address
+            openAlias.onInputChanged(link.address, immediate = true)
+            openAliasSummary = null
             amount = link.amount?.trim()?.takeIf { walletViewModel.parseXmr(it) > 0 } ?: ""
             amountPrefilledFromQR = amount.isNotEmpty()
             amountSource = SendPrefillSource.LINK
@@ -288,7 +317,8 @@ fun SendScreen(
                     Text(
                         text = when (phase) {
                             SendPhase.ADDRESS -> tr("Send XMR")
-                            SendPhase.AMOUNT -> if (address.length > 20) tr("Send to %s", truncateMiddle(address)) else tr("Amount")
+                            SendPhase.AMOUNT -> openAliasSummary?.let { openAliasAmountTitle(it) }
+                                ?: if (address.length > 20) tr("Send to %s", truncateMiddle(address)) else tr("Amount")
                             SendPhase.REVIEW -> tr("Review")
                             else -> ""
                         },
@@ -338,10 +368,23 @@ fun SendScreen(
         ) { currentPhase ->
             when (currentPhase) {
                 SendPhase.ADDRESS -> AddressPhase(
-                    address = address,
-                    onAddressChange = { address = it },
+                    input = recipientInput,
+                    lookup = openAlias,
+                    onInputChange = { text, immediate ->
+                        recipientInput = text
+                        openAlias.onInputChanged(text, immediate)
+                    },
                     onScanQr = onScanQr,
-                    onContinue = { goForward(SendPhase.AMOUNT) }
+                    onContinueAddress = {
+                        address = recipientInput.trim()
+                        openAliasSummary = null
+                        goForward(SendPhase.AMOUNT)
+                    },
+                    onContinueName = { summary ->
+                        address = summary.address
+                        openAliasSummary = summary
+                        goForward(SendPhase.AMOUNT)
+                    }
                 )
                 SendPhase.AMOUNT -> {
                     val currentPrice by walletViewModel.currentPrice.collectAsState()
@@ -372,6 +415,7 @@ fun SendScreen(
                     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
                     ReviewPhase(
                         address = address,
+                        openAliasSummary = openAliasSummary,
                         amount = amount,
                         memo = memo,
                         isSweepAll = isSweepAll,
@@ -444,14 +488,24 @@ fun SendScreen(
 
 @Composable
 private fun AddressPhase(
-    address: String,
-    onAddressChange: (String) -> Unit,
+    input: String,
+    lookup: OpenAliasLookupModel,
+    onInputChange: (text: String, immediate: Boolean) -> Unit,
     onScanQr: () -> Unit,
-    onContinue: () -> Unit
+    onContinueAddress: () -> Unit,
+    onContinueName: (OpenAliasSummary) -> Unit
 ) {
-    val isValid = address.isNotEmpty() && isValidMoneroAddress(address)
+    val kind = remember(input) { OpenAlias.classify(input) }
+    val status = lookup.status
+    val resolved = (status as? LookupStatus.Resolved)?.takeIf { kind is RecipientInput.Name }
+    val isValid = when (kind) {
+        is RecipientInput.Address -> isValidMoneroAddress(kind.text)
+        is RecipientInput.Name -> resolved != null
+        else -> false
+    }
     // iOS SendAddressStep: no sending while offline (canContinue needs a network).
     val isOnline by NetworkMonitor.isConnected.collectAsState()
+    var confirming by remember { mutableStateOf<LookupStatus.Resolved?>(null) }
     val clipboardManager = LocalClipboardManager.current
 
     // Entrance animation
@@ -506,26 +560,38 @@ private fun AddressPhase(
         }
 
         Text(
-            text = tr("Recipient Address"),
+            text = stringResource(R.string.send_recipient_label),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Addresses are mono caption, as on iOS.
+        // Addresses and names are mono caption, as on iOS.
+        val fieldLabel = stringResource(R.string.send_recipient_field_a11y)
         MoneroTextField(
-            value = address,
-            onValueChange = onAddressChange,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
+            value = input,
+            onValueChange = { onInputChange(it, false) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = fieldLabel },
+            placeholder = { Text(stringResource(R.string.send_recipient_placeholder), style = MonoCaption) },
             textStyle = MonoCaption,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.Done,
+                autoCorrectEnabled = false
+            ),
+            keyboardActions = KeyboardActions(onDone = {
+                onInputChange(input, true)
+                defaultKeyboardAction(ImeAction.Done)
+            }),
             singleLine = true
         )
 
-        // Inline validation indicator
-        if (address.isNotEmpty()) {
-            val valid = isValidMoneroAddress(address)
+        // Inline validation indicator (addresses). On the name path the
+        // OpenAlias row takes its place.
+        if (kind is RecipientInput.Address) {
+            val valid = isValid
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -544,6 +610,11 @@ private fun AddressPhase(
                 )
             }
         }
+        OpenAliasStatusRow(
+            status = if (kind is RecipientInput.Address) LookupStatus.Idle else status,
+            onRetry = lookup::retry
+        )
+        OpenAliasResultBlock(status = if (kind is RecipientInput.Name) status else LookupStatus.Idle)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -561,7 +632,7 @@ private fun AddressPhase(
             }
             PrimaryButton(
                 onClick = {
-                    clipboardManager.getText()?.text?.let { onAddressChange(it.trim()) }
+                    clipboardManager.getText()?.text?.let { onInputChange(it.trim(), true) }
                 },
                 modifier = Modifier.weight(1f)
             ) {
@@ -574,8 +645,17 @@ private fun AddressPhase(
 
         // Continue button
         PrimaryButton(
-            onClick = onContinue,
-            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                when {
+                    kind is RecipientInput.Address -> onContinueAddress()
+                    resolved == null -> Unit
+                    resolved.needsConfirmation -> confirming = resolved
+                    else -> onContinueName(resolved.summary())
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(openAliasContinueHint(running = kind is RecipientInput.Name && status is LookupStatus.Running)),
             enabled = isValid && isOnline
         ) {
             Text(tr("Continue"))
@@ -583,6 +663,17 @@ private fun AddressPhase(
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+
+    confirming?.let { request ->
+        OpenAliasContinueDialog(
+            request = request,
+            onConfirm = {
+                confirming = null
+                onContinueName(request.summary())
+            },
+            onDismiss = { confirming = null }
+        )
     }
 }
 
@@ -878,6 +969,7 @@ private fun AmountPhase(
 @Composable
 private fun ReviewPhase(
     address: String,
+    openAliasSummary: OpenAliasSummary?,
     amount: String,
     memo: String,
     isSweepAll: Boolean,
@@ -958,7 +1050,10 @@ private fun ReviewPhase(
             Column(modifier = Modifier.padding(16.dp)) {
 
                 // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph)
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = openAliasRecipientSemantics(openAliasSummary, address)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -971,6 +1066,7 @@ private fun ReviewPhase(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(tr("Recipient"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        openAliasSummary?.let { OpenAliasReviewName(it) }
                         Text(
                             text = truncateMiddle(address),
                             style = MonoCaption,
@@ -979,6 +1075,7 @@ private fun ReviewPhase(
                         )
                     }
                 }
+                openAliasSummary?.let { OpenAliasReviewNotes(it) }
 
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -1552,7 +1649,7 @@ private fun atomicToXmr(atomic: Long): Double {
     return atomic.toDouble() / 1_000_000_000_000.0
 }
 
-private fun isValidMoneroAddress(address: String): Boolean {
+internal fun isValidMoneroAddress(address: String): Boolean {
     if (address.length !in listOf(95, 106)) return false
     if (!address.startsWith("4") && !address.startsWith("8")) return false
     return try {

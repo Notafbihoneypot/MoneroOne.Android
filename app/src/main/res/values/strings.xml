@@ -59,6 +59,42 @@
     <string name="total">Total</string>
     <string name="confirm_send">Confirm Send</string>
     <string name="scan_qr">Scan QR</string>
+    <string name="send_recipient_label">Recipient</string>
+    <string name="send_recipient_placeholder">Enter XMR address or OpenAlias</string>
+    <string name="send_recipient_field_a11y">Recipient address or OpenAlias name</string>
+    <string name="send_to_name">Send to %1$s</string>
+
+    <!-- OpenAlias names on the Send screen. Never translate DNSSEC, OpenAlias, Tor or Monero One. -->
+    <string name="openalias_looking_up">Looking up %1$s…</string>
+    <string name="openalias_dnssec_valid">DNSSEC valid</string>
+    <string name="openalias_dnssec_off">DNSSEC off</string>
+    <string name="openalias_address_label">Address</string>
+    <string name="openalias_pin_same">Same address as your last payment</string>
+    <string name="openalias_pin_changed">Address changed since your last payment</string>
+    <string name="openalias_first_payment">First payment to this name. Check the address with the recipient.</string>
+    <string name="openalias_error_invalid_name">Invalid name</string>
+    <string name="openalias_error_reserved">Monero One names come in a later update</string>
+    <string name="openalias_error_no_record">No Monero address for this name</string>
+    <string name="openalias_error_several">This name lists more than one Monero address</string>
+    <string name="openalias_error_invalid_address">The record holds an invalid Monero address</string>
+    <string name="openalias_error_wrong_network">The record holds an address for another network</string>
+    <string name="openalias_error_payment_id">This name uses a payment ID, which Monero no longer supports. Ask the recipient for a subaddress or an integrated address.</string>
+    <string name="openalias_error_dnssec_failed">DNSSEC check failed. Someone may have changed this answer.</string>
+    <string name="openalias_error_timeout">The lookup took too long</string>
+    <string name="openalias_error_network">Can\'t reach the name service</string>
+    <string name="openalias_error_tor">Can\'t reach the name service through Tor</string>
+    <string name="openalias_try_again">Try Again</string>
+    <string name="openalias_try_again_hint">Look up the name again</string>
+    <string name="openalias_unsigned_title">Name Not Signed</string>
+    <string name="openalias_unsigned_message">%1$s has no DNSSEC signature. A DNS server between you and the owner of the name can change this answer. Check the address with the recipient before you send.</string>
+    <string name="openalias_continue_anyway">Continue Anyway</string>
+    <string name="openalias_changed_title">Address Changed</string>
+    <string name="openalias_changed_message">The address for %1$s is different from the address you paid on %2$s. Check the new address with the recipient.</string>
+    <string name="openalias_use_new_address">Use New Address</string>
+    <string name="openalias_cancel">Cancel</string>
+    <string name="openalias_found_a11y">Address found for %1$s</string>
+    <string name="openalias_review_a11y">Recipient: %1$s, address %2$s</string>
+    <string name="openalias_continue_hint_wait">Wait for the name lookup to finish</string>
 
     <!-- Receive -->
     <string name="receive_xmr">Receive XMR</string>
