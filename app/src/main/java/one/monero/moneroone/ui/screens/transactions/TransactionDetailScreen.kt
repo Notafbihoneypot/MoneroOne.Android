@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.transactions
 
+import one.monero.moneroone.core.locale.tr
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -89,7 +90,7 @@ fun TransactionDetailScreen(
 
     val transaction = walletState.transactions.find { it.hash == txId }
     val isIncoming = transaction?.direction == TransactionInfo.Direction.Direction_In
-    val navTitle = if (isIncoming) "Received" else "Sent"
+    val navTitle = if (isIncoming) tr("Received") else tr("Sent")
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -99,7 +100,7 @@ fun TransactionDetailScreen(
                 title = { Text(navTitle, style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -137,7 +138,7 @@ fun TransactionDetailScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Transaction not found",
+                        text = tr("Transaction not found"),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -165,7 +166,7 @@ private fun TransactionDetailContent(
     val discColor = if (isIncoming) SuccessGreen else MoneroOrange
     val amountColor = if (isIncoming) SuccessGreen else MaterialTheme.colorScheme.onSurface
     val amountPrefix = if (isIncoming) "+" else "-"
-    val typeLabel = if (isIncoming) "Received" else "Sent"
+    val typeLabel = if (isIncoming) tr("Received") else tr("Sent")
 
     val status = when {
         transaction.isFailed -> TransactionStatus.Failed
@@ -182,10 +183,10 @@ private fun TransactionDetailContent(
     }
 
     val statusText = when (status) {
-        TransactionStatus.Pending -> "Pending"
+        TransactionStatus.Pending -> tr("Pending")
         TransactionStatus.Locked -> "Locked (${transaction.confirmations}/10 confirmations)"
-        TransactionStatus.Confirmed -> "Confirmed"
-        TransactionStatus.Failed -> "Failed"
+        TransactionStatus.Confirmed -> tr("Confirmed")
+        TransactionStatus.Failed -> tr("Failed")
     }
 
     Column(
@@ -240,7 +241,7 @@ private fun TransactionDetailContent(
                 if (transaction.fee > 0) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Fee: ${formatXmr(transaction.fee)} XMR",
+                        text = tr("Fee: %s XMR", formatXmr(transaction.fee)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -274,7 +275,7 @@ private fun TransactionDetailContent(
         GlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Details",
+                    text = tr("Details"),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -283,7 +284,7 @@ private fun TransactionDetailContent(
 
                 // Date
                 DetailRow(
-                    label = "Date",
+                    label = tr("Date"),
                     value = formatDate(transaction.timestamp * 1000)
                 )
 
@@ -294,7 +295,7 @@ private fun TransactionDetailContent(
 
                 // Confirmations
                 DetailRow(
-                    label = "Confirmations",
+                    label = tr("Confirmations"),
                     value = if (transaction.confirmations >= 10) "10+" else transaction.confirmations.toString()
                 )
 
@@ -305,8 +306,8 @@ private fun TransactionDetailContent(
 
                 // Block height
                 DetailRow(
-                    label = "Block Height",
-                    value = if (transaction.blockheight > 0) transaction.blockheight.toString() else "Pending"
+                    label = tr("Block Height"),
+                    value = if (transaction.blockheight > 0) transaction.blockheight.toString() else tr("Pending")
                 )
 
                 HorizontalDivider(
@@ -322,7 +323,7 @@ private fun TransactionDetailContent(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Transaction ID",
+                            text = tr("Transaction ID"),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -336,13 +337,13 @@ private fun TransactionDetailContent(
                     IconButton(
                         onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Transaction ID", transaction.hash))
-                            Toast.makeText(context, "Transaction ID copied", Toast.LENGTH_SHORT).show()
+                            clipboard.setPrimaryClip(ClipData.newPlainText(tr("Transaction ID"), transaction.hash))
+                            Toast.makeText(context, tr("Transaction ID copied"), Toast.LENGTH_SHORT).show()
                         }
                     ) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy",
+                            contentDescription = tr("Copy"),
                             tint = MoneroOrange,
                             modifier = Modifier.size(20.dp)
                         )
@@ -367,7 +368,7 @@ private fun TransactionDetailContent(
                 contentDescription = null,
                 modifier = Modifier.size(18.dp)
             )
-            Text(text = "View in Block Explorer")
+            Text(text = tr("View in Block Explorer"))
         }
 
         Spacer(modifier = Modifier.height(32.dp))

@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -47,7 +48,7 @@ fun NameWalletStep(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Name Your Wallet",
+            text = tr("Name Your Wallet"),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold
         )
@@ -66,7 +67,7 @@ fun NameWalletStep(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Tap to pick an icon",
+            text = tr("Tap to pick an icon"),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -95,7 +96,7 @@ fun NameWalletStep(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "You can change the name and icon later.",
+            text = tr("You can change the name and icon later."),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -108,7 +109,7 @@ fun NameWalletStep(
             enabled = !isBusy,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(text = if (isBusy) "Working..." else buttonLabel)
+            Text(text = if (isBusy) tr("Working...") else buttonLabel)
         }
     }
 }

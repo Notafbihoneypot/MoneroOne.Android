@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.data.util.ChartMath
 import one.monero.moneroone.data.util.MoneyFormat
@@ -158,10 +159,10 @@ internal fun ChartContent(
         uiState.currentPrice?.price ?: uiState.close
     }
     val displayValue = selected?.value ?: currentValue
-    val value = displayValue?.let { MoneyFormat.format(it, currency) } ?: "Loading..."
+    val value = displayValue?.let { MoneyFormat.format(it, currency) } ?: tr("Loading...")
     val caption = selected?.let {
         formats.scrubLabel(range.axis, selectedPortfolio?.let(PortfolioHistory::eventTime) ?: it.timestamp)
-    } ?: if (isPortfolio) "Current Value" else "Current Price"
+    } ?: tr(if (isPortfolio) "Current Value" else "Current Price")
     val details = if (isPortfolio) selectedPortfolio?.let(PortfolioHistory::scrubDetail) ?: balanceLabel else null
     val change = if (isPortfolio) portfolioChange else uiState.rangeChange
     val high = remember(points) { points.maxOfOrNull { it.value } }
@@ -201,11 +202,11 @@ internal fun ChartContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Chart", style = MaterialTheme.typography.headlineSmall)
+                Text(tr("Chart"), style = MaterialTheme.typography.headlineSmall)
                 GlassButton(onClick = onPriceAlertsClick, modifier = Modifier.size(44.dp)) {
                     Icon(
                         Icons.Outlined.Notifications,
-                        contentDescription = "Price Alerts",
+                        contentDescription = tr("Price Alerts"),
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp)
                     )
@@ -216,12 +217,12 @@ internal fun ChartContent(
                 selectedOption = selectedMode,
                 onOptionSelected = onModeSelected,
                 modifier = Modifier.fillMaxWidth().testTag("chart-mode"),
-                labelSelector = { it.label }
+                labelSelector = { tr(it.label) }
             )
             ChartValueCard(
                 caption = caption,
                 value = value,
-                valueDescription = String.format(if (isPortfolio) "Portfolio value, %s" else "Current Monero price, %s", value),
+                valueDescription = tr(if (isPortfolio) "Portfolio value, %s" else "Current Monero price, %s", value),
                 details = details,
                 change = change,
                 range = range
@@ -231,8 +232,8 @@ internal fun ChartContent(
                 selectedOption = range,
                 onOptionSelected = onRangeSelected,
                 modifier = Modifier.fillMaxWidth().testTag("chart-range"),
-                accessibilityLabel = { it.axis.spokenSpan },
-                labelSelector = { it.label }
+                accessibilityLabel = { tr(it.axis.spokenSpan) },
+                labelSelector = { tr(it.label) }
             )
             GlassCard(Modifier.fillMaxWidth().height(220.dp).testTag("chart-plot")) {
                 if (points.isNotEmpty()) {
@@ -244,8 +245,8 @@ internal fun ChartContent(
                             domain = domain,
                             axes = ChartAxes(axis, formats, currency),
                             speech = ChartSpeech(
-                                title = if (isPortfolio) "Portfolio" else "Monero price",
-                                span = range.axis.spokenSpan,
+                                title = tr(if (isPortfolio) "Portfolio" else "Monero price"),
+                                span = tr(range.axis.spokenSpan),
                                 currency = currency,
                                 note = if (isPortfolio) transactionCount else null,
                                 markerName = if (isPortfolio) "transaction" else "marker"
@@ -262,7 +263,7 @@ internal fun ChartContent(
                             CircularProgressIndicator(Modifier.size(32.dp), color = MoneroOrange, strokeWidth = 3.dp)
                         } else {
                             Text(
-                                if (isPortfolio && ledger.balance == 0L) "Add XMR to see portfolio chart" else "Unable to load chart",
+                                tr(if (isPortfolio && ledger.balance == 0L) "Add XMR to see portfolio chart" else "Unable to load chart"),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -271,17 +272,17 @@ internal fun ChartContent(
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.testTag("chart-statistics")) {
-                Text("Statistics", style = MaterialTheme.typography.titleMedium)
+                Text(tr("Statistics"), style = MaterialTheme.typography.titleMedium)
                 GlassCard(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         ChartStat(
-                            label = String.format("%s High", range.label),
+                            label = tr("%s High", tr(range.label)),
                             value = high?.let { MoneyFormat.format(it, currency) } ?: "—",
                             color = SuccessGreen,
                             modifier = Modifier.weight(1f)
                         )
                         ChartStat(
-                            label = String.format("%s Low", range.label),
+                            label = tr("%s Low", tr(range.label)),
                             value = low?.let { MoneyFormat.format(it, currency) } ?: "—",
                             color = ErrorRed,
                             modifier = Modifier.weight(1f)
@@ -289,7 +290,7 @@ internal fun ChartContent(
                     }
                 }
                 Text(
-                    text = uiState.currentPrice?.lastUpdated?.let { "Last Updated: ${formats.dateTime(it)}" } ?: "",
+                    text = uiState.currentPrice?.lastUpdated?.let { "${tr("Last Updated")}: ${formats.dateTime(it)}" } ?: "",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -358,7 +359,7 @@ private fun ChartValueCard(
                             .background(color.copy(alpha = 0.15f), CapsuleShape)
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                             .clearAndSetSemantics {
-                                contentDescription = String.format("Change, %s", range.axis.spokenSpan) + ", " + ChartSpeech.spokenChange(change)
+                                contentDescription = tr("Change, %s", tr(range.axis.spokenSpan)) + ", " + ChartSpeech.spokenChange(change)
                             }
                     )
                 }

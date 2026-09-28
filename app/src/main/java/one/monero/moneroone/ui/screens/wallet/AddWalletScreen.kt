@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.wallet
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,10 +48,10 @@ fun AddWalletScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add Wallet", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(tr("Add Wallet"), style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -71,7 +72,7 @@ fun AddWalletScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Add a Wallet",
+                text = tr("Add a Wallet"),
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center
             )
@@ -79,7 +80,7 @@ fun AddWalletScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Create a fresh wallet or restore one from its seed phrase. It will use your existing PIN.",
+                text = tr("Create a fresh wallet or restore one from its seed phrase. It will use your existing PIN."),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -93,7 +94,7 @@ fun AddWalletScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Filled.AddCircle, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text("Create New Wallet")
+                Text(tr("Create New Wallet"))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -103,7 +104,7 @@ fun AddWalletScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Filled.ReplayCircleFilled, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text("Restore Wallet")
+                Text(tr("Restore Wallet"))
             }
 
             Spacer(modifier = Modifier.height(32.dp))

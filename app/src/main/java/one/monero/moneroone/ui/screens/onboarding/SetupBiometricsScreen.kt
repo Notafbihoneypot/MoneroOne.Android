@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.core.locale.tr
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -48,7 +49,7 @@ fun SetupBiometricsScreen(
 
         Icon(
             imageVector = Icons.Default.Fingerprint,
-            contentDescription = "Biometrics",
+            contentDescription = tr("Biometrics"),
             modifier = Modifier.size(96.dp),
             tint = if (biometricAvailable) MoneroOrange
                    else MoneroTheme.colors.labelTertiary
@@ -57,8 +58,8 @@ fun SetupBiometricsScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = if (biometricAvailable) "Enable Biometrics?"
-                   else "Biometrics Unavailable",
+            text = if (biometricAvailable) tr("Enable Biometrics?")
+                   else tr("Biometrics Unavailable"),
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
         )
@@ -67,9 +68,9 @@ fun SetupBiometricsScreen(
 
         Text(
             text = if (biometricAvailable)
-                       "Unlock your wallet quickly and securely with biometrics instead of entering your PIN."
+                       tr("Unlock your wallet quickly and securely with %s instead of entering your PIN.", tr("Biometrics"))
                    else
-                       "This device does not support biometric authentication. You can enable it later in Settings if you set up biometrics on your device.",
+                       tr("This device does not support biometric authentication. You can enable it later in Settings if you set up biometrics on your device."),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -86,7 +87,7 @@ fun SetupBiometricsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(text = "Enable Biometrics")
+                Text(text = tr("Enable Biometrics"))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -95,14 +96,14 @@ fun SetupBiometricsScreen(
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = "Skip for Now")
+                Text(text = tr("Skip for Now"))
             }
         } else {
             PrimaryButton(
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = "Continue")
+                Text(text = tr("Continue"))
             }
         }
 

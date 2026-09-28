@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.navigation
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
@@ -26,7 +27,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import one.monero.moneroone.ui.screens.send.parseMoneroUri
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import one.monero.moneroone.ui.screens.MainScreen
@@ -72,8 +77,8 @@ sealed class Screen(val route: String) {
     data object Send : Screen("send?address={address}&amount={amount}") {
         fun createRoute(address: String? = null, amount: String? = null): String {
             val params = mutableListOf<String>()
-            if (!address.isNullOrBlank()) params.add("address=$address")
-            if (!amount.isNullOrBlank()) params.add("amount=$amount")
+            if (!address.isNullOrBlank()) params.add("address=${android.net.Uri.encode(address)}")
+            if (!amount.isNullOrBlank()) params.add("amount=${android.net.Uri.encode(amount)}")
             return if (params.isEmpty()) "send" else "send?${params.joinToString("&")}"
         }
     }
@@ -103,6 +108,8 @@ private val UnlockCrossFade = tween<Float>(350, easing = CubicBezierEasing(0.42f
 @Composable
 fun MoneroOneNavHost(
     modifier: Modifier = Modifier,
+    paymentLink: String? = null,
+    onPaymentLinkConsumed: () -> Unit = {},
     navController: NavHostController = rememberNavController(),
     walletViewModel: WalletViewModel = viewModel(),
     chartViewModel: ChartViewModel = viewModel()
@@ -110,6 +117,20 @@ fun MoneroOneNavHost(
     val walletState by walletViewModel.walletState.collectAsState()
     val isLocked by walletViewModel.isLocked.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val entry by navController.currentBackStackEntryAsState()
+    // Keep the request until a wallet is open and authentication is complete.
+    // Never interrupt an existing send or wallet setup flow.
+    LaunchedEffect(paymentLink, isLocked, walletState.hasWallet, entry) {
+        if (paymentLink == null || isLocked || !walletState.hasWallet || entry?.destination?.route != Screen.Main.route) return@LaunchedEffect
+        val parsed = parseMoneroUri(paymentLink)
+        onPaymentLinkConsumed()
+        if (parsed == null || parsed.paymentId != null) {
+            Toast.makeText(context, tr("Invalid Monero address or QR code"), Toast.LENGTH_LONG).show()
+        } else {
+            navController.navigate(Screen.Send.createRoute(parsed.address, parsed.amount))
+        }
+    }
 
     // Price/chart fetches run only while a wallet exists, so no IP goes to
     // monero.one before key generation, and none after the last wallet is gone.
@@ -437,6 +458,10 @@ fun MoneroOneNavHost(
                 ThemeScreen(
                     onBack = { navController.popBackStack() }
                 )
+            }
+
+            composable("language") {
+                one.monero.moneroone.ui.screens.settings.LanguageScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Screen.Currency.route) {

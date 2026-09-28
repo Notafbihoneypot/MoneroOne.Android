@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -102,13 +103,13 @@ fun DonationScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Donate XMR",
+                        text = tr("Donate XMR"),
                         style = MaterialTheme.typography.titleMedium
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -139,7 +140,7 @@ fun DonationScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Support Development",
+                text = tr("Support Development"),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold
             )
@@ -147,7 +148,7 @@ fun DonationScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "If you enjoy Monero One, consider donating to support continued development.",
+                text = tr("If you enjoy Monero One, consider donating to support continued development."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -170,14 +171,14 @@ fun DonationScreen(
                     if (bitmap != null) {
                         Image(
                             bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "Donation QR Code",
+                            contentDescription = tr("Donation QR Code"),
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(12.dp))
                         )
                     } else {
                         Text(
-                            text = "Generating...",
+                            text = tr("Generating..."),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -197,7 +198,7 @@ fun DonationScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "Monero Address",
+                        text = tr("Monero Address"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -222,10 +223,10 @@ fun DonationScreen(
                 PrimaryButton(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("Donation Address", DONATION_ADDRESS)
+                        val clip = ClipData.newPlainText(tr("Donation Address"), DONATION_ADDRESS)
                         clipboard.setPrimaryClip(clip)
                         copied = true
-                        Toast.makeText(context, "Address copied", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, tr("Address copied"), Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.weight(1f),
                     contentColor = if (copied) SuccessGreen else MoneroOrange
@@ -235,7 +236,7 @@ fun DonationScreen(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-                    Text(text = if (copied) "Copied!" else "Copy")
+                    Text(text = if (copied) tr("Copied!") else tr("Copy"))
                 }
 
                 // Send XMR: glass with the brand label (iOS)
@@ -250,7 +251,7 @@ fun DonationScreen(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-                    Text(text = "Send XMR")
+                    Text(text = tr("Send XMR"))
                 }
             }
 

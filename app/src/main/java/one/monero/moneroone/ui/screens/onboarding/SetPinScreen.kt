@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -70,11 +71,11 @@ fun SetPinScreen(
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
-    val title = if (currentStep == 0) "Set a PIN to secure your wallet" else "Confirm Your PIN"
+    val title = if (currentStep == 0) tr("Set a PIN to secure your wallet") else tr("Confirm Your PIN")
     val subtitle = if (currentStep == 0) {
         null
     } else {
-        "Enter your PIN again to confirm"
+        tr("Enter your PIN again to confirm")
     }
 
     val currentPin = if (currentStep == 0) pin else confirmPin
@@ -102,7 +103,7 @@ fun SetPinScreen(
                         }
                     } else {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        errorMessage = "PINs don't match"
+                        errorMessage = tr("PINs don't match")
                         shakeAnimation = true
                         confirmPin = ""
                     }
@@ -242,7 +243,7 @@ private fun NumberPad(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
         listOf("7", "8", "9"),
-        listOf("", "0", "back")
+        listOf("", "0", tr("back"))
     )
 
     Column(
@@ -256,7 +257,7 @@ private fun NumberPad(
                 row.forEach { button ->
                     when (button) {
                         "" -> Spacer(modifier = Modifier.size(80.dp))
-                        "back" -> {
+                        tr("back") -> {
                             KeypadKey(onPress = onBackspace) { onClick ->
                                 IconButton(
                                     onClick = onClick,
@@ -264,7 +265,7 @@ private fun NumberPad(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                        contentDescription = "Backspace",
+                                        contentDescription = tr("Backspace"),
                                         modifier = Modifier.size(28.dp),
                                         tint = MaterialTheme.colorScheme.onBackground
                                     )

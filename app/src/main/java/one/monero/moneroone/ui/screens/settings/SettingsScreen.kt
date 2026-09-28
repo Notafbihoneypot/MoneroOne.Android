@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
@@ -83,6 +84,7 @@ fun SettingsScreen(
     onSecurityClick: () -> Unit,
     onThemeClick: () -> Unit,
     onCurrencyClick: () -> Unit,
+    onLanguageClick: () -> Unit = {},
     onPriceAlertsClick: () -> Unit = {},
     onSyncSettingsClick: () -> Unit,
     onResetSyncClick: () -> Unit,
@@ -95,6 +97,7 @@ fun SettingsScreen(
     var showRemoveAllDialog by remember { mutableStateOf(false) }
     var showResetSyncDialog by remember { mutableStateOf(false) }
 
+    val fiatMode by walletViewModel.fiatMode.collectAsState()
     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
 
     // The saved Appearance choice. Settings leaves composition while the
@@ -114,16 +117,16 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Settings",
+            text = tr("Settings"),
             style = MaterialTheme.typography.headlineLarge
         )
 
         // Wallet Section
-        SettingsSection(title = "Wallet") {
+        SettingsSection(title = tr("Wallet")) {
             SettingsItem(
                 icon = Icons.Default.Key,
-                title = "Backup Seed Phrase",
-                subtitle = "View your recovery phrase",
+                title = tr("Backup Seed Phrase"),
+                subtitle = tr("View your recovery phrase"),
                 onClick = onBackupClick,
                 iconColor = MoneroOrange,
                 showDivider = false
@@ -131,20 +134,20 @@ fun SettingsScreen(
 
             SettingsItem(
                 icon = Icons.Default.Lock,
-                title = "Security",
-                subtitle = "PIN and authentication settings",
+                title = tr("Security"),
+                subtitle = tr("PIN and authentication settings"),
                 onClick = onSecurityClick,
                 iconColor = SettingsBlue
             )
         }
 
         // Display Section
-        SettingsSection(title = "Display") {
+        SettingsSection(title = tr("Display")) {
             SettingsItem(
                 icon = Icons.Default.Brush,
-                title = "Appearance",
+                title = tr("Appearance"),
                 // TalkBack reads the title and this value as one row.
-                subtitle = appearance.rowValue,
+                subtitle = tr(appearance.rowValue),
                 onClick = onThemeClick,
                 iconColor = SettingsIndigo,
                 showDivider = false
@@ -152,16 +155,33 @@ fun SettingsScreen(
 
             SettingsItem(
                 icon = Icons.Default.CurrencyExchange,
-                title = "Currency",
+                title = tr("Currency"),
                 subtitle = selectedCurrency.code.uppercase(),
                 onClick = onCurrencyClick,
                 iconColor = SettingsGreen
             )
 
             SettingsItem(
+                icon = Icons.Default.Language,
+                title = tr("Language"),
+                subtitle = selectedLanguageName(),
+                onClick = onLanguageClick,
+                iconColor = SettingsBlue
+            )
+
+            SettingsToggleItem(
+                icon = Icons.Default.CurrencyExchange,
+                title = tr("Fiat Mode"),
+                subtitle = tr("Show fiat amounts first"),
+                checked = fiatMode,
+                onCheckedChange = walletViewModel::setFiatMode,
+                iconColor = SettingsGreen
+            )
+
+            SettingsItem(
                 icon = Icons.Default.Notifications,
-                title = "Price Alerts",
-                subtitle = "Get notified on price changes",
+                title = tr("Price Alerts"),
+                subtitle = tr("Get notified on price changes"),
                 onClick = onPriceAlertsClick,
                 iconColor = SettingsPink
             )
@@ -172,8 +192,8 @@ fun SettingsScreen(
 
             SettingsToggleItem(
                 icon = Icons.Default.Widgets,
-                title = "Balance & Transactions",
-                subtitle = "Show wallet data on home screen",
+                title = tr("Balance & Transactions"),
+                subtitle = tr("Show wallet data on home screen"),
                 checked = walletWidgetEnabled,
                 onCheckedChange = { enabled ->
                     walletWidgetEnabled = enabled
@@ -185,11 +205,11 @@ fun SettingsScreen(
         }
 
         // Sync Section
-        SettingsSection(title = "Sync") {
+        SettingsSection(title = tr("Sync")) {
             SettingsItem(
                 icon = Icons.Default.Sync,
-                title = "Sync Settings",
-                subtitle = "Configure blockchain sync",
+                title = tr("Sync Settings"),
+                subtitle = tr("Configure blockchain sync"),
                 onClick = onSyncSettingsClick,
                 iconColor = MoneroOrange,
                 showDivider = false
@@ -197,23 +217,23 @@ fun SettingsScreen(
         }
 
         // About Section
-        SettingsSection(title = "About") {
+        SettingsSection(title = tr("About")) {
             // "1.0.9 (12)": versionName (versionCode), as iOS shows
             // CFBundleShortVersionString (CFBundleVersion).
             SettingsItem(
                 icon = Icons.Default.Info,
-                title = "Version",
+                title = tr("Version"),
                 subtitle = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 onClick = { },
                 iconColor = SettingsGray,
                 showDivider = false,
-                contentDescription = "Version ${BuildConfig.VERSION_NAME}, build ${BuildConfig.VERSION_CODE}"
+                contentDescription = tr("Version %s, build %s", BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
             )
 
             SettingsItem(
                 icon = Icons.Default.Language,
-                title = "Website",
-                subtitle = "Visit monero.one",
+                title = tr("Website"),
+                subtitle = tr("Visit monero.one"),
                 onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://monero.one"))
                     context.startActivity(intent)
@@ -224,10 +244,10 @@ fun SettingsScreen(
         }
 
         // Help & Feedback
-        SettingsSection(title = "Help & Feedback") {
+        SettingsSection(title = tr("Help & Feedback")) {
             SettingsItem(
                 icon = Icons.Default.Info,
-                title = "Contact Support",
+                title = tr("Contact Support"),
                 subtitle = "android_support@monero.one",
                 onClick = {
                     val intent = Intent(Intent.ACTION_SENDTO).apply {
@@ -243,11 +263,11 @@ fun SettingsScreen(
         }
 
         // Support Section
-        SettingsSection(title = "Support the Developer") {
+        SettingsSection(title = tr("Support the Developer")) {
             SettingsItem(
                 icon = Icons.Default.Favorite,
-                title = "Donate XMR",
-                subtitle = "Support development",
+                title = tr("Donate XMR"),
+                subtitle = tr("Support development"),
                 onClick = onDonateClick,
                 iconColor = SettingsPink,
                 showDivider = false
@@ -256,11 +276,11 @@ fun SettingsScreen(
 
         // Danger Zone: destructive rows keep their tile colors (Reset Sync is
         // brand, Remove is red) and show red titles, as on iOS.
-        SettingsSection(title = "Danger Zone") {
+        SettingsSection(title = tr("Danger Zone")) {
             SettingsItem(
                 icon = Icons.Default.Refresh,
-                title = "Reset Sync Data",
-                subtitle = "Resync wallet from scratch",
+                title = tr("Reset Sync Data"),
+                subtitle = tr("Resync wallet from scratch"),
                 onClick = { showResetSyncDialog = true },
                 iconColor = MoneroOrange,
                 isDestructive = true,
@@ -271,8 +291,8 @@ fun SettingsScreen(
             // them all, as on iOS.
             SettingsItem(
                 icon = Icons.Default.Delete,
-                title = "Remove All Wallets from Device",
-                subtitle = "Permanently delete all wallets from device",
+                title = tr("Remove All Wallets from Device"),
+                subtitle = tr("Permanently delete all wallets from device"),
                 onClick = { showRemoveAllDialog = true },
                 iconColor = ErrorRed,
                 isDestructive = true
@@ -288,14 +308,13 @@ fun SettingsScreen(
             onDismissRequest = { showRemoveAllDialog = false },
             title = {
                 Text(
-                    text = "Remove All Wallets from Device?",
+                    text = tr("Remove All Wallets from Device?"),
                     style = MaterialTheme.typography.titleLarge
                 )
             },
             text = {
                 Text(
-                    text = "This removes every wallet from this device only. " +
-                        "Your wallets still exist on the blockchain and can be recovered with your seed phrases.",
+                    text = tr("This removes every wallet from this device only. Your wallets still exist on the blockchain and can be recovered with your seed phrases."),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -306,12 +325,12 @@ fun SettingsScreen(
                         showRemoveAllDialog = false
                     }
                 ) {
-                    Text("Remove All", color = ErrorRed)
+                    Text(tr("Remove All"), color = ErrorRed)
                 }
             },
             dismissButton = {
                 DismissTextButton(onClick = { showRemoveAllDialog = false }) {
-                    Text("Cancel")
+                    Text(tr("Cancel"))
                 }
             }
         )
@@ -323,14 +342,13 @@ fun SettingsScreen(
             onDismissRequest = { showResetSyncDialog = false },
             title = {
                 Text(
-                    text = "Reset Sync Data?",
+                    text = tr("Reset Sync Data?"),
                     style = MaterialTheme.typography.titleLarge
                 )
             },
             text = {
                 Text(
-                    text = "This will clear all sync progress and re-sync from the beginning. " +
-                        "Your wallet and keys are not affected.",
+                    text = tr("This will clear all sync progress and re-sync from the beginning. Your wallet and keys are not affected."),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -341,12 +359,12 @@ fun SettingsScreen(
                         showResetSyncDialog = false
                     }
                 ) {
-                    Text("Reset", color = ErrorRed)
+                    Text(tr("Reset"), color = ErrorRed)
                 }
             },
             dismissButton = {
                 DismissTextButton(onClick = { showResetSyncDialog = false }) {
-                    Text("Cancel")
+                    Text(tr("Cancel"))
                 }
             }
         )

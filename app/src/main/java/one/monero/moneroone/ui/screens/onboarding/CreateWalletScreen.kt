@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import android.view.accessibility.AccessibilityManager
 import androidx.activity.compose.LocalActivity
@@ -151,12 +152,12 @@ fun CreateWalletScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Create Wallet", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(tr("Create Wallet"), style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (currentStep > 0) currentStep-- else onBack()
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -216,7 +217,7 @@ fun CreateWalletScreen(
                     // Naming at the END, prefilled with the next default name.
                     NameWalletStep(
                         defaultName = walletViewModel.nextWalletName(),
-                        buttonLabel = "Create Wallet",
+                        buttonLabel = tr("Create Wallet"),
                         // addsInFlight also covers an add that the screen started
                         // before an Activity recreation.
                         isBusy = isCreating || walletState.isInitializing || flowId in addsInFlight,
@@ -272,7 +273,7 @@ private fun SeedDisplay(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Write down your seed phrase",
+            text = tr("Write down your seed phrase"),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold
         )
@@ -299,7 +300,7 @@ private fun SeedDisplay(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "This is the ONLY way to recover your wallet. Store it safely offline.",
+                    text = tr("This is the ONLY way to recover your wallet. Store it safely offline."),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -351,7 +352,7 @@ private fun SeedDisplay(
                 contentDescription = null,
                 modifier = Modifier.size(18.dp)
             )
-            Text(if (copied) "Copied!" else "Copy to Clipboard")
+            Text(if (copied) tr("Copied!") else tr("Copy to Clipboard"))
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -360,7 +361,7 @@ private fun SeedDisplay(
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Continue")
+            Text(tr("Continue"))
         }
     }
 }
@@ -378,7 +379,7 @@ private fun ScreenReaderSeedWarning(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Screen reader is on",
+            text = tr("Screen reader is on"),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
@@ -406,7 +407,7 @@ private fun ScreenReaderSeedWarning(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Your screen reader will read your seed phrase out loud. Anyone who hears it can steal your funds. Use headphones or make sure nobody can hear your device before continuing.",
+                    text = tr("Your screen reader will read your seed phrase out loud. Anyone who hears it can steal your funds. Use headphones or make sure nobody can hear your device before continuing."),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -419,7 +420,7 @@ private fun ScreenReaderSeedWarning(
             onClick = onReveal,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Show Seed Phrase")
+            Text(tr("Show Seed Phrase"))
         }
     }
 }
@@ -467,7 +468,7 @@ private fun SeedConfirmation(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Confirm Backup",
+            text = tr("Confirm Backup"),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold
         )
@@ -475,7 +476,7 @@ private fun SeedConfirmation(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Please confirm that you have safely stored your seed phrase.",
+            text = tr("Please confirm that you have safely stored your seed phrase."),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -521,7 +522,7 @@ private fun SeedConfirmation(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "I have written down and securely stored my ${seed.size}-word seed phrase",
+                    text = tr("I have written down my seed phrase"),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -534,7 +535,7 @@ private fun SeedConfirmation(
             enabled = confirmChecked,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Create Wallet")
+            Text(tr("Create Wallet"))
         }
     }
 }

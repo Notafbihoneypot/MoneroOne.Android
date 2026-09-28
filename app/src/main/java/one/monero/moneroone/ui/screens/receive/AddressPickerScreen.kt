@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.receive
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,10 +87,10 @@ fun AddressPickerScreen(
         contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             TopAppBar(
-                title = { Text("Select Address", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(tr("Select Address"), style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -117,7 +118,7 @@ fun AddressPickerScreen(
                 containerColor = MoneroOrange,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Create Subaddress")
+                Icon(Icons.Default.Add, contentDescription = tr("Create Subaddress"))
             }
         }
     ) { padding ->
@@ -159,7 +160,7 @@ fun AddressPickerScreen(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Subaddresses",
+                        text = tr("Subaddresses"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -225,7 +226,7 @@ private fun MainAddressCard(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Main Address",
+                        text = tr("Main Address"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -234,7 +235,7 @@ private fun MainAddressCard(
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
+                        contentDescription = tr("Selected"),
                         tint = MoneroOrange,
                         modifier = Modifier.size(24.dp)
                     )
@@ -246,7 +247,7 @@ private fun MainAddressCard(
             // The full main address, wrapped rather than cut: this card shows
             // all of it, so no end of it may be hidden on a narrow screen.
             Text(
-                text = address.ifBlank { "Loading..." },
+                text = address.ifBlank { tr("Loading...") },
                 style = MonoCaption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -270,7 +271,7 @@ private fun MainAddressCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Main address links all transactions. Use subaddresses for privacy.",
+                    text = tr("Main address links all transactions. Use subaddresses for privacy."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -315,7 +316,7 @@ private fun SubaddressCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (subaddress.displayLabel.startsWith("#")) "Subaddress #$index" else subaddress.displayLabel,
+                    text = if (subaddress.displayLabel.startsWith("#")) tr("Subaddress #%s", index) else subaddress.displayLabel,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
@@ -332,7 +333,7 @@ private fun SubaddressCard(
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.Default.Check,
-                    contentDescription = "Selected",
+                    contentDescription = tr("Selected"),
                     tint = MoneroOrange,
                     modifier = Modifier.size(24.dp)
                 )

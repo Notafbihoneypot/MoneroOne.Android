@@ -1,5 +1,7 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.core.locale.pluralTr
+import one.monero.moneroone.core.locale.tr
 import android.text.InputType
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -101,10 +103,10 @@ fun RestoreWalletScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Restore Wallet", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(tr("Restore Wallet"), style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = { if (namingStep) namingStep = false else onBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -125,7 +127,7 @@ fun RestoreWalletScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 NameWalletStep(
                     defaultName = walletViewModel.nextWalletName(),
-                    buttonLabel = "Restore Wallet",
+                    buttonLabel = tr("Restore Wallet"),
                     // Also covers an add that a screen before an Activity recreation started.
                     isBusy = walletState.isInitializing || flowId in addsInFlight,
                     onDone = { name, emoji ->
@@ -157,7 +159,7 @@ fun RestoreWalletScreen(
             }
 
             Text(
-                text = "Enter your seed phrase",
+                text = tr("Enter your seed phrase"),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold
             )
@@ -165,7 +167,7 @@ fun RestoreWalletScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "24 words (BIP39) or 25 words (Monero legacy)",
+                text = tr("24 words (BIP39) or 25 words (Monero legacy)"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -187,10 +189,10 @@ fun RestoreWalletScreen(
                         .fillMaxWidth()
                         .height(200.dp),
                     label = { Text("Seed Phrase") },
-                    placeholder = { Text("Separate words with spaces") },
+                    placeholder = { Text(tr("Separate words with spaces")) },
                     supportingText = {
                         val wordCount = seedPhrase.trim().split("\\s+".toRegex()).filter { it.isNotEmpty() }.size
-                        Text("$wordCount words")
+                        Text(pluralTr("%s words", wordCount))
                     },
                     isError = errorMessage != null,
                     keyboardOptions = KeyboardOptions(
@@ -212,15 +214,15 @@ fun RestoreWalletScreen(
                     .fillMaxWidth()
                     .clickable { showDatePicker = true },
                 label = { Text("Wallet Birthday (Optional)") },
-                placeholder = { Text("Select date when wallet was created") },
-                supportingText = { Text("Leave empty to scan from beginning (slower)") },
+                placeholder = { Text(tr("Select date when wallet was created")) },
+                supportingText = { Text(tr("Leave empty to scan from beginning (slower)")) },
                 // Disabled only so the whole field takes the click; it reads as enabled.
                 colors = moneroTextFieldColors(disabledTextColor = MaterialTheme.colorScheme.onSurface),
                 trailingIcon = {
                     IconButton(onClick = { showDatePicker = true }) {
                         Icon(
                             imageVector = Icons.Default.DateRange,
-                            contentDescription = "Select date",
+                            contentDescription = tr("Select date"),
                             tint = MoneroOrange
                         )
                     }
@@ -255,10 +257,10 @@ fun RestoreWalletScreen(
                     val words = seedPhrase.trim().split("\\s+".toRegex()).filter { it.isNotEmpty() }
                     when {
                         words.isEmpty() -> {
-                            errorMessage = "Please enter your seed phrase"
+                            errorMessage = tr("Please enter your seed phrase")
                         }
                         words.size !in listOf(24, 25) -> {
-                            errorMessage = "Seed phrase must be 24 or 25 words"
+                            errorMessage = tr("Seed phrase must be 24 or 25 words")
                         }
                         else -> {
                             // Naming happens at the end (iOS parity).
@@ -269,7 +271,7 @@ fun RestoreWalletScreen(
                 enabled = !walletState.isInitializing && seedPhrase.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = if (walletState.isInitializing) "Restoring..." else "Continue")
+                Text(text = if (walletState.isInitializing) tr("Restoring...") else tr("Continue"))
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -291,7 +293,7 @@ fun RestoreWalletScreen(
                         showDatePicker = false
                     }
                 ) {
-                    Text("OK", color = MoneroOrange)
+                    Text(tr("OK"), color = MoneroOrange)
                 }
             },
             dismissButton = {
@@ -301,7 +303,7 @@ fun RestoreWalletScreen(
                         showDatePicker = false
                     }
                 ) {
-                    Text("Clear")
+                    Text(tr("Clear"))
                 }
             }
         ) {

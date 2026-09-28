@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -89,9 +90,9 @@ fun MainScreen(
     }
 
     val navItems = listOf(
-        BottomNavItem("Wallet", Icons.Filled.Wallet, Icons.Outlined.Wallet),
-        BottomNavItem("Chart", Icons.Filled.ShowChart, Icons.Outlined.ShowChart),
-        BottomNavItem("Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
+        BottomNavItem(tr("Wallet"), Icons.Filled.Wallet, Icons.Outlined.Wallet),
+        BottomNavItem(tr("Chart"), Icons.Filled.ShowChart, Icons.Outlined.ShowChart),
+        BottomNavItem(tr("Settings"), Icons.Filled.Settings, Icons.Outlined.Settings)
     )
     // The selected pill is the fill color on the white bar. In dark mode the
     // bar and the fill are both #1C1C1E, so the pill takes the elevated fill.
@@ -136,7 +137,7 @@ fun MainScreen(
                         },
                         label = {
                             Text(
-                                text = item.label,
+                                text = tr(item.label),
                                 style = MaterialTheme.typography.labelSmall
                             )
                         },
@@ -214,6 +215,7 @@ fun MainScreen(
                         onSecurityClick = { navController.navigate("security") },
                         onThemeClick = { navController.navigate("theme") },
                         onCurrencyClick = { navController.navigate("currency") },
+                        onLanguageClick = { navController.navigate("language") },
                         onPriceAlertsClick = { navController.navigate("price_alerts") },
                         onSyncSettingsClick = { navController.navigate("sync_settings") },
                         onResetSyncClick = {

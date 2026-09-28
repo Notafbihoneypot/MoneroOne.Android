@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.components
 
+import one.monero.moneroone.core.locale.tr
 import android.text.format.DateFormat
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -173,15 +174,15 @@ fun SampledLineChart(
     val pinned = scrub.pinned
     val pinnedIndex = pinned?.let { markers.indexOf(it) } ?: -1
     val stateText = if (pinned != null && pinnedIndex >= 0) {
-        "${pinned.label}, ${pinned.valueText}, ${pinnedIndex + 1} of ${markers.size}"
+        tr("%s, %s, %s of %s", pinned.label, pinned.valueText, pinnedIndex + 1, markers.size)
     } else {
         val first = points.firstOrNull()
         val last = points.lastOrNull()
         if (first != null && last != null) speech.summary(first.value, last.value) else ""
     }
     val actions = if (markers.isEmpty()) emptyList() else listOf(
-        CustomAccessibilityAction("Next ${speech.markerName}") { step(forward = true) },
-        CustomAccessibilityAction("Previous ${speech.markerName}") { step(forward = false) }
+        CustomAccessibilityAction(tr("Next transaction")) { step(forward = true) },
+        CustomAccessibilityAction(tr("Previous transaction")) { step(forward = false) }
     )
 
     Box(

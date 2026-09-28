@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.send
 
+import one.monero.moneroone.core.locale.tr
 import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -220,9 +221,9 @@ fun SendScreen(
                 title = {
                     Text(
                         text = when (phase) {
-                            SendPhase.ADDRESS -> "Send XMR"
-                            SendPhase.AMOUNT -> if (address.length > 20) "Send to ${truncateMiddle(address)}" else "Amount"
-                            SendPhase.REVIEW -> "Review"
+                            SendPhase.ADDRESS -> tr("Send XMR")
+                            SendPhase.AMOUNT -> if (address.length > 20) tr("Send to %s", truncateMiddle(address)) else tr("Amount")
+                            SendPhase.REVIEW -> tr("Review")
                             else -> ""
                         },
                         style = MaterialTheme.typography.titleMedium,
@@ -240,7 +241,7 @@ fun SendScreen(
                                 else -> {}
                             }
                         }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                         }
                     }
                 },
@@ -335,7 +336,7 @@ fun SendScreen(
                     onDone = onSent
                 )
                 SendPhase.ERROR -> ErrorPhase(
-                    message = (sendState as? SendState.Error)?.message ?: "Transaction failed",
+                    message = (sendState as? SendState.Error)?.message ?: tr("Transaction failed"),
                     onRetry = {
                         walletViewModel.resetSendState(flow)
                         goBack(SendPhase.REVIEW)
@@ -352,8 +353,8 @@ fun SendScreen(
     if (showAuthGate) {
         AuthGateDialog(
             walletViewModel = walletViewModel,
-            title = "Confirm transaction",
-            subtitle = "Authenticate to send ${if (isSweepAll) "your full balance" else "$amount XMR"}",
+            title = tr("Confirm transaction"),
+            subtitle = tr("Confirm this transaction"),
             onAuthenticated = {
                 showAuthGate = false
                 walletViewModel.send(
@@ -408,7 +409,7 @@ private fun AddressPhase(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Recipient Address",
+            text = tr("Recipient Address"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -419,7 +420,7 @@ private fun AddressPhase(
             value = address,
             onValueChange = onAddressChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Enter XMR address", style = MonoCaption) },
+            placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
             textStyle = MonoCaption,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
             singleLine = true
@@ -440,7 +441,7 @@ private fun AddressPhase(
                     modifier = Modifier.size(14.dp)
                 )
                 Text(
-                    if (valid) "Valid address" else "Invalid address",
+                    if (valid) tr("Valid address") else tr("Invalid address"),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (valid) SuccessGreen else ErrorRed
                 )
@@ -459,7 +460,7 @@ private fun AddressPhase(
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text("Scan QR")
+                Text(tr("Scan QR"))
             }
             PrimaryButton(
                 onClick = {
@@ -468,7 +469,7 @@ private fun AddressPhase(
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text("Paste")
+                Text(tr("Paste"))
             }
         }
 
@@ -480,7 +481,7 @@ private fun AddressPhase(
             modifier = Modifier.fillMaxWidth(),
             enabled = isValid
         ) {
-            Text("Continue")
+            Text(tr("Continue"))
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
         }
 
@@ -521,7 +522,7 @@ private fun AmountPhase(
     fun syncFiatFromXmr() {
         val price = xmrPrice ?: return
         val xmrVal = amount.toDoubleOrNull() ?: 0.0
-        fiatString = if (xmrVal > 0) "%.2f".format(xmrVal * price) else ""
+        fiatString = if (xmrVal > 0) "%.2f".format(java.util.Locale.US, xmrVal * price) else ""
     }
 
     fun syncXmrFromFiat() {
@@ -529,7 +530,7 @@ private fun AmountPhase(
         if (price <= 0) return
         val fiatVal = fiatString.toDoubleOrNull() ?: 0.0
         val xmr = fiatVal / price
-        onAmountChange(if (xmr > 0) "%.12f".format(xmr).trimEnd('0').trimEnd('.') else "")
+        onAmountChange(if (xmr > 0) "%.12f".format(java.util.Locale.US, xmr).trimEnd('0').trimEnd('.') else "")
     }
 
     // Entrance animation
@@ -553,7 +554,7 @@ private fun AmountPhase(
                 modifier = Modifier.padding(top = 8.dp)
             ) {
                 Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(14.dp))
-                Text("Amount pre-filled from QR code", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr("Amount pre-filled from QR code"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -650,7 +651,7 @@ private fun AmountPhase(
 
         // Available balance + Paste/Max buttons
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Available: $availableBalance XMR", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr("Available: %s XMR", availableBalance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.weight(1f))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -670,7 +671,7 @@ private fun AmountPhase(
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Icon(Icons.Default.ContentPaste, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(14.dp))
-                Text("Paste", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
+                Text(tr("Paste"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Row(
@@ -684,7 +685,7 @@ private fun AmountPhase(
                     }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text("Max", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
+                Text(tr("Max"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
             }
         }
 
@@ -699,7 +700,7 @@ private fun AmountPhase(
         ) {
             Icon(Icons.Default.Description, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Add memo", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr("Add memo"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.weight(1f))
             Text(if (showMemo) "▲" else "▼", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -708,7 +709,7 @@ private fun AmountPhase(
                 value = memo,
                 onValueChange = onMemoChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Add a note") },
+                placeholder = { Text(tr("Add a note")) },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium
             )
@@ -753,7 +754,7 @@ private fun AmountPhase(
             modifier = Modifier.fillMaxWidth(),
             enabled = canContinue
         ) {
-            Text("Continue")
+            Text(tr("Continue"))
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
         }
 
@@ -803,7 +804,7 @@ private fun ReviewPhase(
                 onUpgradeToSweepAll()
             }
         } catch (e: Exception) {
-            onEstimateFee(0L, false, e.message ?: "Fee estimation failed")
+            onEstimateFee(0L, false, e.message ?: tr("Fee estimation failed"))
         }
     }
 
@@ -833,7 +834,7 @@ private fun ReviewPhase(
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(14.dp))
-                Text("Amount pre-filled from QR code", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr("Amount pre-filled from QR code"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -859,7 +860,7 @@ private fun ReviewPhase(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text("Recipient", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(tr("Recipient"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             text = truncateMiddle(address),
                             style = MonoCaption,
@@ -879,7 +880,7 @@ private fun ReviewPhase(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (isSweepAll) {
-                        Text("All Funds", style = MaterialTheme.typography.headlineMedium)
+                        Text(tr("All Funds"), style = MaterialTheme.typography.headlineMedium)
                         Spacer(modifier = Modifier.height(4.dp))
                         if (feeReady) {
                             val sendAmount = (unlockedBalance - estimatedFee).coerceAtLeast(0)
@@ -921,11 +922,11 @@ private fun ReviewPhase(
 
                 // Fee row
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    Text("Network Fee", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.weight(1f))
                     when {
                         feeLoading -> CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        feeError != null -> Text("Error", style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
+                        feeError != null -> Text(tr("Error"), style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
                         else -> Column(horizontalAlignment = Alignment.End) {
                             Text("${formatXmr(estimatedFee)} XMR", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             xmrPrice?.let { price ->
@@ -946,7 +947,7 @@ private fun ReviewPhase(
 
                 // Total row
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    Text("Total", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.weight(1f))
                     if (feeReady) {
                         val total = if (isSweepAll) unlockedBalance else parsedAmount + estimatedFee
@@ -982,7 +983,7 @@ private fun ReviewPhase(
                     ) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(18.dp))
                         Text(
-                            "Amount plus network fee exceeds your available balance",
+                            tr("Amount plus network fee exceeds your available balance"),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium
                         )
@@ -992,7 +993,7 @@ private fun ReviewPhase(
                         onClick = onUpgradeToSweepAll,
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        Text("Send all funds instead", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
+                        Text(tr("Send all funds instead"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
                     }
                 }
             }
@@ -1012,7 +1013,7 @@ private fun ReviewPhase(
             enabled = feeReady && !sendInProgress && !needsSweepAllChoice
         ) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text("Send")
+            Text(tr("Send"))
         }
 
         Spacer(modifier = Modifier.height(40.dp))
@@ -1037,12 +1038,12 @@ private fun SendingPhase() {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            Text("Sending Transaction...", style = MaterialTheme.typography.headlineSmall)
+            Text(tr("Sending Transaction..."), style = MaterialTheme.typography.headlineSmall)
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                "Please wait while your transaction is being broadcast",
+                tr("Please wait while your transaction is being broadcast"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -1113,18 +1114,18 @@ private fun SuccessPhase(txHash: String, onDone: () -> Unit) {
                         .background(SuccessGreen.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = "Success", tint = SuccessGreen, modifier = Modifier.size(80.dp))
+                    Icon(Icons.Default.Check, contentDescription = tr("Success"), tint = SuccessGreen, modifier = Modifier.size(80.dp))
                 }
             }
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            Text("Sent!", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SuccessGreen)
+            Text(tr("Sent!"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SuccessGreen)
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                "Your transaction has been submitted to the network",
+                tr("Your transaction has been submitted to the network"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -1133,7 +1134,7 @@ private fun SuccessPhase(txHash: String, onDone: () -> Unit) {
             if (txHash.isNotBlank()) {
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text("Transaction ID", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr("Transaction ID"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -1145,7 +1146,7 @@ private fun SuccessPhase(txHash: String, onDone: () -> Unit) {
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
                     Text(
-                        text = if (copied) "Copied!" else truncateMiddle(txHash),
+                        text = if (copied) tr("Copied!") else truncateMiddle(txHash),
                         style = MonoCaption,
                         color = if (copied) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
@@ -1159,7 +1160,7 @@ private fun SuccessPhase(txHash: String, onDone: () -> Unit) {
                     ) {
                         Icon(
                             if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                            contentDescription = "Copy",
+                            contentDescription = tr("Copy"),
                             tint = if (copied) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
@@ -1173,7 +1174,7 @@ private fun SuccessPhase(txHash: String, onDone: () -> Unit) {
                 onClick = onDone,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Done")
+                Text(tr("Done"))
             }
         }
     }
@@ -1193,12 +1194,12 @@ private fun ErrorPhase(message: String, onRetry: () -> Unit, onClose: () -> Unit
                 modifier = Modifier.size(120.dp).clip(CircleShape).background(ErrorRed.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Error, contentDescription = "Error", tint = ErrorRed, modifier = Modifier.size(80.dp))
+                Icon(Icons.Default.Error, contentDescription = tr("Error"), tint = ErrorRed, modifier = Modifier.size(80.dp))
             }
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            Text("Transaction Failed", style = MaterialTheme.typography.headlineSmall, color = ErrorRed)
+            Text(tr("Transaction Failed"), style = MaterialTheme.typography.headlineSmall, color = ErrorRed)
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -1209,11 +1210,11 @@ private fun ErrorPhase(message: String, onRetry: () -> Unit, onClose: () -> Unit
             // iOS: Retry is the glass action, Close a secondary text button under it.
             PrimaryButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text("Retry")
+                Text(tr("Retry"))
             }
             Spacer(modifier = Modifier.height(12.dp))
             DismissTextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-                Text("Close")
+                Text(tr("Close"))
             }
         }
     }
@@ -1246,7 +1247,7 @@ private fun NumericKeypad(onKey: (String) -> Unit) {
                         if (key == "⌫") {
                             Icon(
                                 Icons.AutoMirrored.Filled.Backspace,
-                                contentDescription = "Delete",
+                                contentDescription = tr("Delete"),
                                 modifier = Modifier.align(Alignment.Center).size(24.dp)
                             )
                         } else {

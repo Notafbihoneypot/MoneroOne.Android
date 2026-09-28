@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -68,12 +69,12 @@ fun CurrencyScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = tr("Back")
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Currency",
+                text = tr("Currency"),
                 style = MaterialTheme.typography.headlineSmall
             )
         }
@@ -81,7 +82,7 @@ fun CurrencyScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Select your preferred display currency for prices.",
+            text = tr("Select your preferred display currency for prices."),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -110,7 +111,7 @@ fun CurrencyScreen(
         }
 
         // Current Price section
-        SettingsSectionHeader("Current Price")
+        SettingsSectionHeader(tr("Current Price"))
 
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
@@ -136,7 +137,7 @@ fun CurrencyScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Fetching price...",
+                            text = tr("Fetching price..."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -174,7 +175,7 @@ fun CurrencyScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "24h Change",
+                            text = tr("24h Change"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -212,7 +213,7 @@ fun CurrencyScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Last Updated",
+                            text = tr("Last Updated"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -235,7 +236,7 @@ fun CurrencyScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Unable to fetch price",
+                            text = tr("Unable to fetch price"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -248,7 +249,7 @@ fun CurrencyScreen(
 
         // Footer
         Text(
-            text = "Prices from CoinGecko",
+            text = tr("Fiat values are fetched from CoinMarketCap and update every 5 minutes."),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
@@ -285,7 +286,7 @@ private fun CurrencyItem(
             // Currency info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = currency.displayName,
+                    text = tr(currency.displayName),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -301,7 +302,7 @@ private fun CurrencyItem(
             if (isSelected) {
                 Icon(
                     imageVector = Icons.Default.Check,
-                    contentDescription = "Selected",
+                    contentDescription = tr("Selected"),
                     tint = MoneroOrange,
                     modifier = Modifier.size(24.dp)
                 )
@@ -333,17 +334,7 @@ private fun formatPrice(price: Double, currency: Currency): String {
     }
 }
 
-private fun formatRelativeTime(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diffMs = now - timestamp
-    val diffSeconds = diffMs / 1000
-    val diffMinutes = diffSeconds / 60
-    val diffHours = diffMinutes / 60
-
-    return when {
-        diffSeconds < 60 -> "Just now"
-        diffMinutes < 60 -> "${diffMinutes} min ago"
-        diffHours < 24 -> "${diffHours} hr ago"
-        else -> "${diffHours / 24} days ago"
-    }
-}
+private fun formatRelativeTime(timestamp: Long): String =
+    android.text.format.DateUtils.getRelativeTimeSpanString(
+        timestamp, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
+    ).toString()

@@ -1,5 +1,7 @@
 package one.monero.moneroone.ui.screens.wallet
 
+import one.monero.moneroone.core.locale.pluralTr
+import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.data.model.PriceDataPoint
 import one.monero.moneroone.data.util.XmrFormat
 import one.monero.moneroone.ui.components.ChartMarker
@@ -123,14 +125,14 @@ object PortfolioHistory {
     fun spokenCount(points: List<PortfolioPoint>): String? =
         when (val count = points.sumOf { it.changes.size }) {
             0 -> null
-            1 -> "1 transaction"
-            else -> "$count transactions"
+            1 -> pluralTr("%s transactions", 1)
+            else -> pluralTr("%s transactions", count)
         }
 
     /** "Received 1.2500 XMR", "Sent 0.5000 XMR" or "3 transactions"; null for none. */
     fun summary(changes: List<BalanceChange>): String? {
         val first = changes.firstOrNull() ?: return null
-        if (changes.size != 1) return "${changes.size} transactions"
+        if (changes.size != 1) return pluralTr("%s transactions", changes.size)
         return describe(first)
     }
 
@@ -163,7 +165,7 @@ object PortfolioHistory {
             value = point.value,
             style = if (net >= 0) ChartMarker.Style.RECEIVED else ChartMarker.Style.SENT,
             label = spokenSummary(point.changes),
-            valueText = "${formatWhen(eventTime(point))}, portfolio ${formatValue(point.value)}"
+            valueText = tr("%s, portfolio %s", formatWhen(eventTime(point)), formatValue(point.value))
         )
     }
 
@@ -172,15 +174,15 @@ object PortfolioHistory {
         if (changes.size <= 3) return changes.joinToString(", ") { describe(it) }
         val received = changes.filter { it.incoming }.sumOf { it.amount }
         val sent = changes.filter { !it.incoming }.sumOf { it.amount }
-        val parts = mutableListOf("${changes.size} transactions")
-        if (received > 0) parts.add("received ${XmrFormat.format(received)} XMR")
-        if (sent > 0) parts.add("sent ${XmrFormat.format(sent)} XMR")
+        val parts = mutableListOf(pluralTr("%s transactions", changes.size))
+        if (received > 0) parts.add(tr("received %s XMR", XmrFormat.format(received)))
+        if (sent > 0) parts.add(tr("sent %s XMR", XmrFormat.format(sent)))
         return parts.joinToString(", ")
     }
 
     private fun describe(change: BalanceChange): String =
-        if (change.incoming) "Received ${XmrFormat.format(change.amount)} XMR"
-        else "Sent ${XmrFormat.format(change.amount)} XMR"
+        if (change.incoming) tr("Received %s XMR", XmrFormat.format(change.amount))
+        else tr("Sent %s XMR", XmrFormat.format(change.amount))
 
     private const val ATOMIC_UNITS_PER_XMR = 1e12
 }

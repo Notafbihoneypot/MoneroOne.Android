@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.send
 
+import one.monero.moneroone.core.locale.tr
 import android.Manifest
 import android.content.pm.PackageManager
 import android.view.HapticFeedbackConstants
@@ -73,94 +74,9 @@ import one.monero.moneroone.ui.theme.MoneroOrange
 import timber.log.Timber
 import java.util.concurrent.Executors
 
-/**
- * Parsed data from a Monero URI.
- */
-data class MoneroUriData(
-    val address: String,
-    val amount: String? = null,
-    val recipientName: String? = null,
-    val description: String? = null,
-    val paymentId: String? = null
-)
-
-/**
- * Parses a Monero URI string into its components.
- * Format: monero:<address>?tx_amount=<amount>&recipient_name=<name>&tx_description=<desc>
- */
-fun parseMoneroUri(uri: String): MoneroUriData? {
-    val trimmed = uri.trim()
-
-    // Handle both monero: URI format and plain addresses
-    val address = when {
-        trimmed.startsWith("monero:", ignoreCase = true) -> {
-            val withoutScheme = trimmed.substring(7)
-            val queryStart = withoutScheme.indexOf('?')
-            if (queryStart == -1) withoutScheme else withoutScheme.substring(0, queryStart)
-        }
-        trimmed.startsWith("4") || trimmed.startsWith("8") -> trimmed.split("?")[0]
-        else -> return null
-    }
-
-    // Validate address format
-    if (!address.startsWith("4") && !address.startsWith("8")) {
-        return null
-    }
-    if (address.length !in listOf(95, 106)) {
-        return null
-    }
-    try {
-        MoneroKit.validateAddress(address)
-    } catch (e: Exception) {
-        return null
-    }
-
-    // Parse query parameters
-    val queryStart = trimmed.indexOf('?')
-    var amount: String? = null
-    var recipientName: String? = null
-    var description: String? = null
-    var paymentId: String? = null
-
-    if (queryStart != -1) {
-        val queryString = trimmed.substring(queryStart + 1)
-        val params = queryString.split("&")
-        for (param in params) {
-            val parts = param.split("=", limit = 2)
-            if (parts.size == 2) {
-                val key = parts[0].lowercase()
-                val value = try {
-                    java.net.URLDecoder.decode(parts[1], "UTF-8")
-                } catch (e: Exception) {
-                    parts[1]
-                }
-                when (key) {
-                    "tx_amount", "amount" -> if (isValidUriAmount(value)) amount = value
-                    "recipient_name" -> recipientName = value
-                    "tx_description", "description", "message" -> description = value
-                    "tx_payment_id", "payment_id" -> paymentId = value
-                }
-            }
-        }
-    }
-
-    return MoneroUriData(
-        address = address,
-        amount = amount,
-        recipientName = recipientName,
-        description = description,
-        paymentId = paymentId
-    )
-}
-
-/**
- * True only for a plain positive decimal; the amount is embedded verbatim
- * in the send route, so no signs, exponents or other notation may pass.
- */
-private fun isValidUriAmount(value: String): Boolean {
-    if (!value.matches(Regex("""\d+(\.\d+)?"""))) return false
-    val numeric = value.toBigDecimalOrNull() ?: return false
-    return numeric > java.math.BigDecimal.ZERO
+/** Native checksum validation is shared by scanning and external payment links. */
+fun parseMoneroUri(uri: String): MoneroUriData? = parsePaymentRequest(uri) { address ->
+    try { MoneroKit.validateAddress(address); true } catch (_: Exception) { false }
 }
 
 /**
@@ -424,13 +340,13 @@ fun QRScannerScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Scan Monero Address",
+                        text = tr("Scan Monero Address"),
                         style = MaterialTheme.typography.titleMedium
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -467,7 +383,7 @@ fun QRScannerScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "Camera Permission Required",
+                            text = tr("Camera Permission Required"),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -475,7 +391,7 @@ fun QRScannerScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "To scan QR codes, please allow camera access.",
+                            text = tr("To scan QR codes, please allow camera access."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -490,7 +406,7 @@ fun QRScannerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         ) {
-                            Text(text = "Grant Permission")
+                            Text(text = tr("Grant Permission"))
                         }
                     }
                 }
@@ -520,7 +436,7 @@ fun QRScannerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         ) {
-                            Text(text = "Try Again")
+                            Text(text = tr("Try Again"))
                         }
                     }
                 }
@@ -546,7 +462,7 @@ fun QRScannerScreen(
                                     if (parsed != null) {
                                         onScanned(parsed)
                                     } else {
-                                        scanError = "Invalid Monero address or QR code"
+                                        scanError = tr("Invalid Monero address or QR code")
                                     }
                                 }
                             }
@@ -561,7 +477,7 @@ fun QRScannerScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "Position QR code within the frame",
+                    text = tr("Position QR code within the frame"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

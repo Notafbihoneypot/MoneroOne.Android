@@ -1,5 +1,10 @@
 package one.monero.moneroone.ui.screens.receive
 
+import one.monero.moneroone.core.locale.tr
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.layout.aspectRatio
+import java.util.Locale
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -127,7 +132,7 @@ fun ReceiveScreen(
     val sub = addresses?.shownAddress(selectedAddressIndex)
     val address = sub?.address.orEmpty()
     val addressLabel =
-        if (sub == null || sub.addressIndex == 0) "Main Address" else "Subaddress #${sub.addressIndex}"
+        if (sub == null || sub.addressIndex == 0) tr("Main Address") else tr("Subaddress #%s", sub.addressIndex)
     val canShareAddress = address.isNotBlank() && !keysUnavailable
 
     var requestAmount by remember { mutableStateOf("") }
@@ -158,15 +163,36 @@ fun ReceiveScreen(
             qrCode = null
         }
     }
+    var qrExpanded by remember(qrData) { mutableStateOf(false) }
     val qrBitmap = qrCode?.takeIf { it.first == qrData && canShareAddress }?.second
+
+    if (qrExpanded && qrBitmap != null) {
+        Dialog(onDismissRequest = { qrExpanded = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            Box(
+                Modifier.fillMaxSize().background(Color.White).clickable { qrExpanded = false }.padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    bitmap = qrBitmap.asImageBitmap(),
+                    contentDescription = tr("QR Code"),
+                    modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                )
+                Text(
+                    tr("Done"),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(24.dp),
+                    color = Color.Black
+                )
+            }
+        }
+    }
 
     // Copy and Share act only on a shown address (iOS disables both without one).
     val copyAddress = {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val copyText = if (requestAmount.isNotBlank()) qrData else address
-        val clip = ClipData.newPlainText("Monero Address", copyText)
+        val clip = ClipData.newPlainText(tr("Monero Address"), copyText)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, tr("Copied to clipboard"), Toast.LENGTH_SHORT).show()
     }
     val shareAddress = {
         val shareText = if (requestAmount.isNotBlank()) qrData else address
@@ -174,7 +200,7 @@ fun ReceiveScreen(
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, shareText)
         }
-        context.startActivity(Intent.createChooser(intent, "Share Address"))
+        context.startActivity(Intent.createChooser(intent, tr("Share Address")))
     }
 
     Scaffold(
@@ -184,13 +210,13 @@ fun ReceiveScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Receive XMR",
+                        text = tr("Receive XMR"),
                         style = MaterialTheme.typography.titleMedium
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -212,7 +238,7 @@ fun ReceiveScreen(
 
             // QR Code
             GlassCard(
-                modifier = Modifier.size(280.dp),
+                modifier = Modifier.size(280.dp).clickable(enabled = qrBitmap != null) { qrExpanded = true },
                 cornerRadius = 20.dp
             ) {
                 Box(
@@ -227,14 +253,14 @@ fun ReceiveScreen(
                     } else if (bitmap != null) {
                         Image(
                             bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "QR Code",
+                            contentDescription = tr("QR Code"),
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(12.dp))
                         )
                     } else {
                         Text(
-                            text = "Generating...",
+                            text = tr("Generating..."),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -249,7 +275,7 @@ fun ReceiveScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Request Amount (optional)",
+                    text = tr("Request Amount (optional)"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -266,7 +292,7 @@ fun ReceiveScreen(
                                     isFiatMode = false
                                 } else {
                                     val xmrVal = requestAmount.toDoubleOrNull() ?: 0.0
-                                    fiatAmount = if (xmrVal > 0) "%.2f".format(xmrVal * xmrPrice) else ""
+                                    fiatAmount = if (xmrVal > 0) "%.2f".format(Locale.US, xmrVal * xmrPrice) else ""
                                     isFiatMode = true
                                 }
                             }
@@ -289,14 +315,15 @@ fun ReceiveScreen(
             if (isFiatMode) {
                 MoneroTextField(
                     value = fiatAmount,
-                    onValueChange = {
+                    onValueChange = { input ->
+                        val it = input.replace(',', '.')
                         if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
                             fiatAmount = it
                             val price = xmrPrice
                             if (price != null && price > 0) {
                                 val fiatVal = it.toDoubleOrNull() ?: 0.0
                                 val xmr = fiatVal / price
-                                requestAmount = if (xmr > 0) "%.12f".format(xmr).trimEnd('0').trimEnd('.') else ""
+                                requestAmount = if (xmr > 0) "%.12f".format(Locale.US, xmr).trimEnd('0').trimEnd('.') else ""
                             }
                         }
                     },
@@ -306,7 +333,7 @@ fun ReceiveScreen(
                     trailingIcon = {
                         if (fiatAmount.isNotBlank()) {
                             IconButton(onClick = { fiatAmount = ""; requestAmount = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Default.Clear, contentDescription = tr("Clear"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
@@ -316,7 +343,8 @@ fun ReceiveScreen(
             } else {
                 MoneroTextField(
                     value = requestAmount,
-                    onValueChange = {
+                    onValueChange = { input ->
+                        val it = input.replace(',', '.')
                         if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) requestAmount = it
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -325,7 +353,7 @@ fun ReceiveScreen(
                     trailingIcon = {
                         if (requestAmount.isNotBlank()) {
                             IconButton(onClick = { requestAmount = "" }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Default.Clear, contentDescription = tr("Clear"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
@@ -356,7 +384,7 @@ fun ReceiveScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (address.length > 20) truncateMiddle(address)
-                                else address.ifBlank { if (keysUnavailable) "" else "Loading..." },
+                                else address.ifBlank { if (keysUnavailable) "" else tr("Loading...") },
                             style = MonoCaption,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -364,7 +392,7 @@ fun ReceiveScreen(
                     if (onSelectAddress != null) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Select address",
+                            contentDescription = tr("Select address"),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
@@ -392,7 +420,7 @@ fun ReceiveScreen(
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Copy", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+                        Text(tr("Copy"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
 
@@ -409,7 +437,7 @@ fun ReceiveScreen(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Share", style = MaterialTheme.typography.labelLarge, color = MoneroOrange)
+                        Text(tr("Share"), style = MaterialTheme.typography.labelLarge, color = MoneroOrange)
                     }
                 }
             }
@@ -430,7 +458,7 @@ private const val DISABLED_ALPHA = 0.4f
 internal fun KeysUnavailableMessage(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.semantics(mergeDescendants = true) {
-            contentDescription = "Wallet keys unavailable. No receive address can be shown."
+            contentDescription = tr("Wallet keys unavailable. No receive address can be shown.")
         },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -442,14 +470,12 @@ internal fun KeysUnavailableMessage(modifier: Modifier = Modifier) {
             modifier = Modifier.size(40.dp)
         )
         Text(
-            text = "Wallet keys unavailable",
+            text = tr("Wallet keys unavailable"),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            text = "The wallet couldn't load its keys, so no receive address can be shown. " +
-                "Do not send funds to any address from this app until this is resolved. " +
-                "Force-quit and reopen the app; if this persists, restore the wallet from its seed.",
+            text = tr("The wallet couldn't load its keys, so no receive address can be shown. Do not send funds to any address from this app until this is resolved. Force-quit and reopen the app; if this persists, restore the wallet from its seed."),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center

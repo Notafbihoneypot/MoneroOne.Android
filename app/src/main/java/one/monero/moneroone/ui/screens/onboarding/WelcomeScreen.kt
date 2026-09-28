@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -69,7 +70,7 @@ fun WelcomeScreen(
 
             // Subtitle
             Text(
-                text = "Simple. Private. Secure.",
+                text = tr("Simple. Private. Secure."),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -83,7 +84,7 @@ fun WelcomeScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Filled.AddCircle, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(text = "Create New Wallet")
+                Text(text = tr("Create New Wallet"))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -95,7 +96,7 @@ fun WelcomeScreen(
                 contentColor = MaterialTheme.colorScheme.onSurface
             ) {
                 Icon(Icons.Filled.ReplayCircleFilled, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(text = "Restore Wallet")
+                Text(text = tr("Restore Wallet"))
             }
 
             Spacer(modifier = Modifier.height(32.dp))

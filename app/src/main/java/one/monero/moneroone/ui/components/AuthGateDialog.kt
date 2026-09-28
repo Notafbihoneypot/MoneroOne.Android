@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.components
 
+import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -33,7 +34,7 @@ import one.monero.moneroone.ui.theme.ErrorRed
 
 /** The lockout line of every PIN re-authentication gate (seconds rounded up). */
 fun pinLockoutMessage(lockedForMs: Long): String =
-    "Too many attempts. Try again in ${(lockedForMs + 999) / 1000}s"
+    tr("Too many attempts. Try again in %ss", (lockedForMs + 999) / 1000)
 
 /**
  * Re-authentication gate for irreversible actions (currently: broadcasting a
@@ -85,7 +86,7 @@ fun AuthGateDialog(
             BiometricPrompt.PromptInfo.Builder()
                 .setTitle(title)
                 .setSubtitle(subtitle)
-                .setNegativeButtonText("Use PIN")
+                .setNegativeButtonText(tr("Use PIN"))
                 // Must match the class checked in biometricAvailable — the default
                 // otherwise admits Class 2 sensors we did not vet.
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
@@ -129,7 +130,7 @@ fun AuthGateDialog(
                                 error = if (lockedFor > 0) {
                                     pinLockoutMessage(lockedFor)
                                 } else {
-                                    "Incorrect PIN"
+                                    tr("Incorrect PIN")
                                 }
                                 pin = ""
                             }
@@ -149,11 +150,11 @@ fun AuthGateDialog(
         },
         confirmButton = {
             if (biometricAvailable) {
-                TextButton(onClick = { promptBiometric() }) { Text("Use biometrics") }
+                TextButton(onClick = { promptBiometric() }) { Text(tr("Use biometrics")) }
             }
         },
         dismissButton = {
-            DismissTextButton(onClick = onCancel) { Text("Cancel") }
+            DismissTextButton(onClick = onCancel) { Text(tr("Cancel")) }
         }
     )
 }

@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.background
@@ -104,18 +105,18 @@ fun SecurityScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = tr("Back")
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Security",
+                text = tr("Security"),
                 style = MaterialTheme.typography.headlineSmall
             )
         }
 
         // Authentication Section
-        SettingsSectionHeader("Authentication")
+        SettingsSectionHeader(tr("Authentication"))
 
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
         Column {
@@ -134,14 +135,14 @@ fun SecurityScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Biometrics",
+                        text = tr("Biometrics"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium,
                         color = if (biometricAvailable) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (biometricAvailable) "Use fingerprint or face to unlock" else "Not available on this device",
+                        text = if (biometricAvailable) tr("Use fingerprint or face to unlock") else tr("Not available on this device"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -179,13 +180,13 @@ fun SecurityScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Change PIN",
+                        text = tr("Change PIN"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Update your wallet PIN",
+                        text = tr("Update your wallet PIN"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -201,7 +202,7 @@ fun SecurityScreen(
         }
 
         // Auto-Lock Section
-        SettingsSectionHeader("Auto-Lock")
+        SettingsSectionHeader(tr("Auto-Lock"))
 
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
@@ -224,13 +225,13 @@ fun SecurityScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Lock After",
+                        text = tr("Lock After"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = selectedAutoLock.label,
+                        text = tr(selectedAutoLock.label),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -270,7 +271,7 @@ private fun AutoLockDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Lock After") },
+        title = { Text(tr("Lock After")) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -294,14 +295,14 @@ private fun AutoLockDialog(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = timeout.label,
+                                    text = tr(timeout.label),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 if (timeout == selected) {
                                     Icon(
                                         imageVector = Icons.Default.Check,
-                                        contentDescription = "Selected",
+                                        contentDescription = tr("Selected"),
                                         tint = MoneroOrange,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -319,7 +320,7 @@ private fun AutoLockDialog(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "The wallet stays unlocked until the app is force-closed",
+                                        text = tr("The wallet stays unlocked until the app is force-closed"),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -333,7 +334,7 @@ private fun AutoLockDialog(
         confirmButton = {},
         dismissButton = {
             DismissTextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(tr("Cancel"))
             }
         }
     )

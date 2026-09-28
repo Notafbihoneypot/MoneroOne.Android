@@ -1,5 +1,7 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.pluralTr
+import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import android.view.accessibility.AccessibilityManager
 import android.widget.Toast
@@ -208,7 +210,7 @@ fun BackupSeedScreen(
                     } else {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         val lockedFor = walletViewModel.getRemainingLockoutMs()
-                        pinError = if (lockedFor > 0) pinLockoutMessage(lockedFor) else "Invalid PIN"
+                        pinError = if (lockedFor > 0) pinLockoutMessage(lockedFor) else tr("Invalid PIN")
                         shakeAnimation = true
                         pin = ""
                     }
@@ -242,7 +244,7 @@ fun BackupSeedScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = tr("Back")
                     )
                 }
             }
@@ -250,7 +252,7 @@ fun BackupSeedScreen(
             Spacer(modifier = Modifier.weight(0.5f))
 
             Text(
-                text = "Enter PIN to View Seed",
+                text = tr("Enter PIN to view seed phrase"),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
@@ -259,7 +261,7 @@ fun BackupSeedScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Your PIN is required to access your recovery phrase",
+                text = tr("Your PIN is required to access your recovery phrase"),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -318,12 +320,12 @@ fun BackupSeedScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = tr("Back")
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Backup Seed",
+                    text = tr("Backup Seed"),
                     style = MaterialTheme.typography.headlineSmall
                 )
             }
@@ -346,14 +348,14 @@ fun BackupSeedScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Screen Reader Is On",
+                            text = tr("Screen Reader Is On"),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = ErrorRed
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Your screen reader will read your recovery phrase out loud. Anyone who hears it can steal your funds. Use headphones or make sure nobody can hear your device before continuing.",
+                            text = tr("Your screen reader will read your recovery phrase out loud. Anyone who hears it can steal your funds. Use headphones or make sure nobody can hear your device before continuing."),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -367,7 +369,7 @@ fun BackupSeedScreen(
                 onClick = { screenReaderWarningAccepted = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = "Show Recovery Phrase")
+                Text(text = tr("Show Recovery Phrase"))
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -391,12 +393,12 @@ fun BackupSeedScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = tr("Back")
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Backup Seed",
+                    text = tr("Backup Seed"),
                     style = MaterialTheme.typography.headlineSmall
                 )
             }
@@ -420,14 +422,14 @@ fun BackupSeedScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Keep Your Seed Safe",
+                            text = tr("Keep Your Seed Safe"),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = ErrorRed
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Never share your recovery phrase. Anyone with these words can access your funds. Store securely offline.",
+                            text = tr("Never share your recovery phrase. Anyone with these words can access your funds. Store securely offline."),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -447,7 +449,7 @@ fun BackupSeedScreen(
                         copiedToClipboard = false
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    labelSelector = { electrum -> if (electrum) "25 Words (Legacy)" else "24 Words (BIP39)" }
+                    labelSelector = { electrum -> if (electrum) tr("Legacy (%s words)", 25) else tr("24 words (BIP39 format)") }
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -455,7 +457,7 @@ fun BackupSeedScreen(
 
             val displayWords = if (showElectrum && electrumSeedWords != null) electrumSeedWords!! else seedWords
             val wordCount = displayWords.size
-            val formatLabel = if (showElectrum) "Legacy (Electrum)" else if (seedType == SeedType.BIP39_24) "BIP39" else "Legacy (Electrum)"
+            val formatLabel = if (showElectrum) tr("Legacy (%s words)", 25) else if (seedType == SeedType.BIP39_24) "BIP39" else tr("Legacy (%s words)", 25)
 
             // Seed words display (iOS: fill container, radius 16, elevated cells)
             GlassCard(
@@ -472,13 +474,13 @@ fun BackupSeedScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Recovery Phrase",
+                            text = tr("Recovery Phrase"),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         Text(
-                            text = "$wordCount words · $formatLabel",
+                            text = pluralTr("%s words", wordCount) + " · " + formatLabel,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -515,7 +517,7 @@ fun BackupSeedScreen(
                     copiedToClipboard = true
                     Toast.makeText(
                         context,
-                        "Copied! Will clear in ${SeedClipboard.LIFETIME_SECONDS} seconds",
+                        tr("Copied"),
                         Toast.LENGTH_LONG
                     ).show()
                 },
@@ -526,13 +528,13 @@ fun BackupSeedScreen(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
-                Text(text = if (copiedToClipboard) "Copied!" else "Copy Seed Phrase")
+                Text(text = if (copiedToClipboard) tr("Copied!") else tr("Copy Seed Phrase"))
             }
 
             if (copiedToClipboard) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Clipboard will auto-clear in ${SeedClipboard.LIFETIME_SECONDS} seconds",
+                    text = tr("Clipboard will auto-clear in %s seconds", SeedClipboard.LIFETIME_SECONDS),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
@@ -585,7 +587,7 @@ private fun NumberPadBackup(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
         listOf("7", "8", "9"),
-        listOf("", "0", "back")
+        listOf("", "0", tr("back"))
     )
 
     Column(
@@ -599,7 +601,7 @@ private fun NumberPadBackup(
                 row.forEach { button ->
                     when (button) {
                         "" -> Spacer(modifier = Modifier.size(80.dp))
-                        "back" -> {
+                        tr("back") -> {
                             KeypadKey(onPress = onBackspace) { onClick ->
                                 IconButton(
                                     onClick = onClick,
@@ -607,7 +609,7 @@ private fun NumberPadBackup(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                        contentDescription = "Backspace",
+                                        contentDescription = tr("Backspace"),
                                         modifier = Modifier.size(28.dp),
                                         tint = MaterialTheme.colorScheme.onBackground
                                     )

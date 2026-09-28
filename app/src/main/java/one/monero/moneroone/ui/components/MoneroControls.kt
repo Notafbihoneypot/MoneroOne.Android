@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.components
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -248,7 +249,7 @@ fun MoneroTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = modifier
-                .then(if (isError) Modifier.semantics { error("Invalid input") } else Modifier)
+                .then(if (isError) Modifier.semantics { error(tr("Invalid input")) } else Modifier)
                 .defaultMinSize(minWidth = TextFieldDefaults.MinWidth),
             enabled = enabled,
             readOnly = readOnly,

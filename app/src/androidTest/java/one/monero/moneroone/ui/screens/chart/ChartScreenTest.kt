@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.unit.Density
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.model.PriceDataPoint
 import one.monero.moneroone.ui.components.ChartPoint
@@ -39,19 +40,19 @@ class ChartScreenTest {
     @Test
     fun switchingModesKeepsGeometryRangeAndOnlyExposesTheActiveChart() {
         showChart()
-        rule.onNodeWithText("1M").performClick()
+        rule.onNodeWithText(tr("1M")).performClick()
         val bounds = layoutBounds()
         repeat(3) {
-            rule.onNodeWithText("Price").performClick()
+            rule.onNodeWithText(tr("Price")).performClick()
             assertEquals(bounds, layoutBounds())
-            rule.onNodeWithText("1M").assertIsSelected()
-            rule.onAllNodesWithContentDescription("Portfolio chart, past month").assertCountEquals(0)
-            rule.onNodeWithContentDescription("Monero price chart, past month").assertExists()
-            rule.onNodeWithText("Portfolio").performClick()
+            rule.onNodeWithText(tr("1M")).assertIsSelected()
+            rule.onAllNodesWithContentDescription("${tr("Portfolio")} chart, ${tr("past month")}").assertCountEquals(0)
+            rule.onNodeWithContentDescription("${tr("Monero price")} chart, ${tr("past month")}").assertExists()
+            rule.onNodeWithText(tr("Portfolio")).performClick()
             assertEquals(bounds, layoutBounds())
-            rule.onNodeWithText("1M").assertIsSelected()
-            rule.onAllNodesWithContentDescription("Monero price chart, past month").assertCountEquals(0)
-            rule.onNodeWithContentDescription("Portfolio chart, past month").assertExists()
+            rule.onNodeWithText(tr("1M")).assertIsSelected()
+            rule.onAllNodesWithContentDescription("${tr("Monero price")} chart, ${tr("past month")}").assertCountEquals(0)
+            rule.onNodeWithContentDescription("${tr("Portfolio")} chart, ${tr("past month")}").assertExists()
         }
         assertEquals(listOf(TimeRange.MONTH), rangeRequests)
         assertEquals(0, refreshRequests)
@@ -62,23 +63,23 @@ class ChartScreenTest {
         state.value = ChartUiState(isLoading = true)
         showChart(balance = 0)
         val bounds = layoutBounds()
-        rule.onNodeWithText("Price").performClick()
+        rule.onNodeWithText(tr("Price")).performClick()
         assertEquals(bounds, layoutBounds())
         rule.runOnIdle { state.value = ChartUiState(isLoading = false) }
         assertEquals(bounds, layoutBounds())
-        rule.onNodeWithText("Portfolio").performClick()
+        rule.onNodeWithText(tr("Portfolio")).performClick()
         assertEquals(bounds, layoutBounds())
-        rule.onNodeWithText("Add XMR to see portfolio chart").assertExists()
-        rule.onNodeWithText("Statistics").assertExists()
+        rule.onNodeWithText(tr("Add XMR to see portfolio chart")).assertExists()
+        rule.onNodeWithText(tr("Statistics")).assertExists()
     }
 
     @Test
     fun largeTypeAndLongPortfolioValuesKeepTheSameLayout() {
         showChart(balance = 123456789012345678, fontScale = 1.5f)
         val bounds = layoutBounds()
-        rule.onNodeWithText("Price").performClick()
+        rule.onNodeWithText(tr("Price")).performClick()
         assertEquals(bounds, layoutBounds())
-        rule.onNodeWithText("Portfolio").performClick()
+        rule.onNodeWithText(tr("Portfolio")).performClick()
         assertEquals(bounds, layoutBounds())
     }
 

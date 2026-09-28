@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.wallet
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -138,7 +139,7 @@ fun WalletSwitcherButton(
         ) {
             Text(text = wallet?.emoji ?: "💰", fontSize = 22.sp)
             Text(
-                text = wallet?.name ?: "Wallet",
+                text = wallet?.name ?: tr("Wallet"),
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -284,11 +285,10 @@ fun WalletManagerRows(
     deleteCandidate?.let { candidate ->
         AlertDialog(
             onDismissRequest = { deleteCandidate = null },
-            title = { Text("Remove \"${candidate.name}\"?") },
+            title = { Text(tr("Remove \"%s\"?", candidate.name)) },
             text = {
                 Text(
-                    "This removes the wallet from this device only. " +
-                        "It still exists on the blockchain and can be recovered with its seed phrase."
+                    tr("This removes the wallet from this device only. It still exists on the blockchain and can be recovered with its seed phrase.")
                 )
             },
             confirmButton = {
@@ -306,11 +306,11 @@ fun WalletManagerRows(
                         deleteCandidate = null
                     }
                 ) {
-                    Text("Remove", color = ErrorRed)
+                    Text(tr("Remove"), color = ErrorRed)
                 }
             },
             dismissButton = {
-                DismissTextButton(onClick = { deleteCandidate = null }) { Text("Cancel") }
+                DismissTextButton(onClick = { deleteCandidate = null }) { Text(tr("Cancel")) }
             }
         )
     }
@@ -360,7 +360,7 @@ private fun WalletRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete wallet",
+                        contentDescription = tr("Delete wallet"),
                         tint = ErrorRed
                     )
                 }
@@ -462,7 +462,7 @@ private fun WalletRow(
                 IconButton(onClick = onRenameRequest) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = "Rename wallet",
+                        contentDescription = tr("Rename wallet"),
                         tint = MoneroTheme.colors.labelTertiary,
                         modifier = Modifier.size(18.dp)
                     )
@@ -471,7 +471,7 @@ private fun WalletRow(
                 if (isActive) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = "Active wallet",
+                        contentDescription = tr("Current wallet"),
                         tint = SuccessGreen,
                         modifier = Modifier.size(20.dp)
                     )
@@ -512,7 +512,7 @@ private fun AddWalletRow(onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
             // A button label, as on iOS: callout semibold in brand.
             Text(
-                text = "Add Wallet",
+                text = tr("Add Wallet"),
                 style = MaterialTheme.typography.labelLarge,
                 color = MoneroOrange
             )
@@ -539,7 +539,7 @@ fun RenameWalletSheet(
     wallet: WalletInfo,
     onDismiss: () -> Unit,
     onSave: (name: String, emoji: String) -> Unit,
-    title: String = "Rename Wallet"
+    title: String = tr("Rename Wallet")
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var name by remember { mutableStateOf(wallet.name) }
@@ -582,7 +582,7 @@ fun RenameWalletSheet(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Tap to change",
+                text = tr("Tap to change"),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -617,7 +617,7 @@ fun RenameWalletSheet(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Save")
+                Text(tr("Save"))
             }
         }
     }

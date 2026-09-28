@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.unlock
 
+import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import android.os.Build
 import android.view.HapticFeedbackConstants
@@ -151,9 +152,9 @@ fun UnlockScreen(
                         }
                     )
                     errorMessage = if (isLockedOut) {
-                        "Too many attempts. Try again in ${lockoutSeconds}s"
+                        tr("Too many attempts. Try again in %ss", lockoutSeconds)
                     } else {
-                        "Incorrect PIN"
+                        tr("Incorrect PIN")
                     }
                     pin = ""
                 }
@@ -194,9 +195,9 @@ fun UnlockScreen(
         )
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Monero One")
-            .setSubtitle("Use biometrics to unlock your wallet")
-            .setNegativeButtonText("Use PIN")
+            .setTitle(tr("Unlock Monero One"))
+            .setSubtitle(tr("Use fingerprint or face to unlock"))
+            .setNegativeButtonText(tr("Use PIN"))
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .build()
 
@@ -261,7 +262,7 @@ fun UnlockScreen(
             // Lockout countdown
             if (isLockedOut) {
                 Text(
-                    text = "Too many attempts. Try again in ${lockoutSeconds}s",
+                    text = tr("Too many attempts. Try again in %ss", lockoutSeconds),
                     style = MaterialTheme.typography.bodyMedium,
                     color = ErrorRed
                 )
@@ -283,7 +284,7 @@ fun UnlockScreen(
             // Attempts remaining warning
             if (attemptsRemaining in 1..10) {
                 Text(
-                    text = "$attemptsRemaining attempts remaining before wallet wipe",
+                    text = tr("%s attempts remaining before wallet wipe", attemptsRemaining),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -300,7 +301,7 @@ fun UnlockScreen(
 
             TextButton(onClick = { showResetDialog = true }) {
                 Text(
-                    text = "Forgot PIN?",
+                    text = tr("Forgot PIN?"),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -315,14 +316,13 @@ fun UnlockScreen(
             onDismissRequest = { showResetDialog = false },
             title = {
                 Text(
-                    text = "Remove Wallet from Device?",
+                    text = tr("Remove Wallet from Device?"),
                     style = MaterialTheme.typography.titleLarge
                 )
             },
             text = {
                 Text(
-                    text = "This removes wallet data from this device only. " +
-                        "Your wallet still exists on the blockchain and can be recovered with your seed phrase.",
+                    text = tr("This removes wallet data from this device only. Your wallet still exists on the blockchain and can be recovered with your seed phrase."),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -333,12 +333,12 @@ fun UnlockScreen(
                         showResetDialog = false
                     }
                 ) {
-                    Text("Remove", color = ErrorRed)
+                    Text(tr("Remove"), color = ErrorRed)
                 }
             },
             dismissButton = {
                 DismissTextButton(onClick = { showResetDialog = false }) {
-                    Text("Cancel")
+                    Text(tr("Cancel"))
                 }
             }
         )
@@ -385,7 +385,7 @@ private fun NumberPad(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
         listOf("7", "8", "9"),
-        listOf(if (onBiometric != null) "bio" else "", "0", "back")
+        listOf(if (onBiometric != null) "bio" else "", "0", tr("back"))
     )
 
     Column(
@@ -406,13 +406,13 @@ private fun NumberPad(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Fingerprint,
-                                    contentDescription = "Biometric unlock",
+                                    contentDescription = tr("Biometric unlock"),
                                     modifier = Modifier.size(32.dp),
                                     tint = MoneroOrange
                                 )
                             }
                         }
-                        "back" -> {
+                        tr("back") -> {
                             KeypadKey(onPress = onBackspace) { onClick ->
                                 IconButton(
                                     onClick = onClick,
@@ -420,7 +420,7 @@ private fun NumberPad(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                        contentDescription = "Backspace",
+                                        contentDescription = tr("Backspace"),
                                         modifier = Modifier.size(28.dp),
                                         tint = MaterialTheme.colorScheme.onBackground
                                     )

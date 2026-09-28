@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.transactions
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -81,6 +82,10 @@ fun TransactionListScreen(
     onTransactionClick: (String) -> Unit
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
+    val fiatMode by walletViewModel.fiatMode.collectAsState()
+    val priceHistory by walletViewModel.priceHistory.collectAsState()
+    val currentPrice by walletViewModel.currentPrice.collectAsState()
+    val currency by walletViewModel.selectedCurrency.collectAsState()
     var selectedFilter by remember { mutableStateOf(TransactionFilter.ALL) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -109,10 +114,10 @@ fun TransactionListScreen(
         contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             TopAppBar(
-                title = { Text("All Transactions", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(tr("All Transactions"), style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -132,7 +137,7 @@ fun TransactionListScreen(
             MoneroTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search by transaction ID...") },
+                placeholder = { Text(tr("Search by transaction ID...")) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
@@ -156,7 +161,7 @@ fun TransactionListScreen(
                     FilterChip(
                         selected = selectedFilter == filter,
                         onClick = { selectedFilter = filter },
-                        label = { Text(filter.label, fontWeight = FontWeight.SemiBold) },
+                        label = { Text(tr(filter.label), fontWeight = FontWeight.SemiBold) },
                         shape = CapsuleShape,
                         border = null,
                         colors = FilterChipDefaults.filterChipColors(
@@ -183,14 +188,14 @@ fun TransactionListScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No matching transactions" else "No transactions",
+                            text = if (searchQuery.isNotBlank()) tr("No matching transactions") else tr("No transactions"),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (searchQuery.isNotBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Try a different search term",
+                                text = tr("Try a different search term"),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -209,6 +214,8 @@ fun TransactionListScreen(
                         TransactionListItem(
                             transaction = transaction,
                             formatXmr = walletViewModel::formatXmr,
+                            fiatMode = fiatMode,
+                            fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, currency),
                             onClick = { onTransactionClick(transaction.hash) }
                         )
                     }
@@ -224,6 +231,8 @@ fun TransactionListScreen(
 private fun TransactionListItem(
     transaction: TransactionInfo,
     formatXmr: (Long) -> String,
+    fiatMode: Boolean,
+    fiatValue: String?,
     onClick: () -> Unit
 ) {
     val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
@@ -275,7 +284,7 @@ private fun TransactionListItem(
             // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isIncoming) "Received" else "Sent",
+                    text = if (isIncoming) tr("Received") else tr("Sent"),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
@@ -287,30 +296,11 @@ private fun TransactionListItem(
                 )
             }
 
-            // Amount and status
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "$amountPrefix${formatXmr(transaction.amount)} XMR",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isIncoming) SuccessGreen else MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    StatusDot(color = statusColor)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = when (status) {
-                            TransactionStatus.Pending -> "Pending"
-                            TransactionStatus.Locked -> "Locked"
-                            TransactionStatus.Confirmed -> "Confirmed"
-                            TransactionStatus.Failed -> "Failed"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor
-                    )
-                }
-            }
+            one.monero.moneroone.ui.components.TransactionAmounts(
+                transaction = transaction,
+                fiatMode = fiatMode,
+                fiatValue = fiatValue
+            )
 
             Spacer(modifier = Modifier.width(8.dp))
 

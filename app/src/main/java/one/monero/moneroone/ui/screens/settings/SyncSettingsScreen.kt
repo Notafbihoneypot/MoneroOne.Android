@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -105,18 +106,18 @@ fun SyncSettingsScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = tr("Back")
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Sync Settings",
+                text = tr("Sync Settings"),
                 style = MaterialTheme.typography.headlineSmall
             )
         }
 
         // Sync Status Section
-        SettingsSectionHeader("Status")
+        SettingsSectionHeader(tr("Status"))
 
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
             Column(
@@ -135,7 +136,7 @@ fun SyncSettingsScreen(
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Sync Status",
+                            text = tr("Sync Status"),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Medium
                         )
@@ -162,7 +163,7 @@ fun SyncSettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "$progressPct% complete",
+                        text = tr("%s%% synced", progressPct),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -171,7 +172,7 @@ fun SyncSettingsScreen(
         }
 
         // Background Sync Section
-        SettingsSectionHeader("Background Sync")
+        SettingsSectionHeader(tr("Background Sync"))
 
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
             Row(
@@ -189,13 +190,13 @@ fun SyncSettingsScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Sync in Background",
+                        text = tr("Sync in Background"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Keep wallet synced when app is backgrounded",
+                        text = tr("Keep wallet synced when app is backgrounded"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -220,7 +221,7 @@ fun SyncSettingsScreen(
         }
 
         // Restore Height Section
-        SettingsSectionHeader("Wallet Birthday")
+        SettingsSectionHeader(tr("Wallet Birthday"))
 
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
@@ -243,7 +244,7 @@ fun SyncSettingsScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Restore Date",
+                        text = tr("Restore Date"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
@@ -254,7 +255,7 @@ fun SyncSettingsScreen(
                         val estimatedDate = restoreHeightToDate(restoreHeight)
                         "${dateFormatter.format(estimatedDate)} (Block $restoreHeight)"
                     } else {
-                        "From beginning (full scan)"
+                        tr("From beginning (full scan)")
                     }
                     Text(
                         text = displayText,
@@ -272,7 +273,7 @@ fun SyncSettingsScreen(
         }
 
         // Node Settings Section
-        SettingsSectionHeader("Node")
+        SettingsSectionHeader(tr("Node"))
 
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
@@ -295,13 +296,13 @@ fun SyncSettingsScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Node Settings",
+                        text = tr("Node Settings"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Manage remote nodes",
+                        text = tr("Manage remote nodes"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -343,7 +344,7 @@ fun SyncSettingsScreen(
                         showDatePicker = false
                     }
                 ) {
-                    Text("OK", color = MoneroOrange)
+                    Text(tr("OK"), color = MoneroOrange)
                 }
             },
             dismissButton = {
@@ -355,7 +356,7 @@ fun SyncSettingsScreen(
                         showDatePicker = false
                     }
                 ) {
-                    Text("Scan All")
+                    Text(tr("Scan All"))
                 }
             }
         ) {
@@ -366,10 +367,10 @@ fun SyncSettingsScreen(
 
 private fun getSyncStatusText(syncState: SyncState): String {
     return when (syncState) {
-        is SyncState.Synced -> "Synced"
-        is SyncState.Syncing -> "Syncing ${((syncState.progress ?: 0.0) * 100).toInt()}%"
-        is SyncState.NotSynced -> "Not synced"
-        else -> "Connecting..."
+        is SyncState.Synced -> tr("Synced")
+        is SyncState.Syncing -> tr("%s%% synced", ((syncState.progress ?: 0.0) * 100).toInt())
+        is SyncState.NotSynced -> tr("Not synced")
+        else -> tr("Connecting...")
     }
 }
 

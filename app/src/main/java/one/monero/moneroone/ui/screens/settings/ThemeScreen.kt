@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import android.app.Activity
 import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
@@ -115,12 +116,12 @@ fun ThemeScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = tr("Back")
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Appearance",
+                text = tr("Appearance"),
                 style = MaterialTheme.typography.headlineSmall
             )
         }
@@ -128,7 +129,7 @@ fun ThemeScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Choose your preferred app appearance.",
+            text = tr("Choose your preferred app appearance."),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -192,13 +193,13 @@ private fun ThemeItem(
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = theme.title,
+                text = tr(theme.title),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = theme.subtitle,
+                text = tr(theme.subtitle),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -207,7 +208,7 @@ private fun ThemeItem(
         if (isSelected) {
             Icon(
                 imageVector = Icons.Default.Check,
-                contentDescription = "Selected",
+                contentDescription = tr("Selected"),
                 tint = MoneroOrange,
                 modifier = Modifier.size(24.dp)
             )

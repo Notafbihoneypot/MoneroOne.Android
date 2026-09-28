@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -81,11 +82,11 @@ fun AddPriceAlertScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "New Price Alert",
+                text = tr("New Price Alert"),
                 style = MaterialTheme.typography.headlineSmall
             )
         }
@@ -96,13 +97,13 @@ fun AddPriceAlertScreen(
         GlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "Current XMR Price",
+                    text = tr("Current XMR Price"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = currentPrice?.let { format.format(it.price) } ?: "Loading...",
+                    text = currentPrice?.let { format.format(it.price) } ?: tr("Loading..."),
                     style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = TabularFigures)
                 )
             }
@@ -112,7 +113,7 @@ fun AddPriceAlertScreen(
 
         // Condition picker
         Text(
-            text = "Alert when price goes",
+            text = tr("Alert when price goes"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
@@ -123,14 +124,14 @@ fun AddPriceAlertScreen(
             selectedOption = condition,
             onOptionSelected = { condition = it },
             modifier = Modifier.fillMaxWidth(),
-            labelSelector = { if (it == AlertCondition.ABOVE) "Above" else "Below" }
+            labelSelector = { if (it == AlertCondition.ABOVE) tr("Above") else tr("Below") }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // Target price input
         Text(
-            text = "Target Price",
+            text = tr("Target Price"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
@@ -176,7 +177,7 @@ fun AddPriceAlertScreen(
             modifier = Modifier.fillMaxWidth(),
             enabled = targetPrice.toDoubleOrNull() != null && targetPrice.toDoubleOrNull()!! > 0
         ) {
-            Text(text = "Save Alert")
+            Text(text = tr("Save Alert"))
         }
 
         Spacer(modifier = Modifier.height(32.dp))

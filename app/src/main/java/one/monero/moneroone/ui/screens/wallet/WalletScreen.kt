@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.wallet
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
@@ -126,6 +127,8 @@ fun WalletScreen(
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val currentPrice by walletViewModel.currentPrice.collectAsState()
+    val fiatMode by walletViewModel.fiatMode.collectAsState()
+    val priceHistory by walletViewModel.priceHistory.collectAsState()
     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
     val wallets by walletViewModel.wallets.collectAsState()
     val activeWallet by walletViewModel.activeWallet.collectAsState()
@@ -230,7 +233,7 @@ fun WalletScreen(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "You're offline. Some features may be unavailable.",
+                        text = tr("You're offline. Some features may be unavailable."),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -309,6 +312,7 @@ fun WalletScreen(
                             balance = walletViewModel.formatXmr(walletState.balance.all),
                             unlockedBalance = walletViewModel.formatXmr(walletState.balance.unlocked),
                             fiatValue = fiatValue,
+                            fiatMode = fiatMode,
                             unlockedFiatValue = unlockedFiatValue,
                             syncState = walletState.syncState,
                             isOnline = isOnline,
@@ -325,14 +329,14 @@ fun WalletScreen(
                             ActionButton(
                                 modifier = Modifier.weight(1f),
                                 icon = Icons.Default.ArrowUpward,
-                                label = "Send",
+                                label = tr("Send"),
                                 color = MoneroOrange,
                                 onClick = onSendClick
                             )
                             ActionButton(
                                 modifier = Modifier.weight(1f),
                                 icon = Icons.Default.ArrowDownward,
-                                label = "Receive",
+                                label = tr("Receive"),
                                 color = SuccessGreen,
                                 onClick = onReceiveClick
                             )
@@ -354,13 +358,13 @@ fun WalletScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Recent Activity",
+                    text = tr("Recent Activity"),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 if (walletState.transactions.isNotEmpty()) {
                     Text(
-                        text = "See All",
+                        text = tr("See All"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MoneroOrange,
                         modifier = Modifier.clickable { onSeeAllTransactionsClick() }
@@ -389,7 +393,9 @@ fun WalletScreen(
                 TransactionCard(
                     transaction = transaction,
                     onClick = { onTransactionClick(transaction) },
-                    formatXmr = walletViewModel::formatXmr
+                    formatXmr = walletViewModel::formatXmr,
+                    fiatMode = fiatMode,
+                    fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, selectedCurrency)
                 )
             }
         }
@@ -408,9 +414,9 @@ private fun GreetingHeader(
     onToggleSwitcher: () -> Unit
 ) {
     val greeting = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-        in 0..11 -> "Good Morning"
-        in 12..16 -> "Good Afternoon"
-        else -> "Good Evening"
+        in 0..11 -> tr("Good Morning")
+        in 12..16 -> tr("Good Afternoon")
+        else -> tr("Good Evening")
     }
 
     // The greeting and the chip stay put whether the list is open or not;
@@ -445,6 +451,7 @@ private fun BalanceCard(
     balance: String,
     unlockedBalance: String,
     fiatValue: String?,
+    fiatMode: Boolean,
     unlockedFiatValue: String?,
     syncState: SyncState,
     isOnline: Boolean,
@@ -452,6 +459,8 @@ private fun BalanceCard(
     onClick: (() -> Unit)? = null,
     onPriceClick: (() -> Unit)? = null
 ) {
+    val showFiat = fiatMode && fiatValue != null
+    val primaryBalance = if (showFiat) fiatValue!!.removePrefix("≈ ") else balance
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick
@@ -504,17 +513,18 @@ private fun BalanceCard(
                         verticalAlignment = Alignment.Bottom
                     ) {
                         val balanceFontSize = when {
-                            balance.length <= 10 -> 32.sp
-                            balance.length <= 13 -> 26.sp
-                            balance.length <= 16 -> 22.sp
+                            primaryBalance.length <= 10 -> 32.sp
+                            primaryBalance.length <= 13 -> 26.sp
+                            primaryBalance.length <= 16 -> 22.sp
                             else -> 18.sp
                         }
                         // Digits roll on change (iOS .contentTransition(.numericText())).
                         RollingText(
-                            text = balance,
+                            text = primaryBalance,
                             style = MaterialTheme.typography.displaySmall,
                             fontSize = balanceFontSize
                         )
+                        if (!showFiat) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "XMR",
@@ -524,12 +534,13 @@ private fun BalanceCard(
                             softWrap = false,
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
+                        }
                     }
 
                     // Fiat value below balance
                     if (fiatValue != null) {
                         RollingText(
-                            text = fiatValue,
+                            text = if (showFiat) "$balance XMR" else fiatValue,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -544,28 +555,18 @@ private fun BalanceCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Available: ",
+                        text = tr("Available: "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = unlockedBalance,
+                        text = if (showFiat && unlockedFiatValue != null)
+                            "$unlockedFiatValue ($unlockedBalance XMR)"
+                        else "$unlockedBalance XMR" + (unlockedFiatValue?.let { " ($it)" } ?: ""),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = " XMR",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (unlockedFiatValue != null) {
-                        Text(
-                            text = " ($unlockedFiatValue)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
@@ -579,7 +580,7 @@ private fun BalanceCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Locked until recent transactions confirm",
+                        text = tr("Locked until recent transactions confirm"),
                         style = MaterialTheme.typography.labelSmall,
                         color = MoneroOrange
                     )
@@ -604,8 +605,8 @@ private fun BalanceCard(
                 val blocks = syncState.remainingBlocks
                 Text(
                     text = if (blocks != null && blocks > 0L)
-                        "$pct% synced - ${formatBlockCount(blocks)} blocks remaining"
-                    else "$pct% synced",
+                        tr("%s%% synced - %s blocks remaining", pct, formatBlockCount(blocks))
+                    else tr("%s%% synced", pct),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
@@ -630,7 +631,7 @@ private fun PriceChangeIndicator(priceChange: Double, onClick: (() -> Unit)? = n
             .background(color.copy(alpha = 0.15f))
             .then(if (onClick != null) Modifier.clickable(
                 role = androidx.compose.ui.semantics.Role.Button,
-                onClickLabel = "Price",
+                onClickLabel = tr("Price"),
                 onClick = onClick
             ) else Modifier)
             .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -713,12 +714,12 @@ private fun EmptyTransactionsCard(isSyncing: Boolean) {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Syncing transactions...",
+                    text = tr("Syncing transactions..."),
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Your transactions will appear here once synced",
+                    text = tr("Your transactions will appear here once synced"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -732,7 +733,7 @@ private fun EmptyTransactionsCard(isSyncing: Boolean) {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "No transactions yet",
+                    text = tr("No transactions yet"),
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -744,7 +745,9 @@ private fun EmptyTransactionsCard(isSyncing: Boolean) {
 private fun TransactionCard(
     transaction: TransactionInfo,
     onClick: () -> Unit,
-    formatXmr: (Long) -> String
+    formatXmr: (Long) -> String,
+    fiatMode: Boolean,
+    fiatValue: String?
 ) {
     val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
     val iconColor = if (isIncoming) SuccessGreen else MoneroOrange
@@ -781,7 +784,7 @@ private fun TransactionCard(
             // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isIncoming) "Received" else "Sent",
+                    text = if (isIncoming) tr("Received") else tr("Sent"),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
@@ -793,26 +796,11 @@ private fun TransactionCard(
                 )
             }
 
-            // Amount and status
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "$amountPrefix${formatXmr(transaction.amount)}",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isIncoming) SuccessGreen else MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Status indicator
-                val status = when {
-                    transaction.isFailed -> TransactionStatus.Failed
-                    transaction.confirmations == 0L -> TransactionStatus.Pending
-                    transaction.confirmations < 10 -> TransactionStatus.Locked
-                    else -> TransactionStatus.Confirmed
-                }
-
-                TransactionStatusIndicator(status = status)
-            }
+            one.monero.moneroone.ui.components.TransactionAmounts(
+                transaction = transaction,
+                fiatMode = fiatMode,
+                fiatValue = fiatValue
+            )
 
             Spacer(modifier = Modifier.width(8.dp))
 
@@ -832,15 +820,7 @@ private fun formatBlockCount(count: Long): String = when {
     else -> "$count"
 }
 
-private fun formatRelativeTime(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-
-    return when {
-        diff < TimeUnit.MINUTES.toMillis(1) -> "Just now"
-        diff < TimeUnit.HOURS.toMillis(1) -> "${TimeUnit.MILLISECONDS.toMinutes(diff)}m ago"
-        diff < TimeUnit.DAYS.toMillis(1) -> "${TimeUnit.MILLISECONDS.toHours(diff)}h ago"
-        diff < TimeUnit.DAYS.toMillis(7) -> "${TimeUnit.MILLISECONDS.toDays(diff)}d ago"
-        else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
-    }
-}
+private fun formatRelativeTime(timestamp: Long): String =
+    android.text.format.DateUtils.getRelativeTimeSpanString(
+        timestamp, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS
+    ).toString()

@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -78,15 +79,15 @@ fun ChangePinScreen(
     val scope = rememberCoroutineScope()
 
     val title = when (step) {
-        ChangePinStep.ENTER_CURRENT -> "Enter Current PIN"
-        ChangePinStep.ENTER_NEW -> "Enter New PIN"
-        ChangePinStep.CONFIRM_NEW -> "Confirm New PIN"
+        ChangePinStep.ENTER_CURRENT -> tr("Enter Current PIN")
+        ChangePinStep.ENTER_NEW -> tr("Enter New PIN")
+        ChangePinStep.CONFIRM_NEW -> tr("Confirm New PIN")
     }
 
     val subtitle = when (step) {
-        ChangePinStep.ENTER_CURRENT -> "Enter your current PIN to continue"
-        ChangePinStep.ENTER_NEW -> "Choose a new 6-digit PIN"
-        ChangePinStep.CONFIRM_NEW -> "Re-enter your new PIN to confirm"
+        ChangePinStep.ENTER_CURRENT -> tr("Enter your current PIN to continue")
+        ChangePinStep.ENTER_NEW -> tr("Choose a new 6-digit PIN")
+        ChangePinStep.CONFIRM_NEW -> tr("Re-enter your new PIN to confirm")
     }
 
     val currentValue = when (step) {
@@ -116,7 +117,7 @@ fun ChangePinScreen(
                             if (!walletViewModel.verifyPinForAction(oldPin)) {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val lockedFor = walletViewModel.getRemainingLockoutMs()
-                                error = if (lockedFor > 0) pinLockoutMessage(lockedFor) else "Incorrect PIN"
+                                error = if (lockedFor > 0) pinLockoutMessage(lockedFor) else tr("Incorrect PIN")
                                 shakeAnimation = true
                                 currentPin = ""
                             } else {
@@ -136,7 +137,7 @@ fun ChangePinScreen(
                     if (confirmPin.length == PIN_LENGTH) {
                         if (confirmPin != newPin) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            error = "PINs don't match"
+                            error = tr("PINs don't match")
                             shakeAnimation = true
                             confirmPin = ""
                         } else {
@@ -148,7 +149,7 @@ fun ChangePinScreen(
                                     onSuccess()
                                 } else {
                                     // Nothing was written (iOS SecurityView wording): start over.
-                                    error = "Failed to change PIN"
+                                    error = tr("Failed to change PIN")
                                     shakeAnimation = true
                                     currentPin = ""
                                     newPin = ""
@@ -195,7 +196,7 @@ fun ChangePinScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = tr("Back")
                 )
             }
         }
@@ -294,7 +295,7 @@ private fun NumberPad(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
         listOf("7", "8", "9"),
-        listOf("", "0", "back")
+        listOf("", "0", tr("back"))
     )
 
     Column(
@@ -308,7 +309,7 @@ private fun NumberPad(
                 row.forEach { button ->
                     when (button) {
                         "" -> Spacer(modifier = Modifier.size(80.dp))
-                        "back" -> {
+                        tr("back") -> {
                             KeypadKey(onPress = onBackspace) { onClick ->
                                 IconButton(
                                     onClick = onClick,
@@ -316,7 +317,7 @@ private fun NumberPad(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                        contentDescription = "Backspace",
+                                        contentDescription = tr("Backspace"),
                                         modifier = Modifier.size(28.dp),
                                         tint = MaterialTheme.colorScheme.onBackground
                                     )

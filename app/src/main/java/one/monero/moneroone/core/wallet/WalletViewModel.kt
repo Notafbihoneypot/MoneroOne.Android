@@ -182,6 +182,34 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
 
     // Price data
     private val priceRepository = PriceRepository()
+    private val _fiatMode = MutableStateFlow(prefs.getBoolean("fiat_mode", false))
+    val fiatMode = _fiatMode.asStateFlow()
+    fun setFiatMode(enabled: Boolean) {
+        prefs.edit().putBoolean("fiat_mode", enabled).apply()
+        _fiatMode.value = enabled
+    }
+
+    private val _priceHistory = MutableStateFlow<List<one.monero.moneroone.data.model.HistoricalPrice>>(emptyList())
+    val priceHistory = _priceHistory.asStateFlow()
+    private var historyJob: Job? = null
+    private var historyCurrency: Currency? = null
+    private var historyFetchedAt = 0L
+
+    private fun refreshHistory() {
+        if (!_walletState.value.hasWallet) return
+        val currency = _selectedCurrency.value
+        if (historyCurrency == currency && (historyJob?.isActive == true || System.currentTimeMillis() - historyFetchedAt < 3_600_000)) return
+        historyJob?.cancel()
+        historyCurrency = currency
+        historyJob = viewModelScope.launch {
+            priceRepository.fetchHistory(currency, context.cacheDir).onSuccess {
+                if (_selectedCurrency.value == currency && _walletState.value.hasWallet) {
+                    _priceHistory.value = it
+                    historyFetchedAt = System.currentTimeMillis()
+                }
+            }
+        }
+    }
     private val _currentPrice = MutableStateFlow<CurrentPrice?>(null)
     val currentPrice: StateFlow<CurrentPrice?> = _currentPrice.asStateFlow()
     private var priceFetchJob: Job? = null
@@ -373,6 +401,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun fetchPrice() {
+        refreshHistory()
         val currency = _selectedCurrency.value
 
         // If already fetching for this currency, don't restart
@@ -425,6 +454,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             // This prevents showing old price with new symbol
             Timber.d("refreshPrice: switching from ${_selectedCurrency.value} to $currency, clearing stale price")
             _currentPrice.value = null
+            _priceHistory.value = emptyList()
+            historyFetchedAt = 0L
             _selectedCurrency.value = currency
             // Persist to SharedPreferences so selection survives app restart
             prefs.edit().putString("selected_currency", currency.code).apply()

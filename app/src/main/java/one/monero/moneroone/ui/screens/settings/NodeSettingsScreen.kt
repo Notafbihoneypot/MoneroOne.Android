@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -140,7 +141,7 @@ fun NodeSettingsScreen(
         try {
             val nodes = json.decodeFromString<List<String>>(customJson ?: "[]")
             customNodes.clear()
-            customNodes.addAll(nodes.map { NodeInfo(it, "Custom Node", false, credentialStore.has(it)) })
+            customNodes.addAll(nodes.map { NodeInfo(it, tr("Custom Node"), false, credentialStore.has(it)) })
         } catch (e: Exception) {
             // Ignore parse errors
         }
@@ -191,12 +192,12 @@ fun NodeSettingsScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = tr("Back")
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Remote Node",
+                text = tr("Remote Node"),
                 style = MaterialTheme.typography.headlineSmall
             )
         }
@@ -204,7 +205,7 @@ fun NodeSettingsScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Select a remote node for blockchain sync.",
+            text = tr("Select a remote node for blockchain sync."),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -222,13 +223,13 @@ fun NodeSettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Auto-Select",
+                        text = tr("Auto-Select"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Automatically use the fastest node",
+                        text = tr("Automatically use the fastest node"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -255,7 +256,7 @@ fun NodeSettingsScreen(
         }
 
         // Default Nodes
-        SettingsSectionHeader("Default Nodes")
+        SettingsSectionHeader(tr("Default Nodes"))
 
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -287,12 +288,12 @@ fun NodeSettingsScreen(
 
         // Custom Nodes
         SettingsSectionHeader(
-            title = "Custom Nodes",
+            title = tr("Custom Nodes"),
             trailing = {
                 IconButton(onClick = { showAddNodeDialog = true }) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Add Node",
+                        contentDescription = tr("Add Node"),
                         tint = MoneroOrange
                     )
                 }
@@ -308,7 +309,7 @@ fun NodeSettingsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No custom nodes added",
+                        text = tr("No custom nodes added"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -359,14 +360,14 @@ fun NodeSettingsScreen(
     // Add Node Dialog
     if (showAddNodeDialog) {
         NodeDialog(
-            title = "Add Custom Node",
-            confirmLabel = "Add",
+            title = tr("Add Custom Node"),
+            confirmLabel = tr("Add"),
             initialUri = "",
             initialCredentials = null,
             takenUris = (customNodes.map { it.uri } + DefaultNodes.URIS).toSet(),
             onConfirm = { uri, credentials ->
                 credentialStore.save(uri, credentials)
-                customNodes.add(NodeInfo(uri, "Custom Node", false, credentials != null))
+                customNodes.add(NodeInfo(uri, tr("Custom Node"), false, credentials != null))
                 persistCustomNodes()
                 showAddNodeDialog = false
                 // Benchmark the new node
@@ -382,8 +383,8 @@ fun NodeSettingsScreen(
     editingNode?.let { node ->
         val previous = remember(node.uri) { credentialStore.load(node.uri) }
         NodeDialog(
-            title = "Edit Custom Node",
-            confirmLabel = "Save",
+            title = tr("Edit Custom Node"),
+            confirmLabel = tr("Save"),
             initialUri = node.uri,
             initialCredentials = previous,
             takenUris = (customNodes.map { it.uri } + DefaultNodes.URIS).toSet() - node.uri,
@@ -394,7 +395,7 @@ fun NodeSettingsScreen(
                     latencyMap.remove(node.uri)
                 }
                 credentialStore.save(uri, credentials)
-                val updated = NodeInfo(uri, "Custom Node", false, credentials != null)
+                val updated = NodeInfo(uri, tr("Custom Node"), false, credentials != null)
                 val index = customNodes.indexOf(node)
                 if (index >= 0) customNodes[index] = updated else customNodes.add(updated)
                 persistCustomNodes()
@@ -461,7 +462,7 @@ private fun NodeItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (tls) Icons.Default.Lock else Icons.Default.LockOpen,
-                        contentDescription = if (tls) "Encrypted" else "Unencrypted",
+                        contentDescription = if (tls) tr("Encrypted") else tr("Unencrypted"),
                         tint = (if (tls) SuccessGreen else WarningYellow).copy(alpha = alpha),
                         modifier = Modifier.size(12.dp)
                     )
@@ -475,7 +476,7 @@ private fun NodeItem(
                         Spacer(modifier = Modifier.width(6.dp))
                         Icon(
                             imageVector = Icons.Default.Key,
-                            contentDescription = "Requires authentication",
+                            contentDescription = tr("Requires authentication"),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
                             modifier = Modifier.size(12.dp)
                         )
@@ -498,7 +499,7 @@ private fun NodeItem(
                 IconButton(onClick = onEdit) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit",
+                        contentDescription = tr("Edit"),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -509,7 +510,7 @@ private fun NodeItem(
                 IconButton(onClick = onDelete) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete",
+                        contentDescription = tr("Delete"),
                         tint = ErrorRed,
                         modifier = Modifier.size(20.dp)
                     )
@@ -520,7 +521,7 @@ private fun NodeItem(
                 Spacer(modifier = Modifier.width(8.dp))
                 Icon(
                     imageVector = Icons.Default.Check,
-                    contentDescription = "Selected",
+                    contentDescription = tr("Selected"),
                     tint = MoneroOrange,
                     modifier = Modifier.size(20.dp)
                 )
@@ -533,11 +534,11 @@ private fun NodeItem(
 private fun LatencyBadge(latencyMs: Long) {
     val caution = latencyMs in 200 until 500
     val (text, color) = when {
-        latencyMs == NodeBenchmark.UNAUTHORIZED -> "Auth failed" to ErrorRed
-        latencyMs < 0 -> "Unreachable" to ErrorRed
-        latencyMs < 200 -> "${latencyMs}ms" to SuccessGreen
-        caution -> "${latencyMs}ms" to WarningYellow
-        else -> "${latencyMs}ms" to ErrorRed
+        latencyMs == NodeBenchmark.UNAUTHORIZED -> tr("Auth failed") to ErrorRed
+        latencyMs < 0 -> tr("Unreachable") to ErrorRed
+        latencyMs < 200 -> tr("%sms", latencyMs) to SuccessGreen
+        caution -> tr("%sms", latencyMs) to WarningYellow
+        else -> tr("%sms", latencyMs) to ErrorRed
     }
 
     // A chip tinted in its hue. Yellow is never a text color, so a slow
@@ -590,7 +591,7 @@ private fun NodeDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    text = "Enter the node URI (e.g., node.example.com:18081)",
+                    text = tr("Enter the node URI (e.g., node.example.com:18081)"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -623,9 +624,9 @@ private fun NodeDialog(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = if (tls) {
-                                "Connection will be encrypted (TLS)"
+                                tr("Connection will be encrypted (TLS)")
                             } else {
-                                "Connection will be unencrypted (HTTP)"
+                                tr("Connection will be unencrypted (HTTP)")
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = if (tls) SuccessGreen else MaterialTheme.colorScheme.onSurface
@@ -651,14 +652,14 @@ private fun NodeDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Authentication",
+                        text = tr("Authentication"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f)
                     )
                     Icon(
                         imageVector = if (showAuth) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (showAuth) "Hide authentication" else "Show authentication",
+                        contentDescription = if (showAuth) tr("Hide authentication") else tr("Show authentication"),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -695,7 +696,7 @@ private fun NodeDialog(
                             IconButton(onClick = { showPassword = !showPassword }) {
                                 Icon(
                                     imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (showPassword) "Hide password" else "Show password"
+                                    contentDescription = if (showPassword) tr("Hide password") else tr("Show password")
                                 )
                             }
                         },
@@ -704,7 +705,7 @@ private fun NodeDialog(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Only needed for nodes that require RPC credentials",
+                        text = tr("Only needed for nodes that require RPC credentials"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -722,9 +723,9 @@ private fun NodeDialog(
                             val typed = typedUsername.isNotEmpty() || typedPassword.isNotEmpty()
                             when {
                                 parsed.credentials != null && typed ->
-                                    error = "Enter credentials in the fields below, not in the URI"
+                                    error = tr("Enter credentials in the fields below, not in the URI")
                                 parsed.uri in takenUris ->
-                                    error = "This node is already in the list"
+                                    error = tr("This node is already in the list")
                                 else -> {
                                     val message = validateNodeCredentials(typedUsername, typedPassword)
                                     if (message != null) {
@@ -746,7 +747,7 @@ private fun NodeDialog(
         },
         dismissButton = {
             DismissTextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(tr("Cancel"))
             }
         }
     )

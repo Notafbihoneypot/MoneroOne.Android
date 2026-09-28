@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -82,7 +83,7 @@ fun PriceAlertsScreen(
                 containerColor = MoneroOrange,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Alert")
+                Icon(Icons.Default.Add, contentDescription = tr("Add Alert"))
             }
         }
     ) { padding ->
@@ -101,11 +102,11 @@ fun PriceAlertsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Price Alerts",
+                    text = tr("Price Alerts"),
                     style = MaterialTheme.typography.headlineSmall
                 )
             }
@@ -128,12 +129,12 @@ fun PriceAlertsScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "No price alerts",
+                            text = tr("No price alerts"),
                             style = MaterialTheme.typography.titleMedium
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Tap + to create your first alert",
+                            text = tr("Tap + to create your first alert"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -172,7 +173,7 @@ fun PriceAlertsScreen(
                                 ) {
                                     Icon(
                                         Icons.Default.Delete,
-                                        contentDescription = "Delete",
+                                        contentDescription = tr("Delete"),
                                         tint = Color.White
                                     )
                                 }
@@ -208,7 +209,7 @@ fun PriceAlertsScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Alerts are checked every 15 minutes and trigger at most once per hour.",
+                    text = tr("Alerts are checked every 15 minutes and trigger at most once per hour."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -233,7 +234,7 @@ private fun AlertItem(
     val isAbove = alert.condition == AlertCondition.ABOVE
     val icon = if (isAbove) Icons.Default.TrendingUp else Icons.Default.TrendingDown
     val conditionColor = if (isAbove) SuccessGreen else ErrorRed
-    val conditionText = if (isAbove) "Above" else "Below"
+    val conditionText = if (isAbove) tr("Above") else tr("Below")
 
     GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
         Row(
@@ -257,7 +258,7 @@ private fun AlertItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = currency?.displayName ?: alert.currencyCode.uppercase(),
+                    text = currency?.displayName?.let { tr(it) } ?: alert.currencyCode.uppercase(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

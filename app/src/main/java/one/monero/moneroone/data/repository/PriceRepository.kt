@@ -13,6 +13,10 @@ import one.monero.moneroone.ui.screens.chart.TimeRange
 import timber.log.Timber
 import java.net.HttpURLConnection
 import java.net.URL
+import java.io.File
+import one.monero.moneroone.data.model.PriceHistory
+import one.monero.moneroone.data.model.PriceHistoryResponse
+import one.monero.moneroone.data.model.HistoricalPrice
 
 /** The price API has no quote for [currency]; asking again will not help. */
 class MissingQuoteException(currency: Currency) : Exception("Price not available for ${currency.code}")
@@ -23,6 +27,28 @@ class PriceRepository {
 
     companion object {
         private const val MONERO_ONE_API = "https://monero.one/api/v1"
+    }
+
+    /** Public price history, cached per currency for one hour. No wallet data is sent. */
+    suspend fun fetchHistory(currency: Currency, cacheDir: File): Result<List<HistoricalPrice>> = withContext(Dispatchers.IO) {
+        val cache = File(cacheDir, "price-history-${currency.code}.json")
+        fun parse(raw: String): List<HistoricalPrice> {
+            val response = json.decodeFromString<PriceHistoryResponse>(raw)
+            require(response.currency == currency.code)
+            return PriceHistory.samples(response).also { require(it.isNotEmpty()) }
+        }
+        val cached = runCatching { parse(cache.readText()) }.getOrNull()
+        if (cached != null && System.currentTimeMillis() - cache.lastModified() < 3_600_000) {
+            return@withContext Result.success(cached)
+        }
+        try {
+            val raw = fetchUrl("$MONERO_ONE_API/history?currency=${currency.code}")
+            val samples = parse(raw)
+            runCatching { cache.writeText(raw) }
+            Result.success(samples)
+        } catch (e: Exception) {
+            if (cached != null) Result.success(cached) else Result.failure(e)
+        }
     }
 
     /**

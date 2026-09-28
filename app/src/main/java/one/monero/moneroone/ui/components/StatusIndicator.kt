@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.components
 
+import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -104,13 +105,13 @@ fun SyncStatusIndicator(
             StatusDot(color = SuccessGreen)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Synced",
+                text = tr("Synced"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     } else if (!isOnline) {
-        ConnectionStepIndicator(currentStage = 0, statusText = "No network", modifier = modifier)
+        ConnectionStepIndicator(currentStage = 0, statusText = tr("No network"), modifier = modifier)
     } else if (syncState != null && syncState !is SyncState.Synced && syncState !is SyncState.NotSynced) {
         // If we have a full SyncState, use the step indicator
         val (currentStage, statusText) = syncStateToStage(syncState)
@@ -123,7 +124,7 @@ fun SyncStatusIndicator(
             StatusDot(color = ErrorRed)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Not connected",
+                text = tr("Not connected"),
                 style = MaterialTheme.typography.bodySmall,
                 color = ErrorRed
             )
@@ -133,7 +134,7 @@ fun SyncStatusIndicator(
         val fallbackState = when (status) {
             SyncStatus.Connecting -> SyncState.Connecting(waiting = false)
             SyncStatus.Syncing -> SyncState.Syncing(progress = progress)
-            else -> SyncState.NotSynced(error = Throwable("Unknown"))
+            else -> SyncState.NotSynced(error = Throwable(tr("Unknown")))
         }
         val (currentStage, statusText) = syncStateToStage(fallbackState)
         ConnectionStepIndicator(currentStage = currentStage, statusText = statusText, modifier = modifier)
@@ -248,10 +249,10 @@ fun TransactionStatusIndicator(
     modifier: Modifier = Modifier
 ) {
     val (text, color) = when (status) {
-        TransactionStatus.Pending -> "Pending" to PendingOrange
-        TransactionStatus.Locked -> "Locked" to MoneroOrange
-        TransactionStatus.Confirmed -> "Confirmed" to SuccessGreen
-        TransactionStatus.Failed -> "Failed" to ErrorRed
+        TransactionStatus.Pending -> tr("Pending") to PendingOrange
+        TransactionStatus.Locked -> tr("Locked") to MoneroOrange
+        TransactionStatus.Confirmed -> tr("Confirmed") to SuccessGreen
+        TransactionStatus.Failed -> tr("Failed") to ErrorRed
     }
 
     Row(
