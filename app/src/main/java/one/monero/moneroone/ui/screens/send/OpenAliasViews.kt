@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -84,10 +85,13 @@ import java.util.Date
 // Lookup state (spec sections 5.1 and 5.2)
 // ============================================================
 
-/** What the row under the recipient field shows for a name. */
+/** What the row under the recipient field shows. */
 internal sealed class LookupStatus {
-    /** Nothing: empty text, an address, or a name inside the typing delay. */
+    /** Nothing: empty text, or typed text inside the typing delay. */
     data object Idle : LookupStatus()
+
+    /** Address text, checked after the typing delay: the existing "Valid address" or "Invalid address" row. */
+    data class Address(val text: String, val valid: Boolean) : LookupStatus()
     data class Running(val name: OpenAliasName) : LookupStatus()
     data class Resolved(val name: OpenAliasName, val result: OpenAliasResult, val pin: PinState) : LookupStatus() {
         fun summary() = OpenAliasSummary(name, result.address, result.dnssec, pin)
@@ -102,31 +106,53 @@ internal sealed class LookupStatus {
 }
 
 /**
- * Runs name lookups for the Send flow: the typing delay, cancellation, and a
- * generation counter that makes a late result harmless. It lives with the flow
- * (not the address step), so a result survives a step back from the amount step.
+ * Classifies the recipient text and runs name lookups for the Send flow: the
+ * typing delay, cancellation, and a generation counter that makes a late
+ * result harmless. It lives with the flow (not the address step), so a result
+ * survives a step back from the amount step.
  */
 @Stable
 internal class OpenAliasLookupModel(
     private val scope: CoroutineScope,
     private val lookup: suspend (OpenAliasName) -> OpenAliasOutcome,
     private val pins: OpenAliasPinStore?,
+    private val isValidAddress: (String) -> Boolean,
+    /** The typing delay. Tests pass their own. */
+    private val typingPause: suspend () -> Unit = { delay(OpenAliasConfig.TYPING_DELAY_MS) },
 ) {
     var status: LookupStatus by mutableStateOf(LookupStatus.Idle)
         private set
 
     private var generation = 0
     private var job: Job? = null
-    private var activeQuery: String? = null
+
+    /** What the status or the waiting delay is for: a query name, an address or a rejected text. */
+    private var activeKey: String? = null
     private var waiting = false
 
-    /** [immediate]: Paste, Scan and Return start at once; typing waits for the delay. */
+    /**
+     * Typed text is classified after the typing delay, so no row shows while
+     * the user types. Paste, Scan and Return ([immediate]) classify at once.
+     */
     fun onInputChanged(text: String, immediate: Boolean) {
         when (val input = OpenAlias.classify(text)) {
-            is RecipientInput.Name -> onName(input.name, immediate)
-            RecipientInput.Reserved -> onRejected(reserved = true, immediate = immediate)
-            RecipientInput.InvalidName -> onRejected(reserved = false, immediate = immediate)
-            else -> cancel()
+            RecipientInput.Empty -> cancel()
+            is RecipientInput.Name -> {
+                val name = input.name
+                val key = "name:" + name.query
+                // Same query name (a space added, other case): keep the state, with the new text.
+                if (key == activeKey) status = status.withName(name)
+                settle(key, immediate) { start(name) }
+            }
+            is RecipientInput.Address -> settle("address:" + input.text, immediate) {
+                status = LookupStatus.Address(input.text, isValidAddress(input.text))
+            }
+            RecipientInput.Reserved -> settle("reserved:" + text.trim(), immediate) {
+                status = LookupStatus.Rejected(reserved = true)
+            }
+            RecipientInput.InvalidName -> settle("invalid:" + text.trim(), immediate) {
+                status = LookupStatus.Rejected(reserved = false)
+            }
         }
     }
 
@@ -136,7 +162,7 @@ internal class OpenAliasLookupModel(
 
     fun cancel() {
         stopWork()
-        activeQuery = null
+        activeKey = null
         status = LookupStatus.Idle
     }
 
@@ -145,37 +171,28 @@ internal class OpenAliasLookupModel(
         pins?.recordAfterSend(state, summary, sentAddress)
     }
 
-    private fun onName(name: OpenAliasName, immediate: Boolean) {
-        if (name.query == activeQuery) {
-            // Same query name (a space added, other case): keep the current state.
-            status = status.withName(name)
+    /** Runs [action] after the typing delay, or at once when [immediate]. */
+    private fun settle(key: String, immediate: Boolean, action: () -> Unit) {
+        if (key == activeKey) {
+            // The same text: keep the current state.
             when {
-                immediate && (waiting || status is LookupStatus.Failed) -> start(name)
+                // Paste or Return: at once, or again after a failed lookup.
+                immediate && (waiting || status is LookupStatus.Failed) -> {
+                    stopWork()
+                    action()
+                }
                 // Still typing (a trailing dot, for example): the delay starts again.
                 waiting -> {
                     stopWork()
-                    schedule { start(name) }
+                    schedule(action)
                 }
             }
             return
         }
         stopWork()
-        activeQuery = name.query
+        activeKey = key
         status = LookupStatus.Idle
-        if (immediate) start(name) else schedule { start(name) }
-    }
-
-    private fun onRejected(reserved: Boolean, immediate: Boolean) {
-        stopWork()
-        activeQuery = null
-        val rejected = LookupStatus.Rejected(reserved)
-        // A red row already on screen changes in place; a new one waits for the delay.
-        if (immediate || status is LookupStatus.Rejected) {
-            status = rejected
-        } else {
-            status = LookupStatus.Idle
-            schedule { status = rejected }
-        }
+        if (immediate) action() else schedule(action)
     }
 
     private fun stopWork() {
@@ -189,7 +206,7 @@ internal class OpenAliasLookupModel(
         val scheduled = generation
         waiting = true
         job = scope.launch {
-            delay(OpenAliasConfig.TYPING_DELAY_MS)
+            typingPause()
             if (scheduled != generation) return@launch
             waiting = false
             job = null
@@ -239,7 +256,8 @@ internal fun rememberOpenAliasLookup(): OpenAliasLookupModel {
         OpenAliasLookupModel(
             scope = scope,
             lookup = { name -> resolver.resolve(name, ::openAliasAddressCheck) },
-            pins = OpenAliasPinStore.create(context)
+            pins = OpenAliasPinStore.create(context),
+            isValidAddress = ::isValidMoneroAddress
         )
     }
 }
@@ -261,6 +279,19 @@ private fun isTestnetAddress(address: String): Boolean = try {
 // Address step pieces
 // ============================================================
 
+/** The clear button in the recipient field, as on iOS: an x in a filled circle, in the secondary color. */
+@Composable
+internal fun OpenAliasClearButton(onClear: () -> Unit) {
+    IconButton(onClick = onClear) {
+        Icon(
+            Icons.Filled.Cancel,
+            contentDescription = stringResource(R.string.send_clear_address),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
 private val fadeSpec = tween<Float>(OpenAliasConfig.FADE_MS, easing = EaseOut)
 
 /**
@@ -269,10 +300,12 @@ private val fadeSpec = tween<Float>(OpenAliasConfig.FADE_MS, easing = EaseOut)
  */
 @Composable
 internal fun OpenAliasStatusRow(status: LookupStatus, onRetry: () -> Unit) {
+    // Addresses keep the existing validation row of the Send screen.
+    val visible = status !is LookupStatus.Idle && status !is LookupStatus.Address
     val last = remember { arrayOfNulls<LookupStatus>(1) }
-    if (status !is LookupStatus.Idle) last[0] = status
+    if (visible) last[0] = status
     AnimatedVisibility(
-        visible = status !is LookupStatus.Idle,
+        visible = visible,
         enter = fadeIn(fadeSpec),
         exit = fadeOut(fadeSpec)
     ) {
@@ -327,7 +360,7 @@ private fun StatusRowContent(status: LookupStatus, onRetry: () -> Unit) {
                         if (status.reserved) R.string.openalias_error_reserved else R.string.openalias_error_invalid_name
                     )
                 )
-                LookupStatus.Idle -> Unit
+                LookupStatus.Idle, is LookupStatus.Address -> Unit
             }
         }
         if (status is LookupStatus.Failed && status.failure.canRetry) {

@@ -222,7 +222,8 @@ fun SendScreen(
     var recipientInput by remember { mutableStateOf(prefilledAddress ?: prefilledName ?: "") }
     var openAliasSummary by remember { mutableStateOf<OpenAliasSummary?>(null) }
     val openAlias = rememberOpenAliasLookup()
-    LaunchedEffect(Unit) { prefilledName?.let { openAlias.onInputChanged(it, immediate = true) } }
+    // A prefilled address or name (from a scan) is classified at once, like a paste.
+    LaunchedEffect(Unit) { if (recipientInput.isNotEmpty()) openAlias.onInputChanged(recipientInput, immediate = true) }
     var amount by rememberSaveable { mutableStateOf(prefilledAmount ?: "") }
     var isSweepAll by rememberSaveable { mutableStateOf(false) }
     var memo by rememberSaveable { mutableStateOf("") }
@@ -498,8 +499,10 @@ private fun AddressPhase(
     val kind = remember(input) { OpenAlias.classify(input) }
     val status = lookup.status
     val resolved = (status as? LookupStatus.Resolved)?.takeIf { kind is RecipientInput.Name }
+    // Typed text is classified after the typing delay; Paste, Scan and Return at once.
+    val checkedAddress = (status as? LookupStatus.Address)?.takeIf { kind is RecipientInput.Address }
     val isValid = when (kind) {
-        is RecipientInput.Address -> isValidMoneroAddress(kind.text)
+        is RecipientInput.Address -> checkedAddress?.valid == true
         is RecipientInput.Name -> resolved != null
         else -> false
     }
@@ -585,13 +588,18 @@ private fun AddressPhase(
                 onInputChange(input, true)
                 defaultKeyboardAction(ImeAction.Done)
             }),
+            trailingIcon = if (input.isNotEmpty()) {
+                { OpenAliasClearButton(onClear = { onInputChange("", true) }) }
+            } else {
+                null
+            },
             singleLine = true
         )
 
         // Inline validation indicator (addresses). On the name path the
         // OpenAlias row takes its place.
-        if (kind is RecipientInput.Address) {
-            val valid = isValid
+        if (checkedAddress != null) {
+            val valid = checkedAddress.valid
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -610,10 +618,7 @@ private fun AddressPhase(
                 )
             }
         }
-        OpenAliasStatusRow(
-            status = if (kind is RecipientInput.Address) LookupStatus.Idle else status,
-            onRetry = lookup::retry
-        )
+        OpenAliasStatusRow(status = status, onRetry = lookup::retry)
         OpenAliasResultBlock(status = if (kind is RecipientInput.Name) status else LookupStatus.Idle)
 
         Spacer(modifier = Modifier.height(16.dp))
