@@ -346,10 +346,16 @@ class DnsBridgeTest {
             val allBad = FakeTransport { _, q -> refused(q) }
             val (bridge2, port2) = startBridge(allBad)
             val client2 = connect(port2)
-            val q = withEdns(query(11, "org"))
-            client2.send(q)
+            client2.send(withEdns(query(11, "org")))
             assertEquals(2, client2.receive()[3].toInt() and 0x0F)
             assertEquals(1, bridge2.synthesizedCount)
+            assertEquals(2, allBad.calls.size)
+
+            // A refusal is not a transport failure: the bridge is not down, so
+            // the next query still goes out.
+            client2.send(withEdns(query(12, "org")))
+            assertEquals(12, id(client2.receive()))
+            assertEquals(4, allBad.calls.size)
         }
     }
 

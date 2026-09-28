@@ -70,7 +70,11 @@ class DnsBridge(
     private val transport: DohTransport,
     private val servers: List<String> = OpenAliasConfig.DOH_SERVERS,
     private val queryCap: Int = OpenAliasConfig.QUERY_CAP,
-    /** Debug builds only: one line per query and per upstream try. Null in release builds. */
+    /**
+     * Debug builds only: one line per upstream try and per made-up answer, with
+     * the query type, the server, the HTTP status, the rcode and the time. Never
+     * the name. Null in release builds.
+     */
     private val trace: ((String) -> Unit)? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, _ -> })
@@ -80,8 +84,6 @@ class DnsBridge(
     private val synthesized = AtomicInteger()
     private val preferred = AtomicInteger()
     private val stopped = AtomicBoolean(false)
-    private val connections = AtomicInteger()
-    private val createdAt = System.nanoTime()
 
     @Volatile private var down = false
     @Volatile private var listener: ServerSocket? = null
@@ -124,13 +126,11 @@ class DnsBridge(
                 closeQuietly(socket)
                 return
             }
-            val connection = connections.incrementAndGet()
-            trace?.invoke("${since()} conn $connection open")
-            scope.launch { serve(socket, connection) }
+            scope.launch { serve(socket) }
         }
     }
 
-    private suspend fun serve(socket: Socket, connection: Int) {
+    private suspend fun serve(socket: Socket) {
         val writeLock = Any()
         val inFlight = mutableListOf<Job>()
         var peerDone = false
@@ -147,23 +147,20 @@ class DnsBridge(
                 val query = ByteArray(length)
                 input.readFully(query)
                 inFlight += scope.launch {
-                    val reply = answer(query, connection)
+                    val reply = answer(query)
                     synchronized(writeLock) {
                         try {
                             output.write(frame(reply))
                             output.flush()
                         } catch (e: IOException) {
                             // The connection is gone.
-                            trace?.invoke("${since()} conn $connection reply lost: ${e.javaClass.simpleName}")
                         }
                     }
                 }
             }
         } catch (e: IOException) {
             // Reset, or closed by stop().
-            trace?.invoke("${since()} conn $connection read ended: ${e.javaClass.simpleName}")
         }
-        trace?.invoke("${since()} conn $connection closed (peer end of stream: $peerDone, in flight: ${inFlight.count { it.isActive }})")
         try {
             // After the peer's end of stream, let the answers in flight go out.
             if (peerDone) inFlight.joinAll()
@@ -182,17 +179,11 @@ class DnsBridge(
         return (high shl 8) or low
     }
 
-    internal fun answer(query: ByteArray, connection: Int = 0): ByteArray {
+    internal fun answer(query: ByteArray): ByteArray {
         val number = queryTotal.incrementAndGet()
-        val label = if (trace != null) {
-            val question = DnsDebug.question(query)
-            val raw = if (question.startsWith("(")) " query hex ${DnsDebug.hex(query)}" else ""
-            "#$number conn $connection $question (${DnsDebug.queryBits(query)})$raw"
-        } else {
-            ""
-        }
+        val type = if (trace != null) DnsDebug.qtype(query) else ""
         if (number > queryCap || down || stopped.get()) {
-            trace?.invoke("${since()} $label made up: cap ${number > queryCap}, down $down, stopped ${stopped.get()}")
+            trace?.invoke("#$number $type: made up (${if (number > queryCap) "cap" else if (down) "down" else "stopped"})")
             return synthesize(query)
         }
         if (!isWellFormedQuery(query)) {
@@ -200,51 +191,46 @@ class DnsBridge(
             // FORMERR, and libunbound then stops sending EDNS to the bridge for the
             // rest of the lookup. Without EDNS the answers carry no signatures, and
             // the lookup fails as a DNSSEC failure. A SERVFAIL fails only this query.
-            trace?.invoke("${since()} $label made up: not one well-formed query")
+            trace?.invoke("#$number $type: made up (malformed)")
             return synthesize(query)
         }
         val copy = query.copyOf()
         copy[0] = 0
         copy[1] = 0
         val first = preferred.get()
+        var refused = false
         for (step in servers.indices) {
             if (stopped.get()) break
             val index = (first + step) % servers.size
             val postedAt = System.nanoTime()
-            var error: Exception? = null
             val reply = try {
                 transport.post(servers[index], copy)
             } catch (e: Exception) {
-                error = e
                 null
             }
-            val good = reply != null && isGoodReply(reply)
             if (trace != null) {
                 val ms = (System.nanoTime() - postedAt) / 1_000_000
-                val result = if (reply == null) {
-                    "error ${error?.javaClass?.simpleName}: ${error?.message}"
-                } else {
-                    val text = DnsDebug.describe(reply.body)
-                    "http ${reply.status} $text" + if (text.startsWith("(")) " reply hex ${DnsDebug.hex(reply.body)}" else ""
-                }
-                trace.invoke("${since()} $label via ${DnsDebug.host(servers[index])}: $result in $ms ms, good $good")
+                val result = if (reply == null) "http none" else "http ${reply.status}, rcode ${DnsDebug.rcode(reply.body)}"
+                trace.invoke("#$number $type via ${DnsDebug.host(servers[index])}: $result in $ms ms")
             }
-            if (reply != null && good) {
-                preferred.set(index)
-                answered.incrementAndGet()
-                val body = reply.body.copyOf()
-                body[0] = query[0]
-                body[1] = query[1]
-                return body
+            if (reply == null || !isDnsReply(reply)) continue
+            if (isRefusal(reply)) {
+                refused = true
+                continue
             }
+            preferred.set(index)
+            answered.incrementAndGet()
+            val body = reply.body.copyOf()
+            body[0] = query[0]
+            body[1] = query[1]
+            return body
         }
-        down = true
-        trace?.invoke("${since()} $label made up: every server failed")
+        // Only a transport failure marks the bridge down. A server that refuses
+        // one query still answers the others.
+        if (!refused) down = true
+        trace?.invoke("#$number $type: made up (${if (refused) "refused" else "every server failed"})")
         return synthesize(query)
     }
-
-    /** The time since this bridge was made, for the trace. */
-    private fun since(): String = "t+${(System.nanoTime() - createdAt) / 1_000_000}ms"
 
     private fun synthesize(query: ByteArray): ByteArray {
         synthesized.incrementAndGet()
@@ -265,12 +251,18 @@ class DnsBridge(
          * the answers lose their signatures. Every DoH server has EDNS, so the
          * bridge tries the next server instead.
          */
-        fun isGoodReply(reply: DohReply): Boolean =
+        fun isGoodReply(reply: DohReply): Boolean = isDnsReply(reply) && !isRefusal(reply)
+
+        /** Status 200, a dns-message content type, 12 to 65535 bytes, and the QR bit set. */
+        private fun isDnsReply(reply: DohReply): Boolean =
             reply.status == 200 &&
                 reply.contentType?.trim()?.lowercase()?.startsWith(DNS_MESSAGE) == true &&
                 reply.body.size in 12..65535 &&
-                (reply.body[2].toInt() and 0x80) != 0 &&
-                (reply.body[3].toInt() and 0x0F).let { it != RCODE_FORMERR && it != RCODE_NOTIMPL }
+                (reply.body[2].toInt() and 0x80) != 0
+
+        /** FORMERR or NOTIMPL. Call only after [isDnsReply]. */
+        private fun isRefusal(reply: DohReply): Boolean =
+            (reply.body[3].toInt() and 0x0F).let { it == RCODE_FORMERR || it == RCODE_NOTIMPL }
 
         /**
          * One standard query: QR off, opcode 0, one question, no answer or
@@ -365,95 +357,51 @@ class DnsBridge(
 }
 
 /**
- * Debug builds only: short descriptions of DNS messages for the bridge trace.
- * Every function gives a placeholder instead of throwing on a bad message.
+ * Debug builds only: the parts of a DNS message that the bridge trace may show.
+ * Never the name.
  */
 internal object DnsDebug {
     private val typeNames = mapOf(
-        1 to "A", 2 to "NS", 5 to "CNAME", 6 to "SOA", 16 to "TXT", 28 to "AAAA", 41 to "OPT",
+        1 to "A", 2 to "NS", 5 to "CNAME", 6 to "SOA", 10 to "NULL", 16 to "TXT", 28 to "AAAA",
         43 to "DS", 46 to "RRSIG", 47 to "NSEC", 48 to "DNSKEY", 50 to "NSEC3", 51 to "NSEC3PARAM",
     )
 
-    private fun typeName(type: Int): String = typeNames[type] ?: "TYPE$type"
-
-    private fun u16(message: ByteArray, at: Int): Int =
-        ((message[at].toInt() and 0xFF) shl 8) or (message[at + 1].toInt() and 0xFF)
-
-    /** The name at [start], and the offset after it. Follows compression pointers. */
-    private fun readName(message: ByteArray, start: Int): Pair<String, Int> {
-        val labels = mutableListOf<String>()
-        var at = start
-        var after = -1
-        var jumps = 0
-        while (true) {
-            val length = message[at].toInt() and 0xFF
+    /** The type of the first question, or "?" when the question fails to parse. */
+    fun qtype(query: ByteArray): String {
+        var at = 12
+        while (at < query.size) {
+            val length = query[at].toInt() and 0xFF
             if (length == 0) {
-                at += 1
-                break
+                if (at + 3 > query.size) return "?"
+                val type = ((query[at + 1].toInt() and 0xFF) shl 8) or (query[at + 2].toInt() and 0xFF)
+                return typeNames[type] ?: "TYPE$type"
             }
-            if ((length and 0xC0) == 0xC0) {
-                if (after < 0) after = at + 2
-                check(++jumps <= 64)
-                at = ((length and 0x3F) shl 8) or (message[at + 1].toInt() and 0xFF)
-                continue
-            }
-            labels += String(message, at + 1, length, Charsets.US_ASCII)
+            if (length >= 64) return "?"
             at += 1 + length
         }
-        return (labels.joinToString(".") + ".") to (if (after >= 0) after else at)
+        return "?"
     }
 
-    /** The first 96 bytes as hex. */
-    fun hex(message: ByteArray): String =
-        message.take(96).joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+    /** The rcode of a reply, or "?" when it is shorter than a header. */
+    fun rcode(reply: ByteArray): String = if (reply.size < 12) "?" else (reply[3].toInt() and 0x0F).toString()
 
     /** The host of a DoH server URL. */
     fun host(server: String): String = server.substringAfter("://").substringBefore('/')
 
-    /** "name TYPE" of the first question. */
-    fun question(message: ByteArray): String = try {
-        val (name, after) = readName(message, 12)
-        "$name ${typeName(u16(message, after))}"
-    } catch (e: Exception) {
-        "(unparsed question)"
-    }
-
-    /** The CD bit and the EDNS DO bit of a query. */
-    fun queryBits(message: ByteArray): String = try {
-        val sections = sections(message)
-        val cd = (u16(message, 2) shr 4) and 1
-        "cd $cd, ${if (sections[2].any { it == "OPT+DO" }) "do 1" else "do 0"}"
-    } catch (e: Exception) {
-        "unparsed"
-    }
-
-    /** The rcode, the TC, AD and CD bits, and the record types in each section. */
-    fun describe(message: ByteArray): String = try {
-        val flags = u16(message, 2)
-        val sections = sections(message)
-        "rcode ${flags and 0x0F}, tc ${(flags shr 9) and 1}, ad ${(flags shr 5) and 1}, " +
-            "cd ${(flags shr 4) and 1}, an ${sections[0]}, ns ${sections[1]}, ar ${sections[2]}, " +
-            "${message.size} bytes"
-    } catch (e: Exception) {
-        "(unparsed, ${message.size} bytes)"
-    }
-
-    /** The record types of the answer, authority and additional sections. */
-    private fun sections(message: ByteArray): List<List<String>> {
-        var at = 12
-        repeat(u16(message, 4)) { at = readName(message, at).second + 4 }
-        return listOf(u16(message, 6), u16(message, 8), u16(message, 10)).map { count ->
-            List(count) {
-                val after = readName(message, at).second
-                val type = u16(message, after)
-                val name = if (type == 41) {
-                    if ((u16(message, after + 6) and 0x8000) != 0) "OPT+DO" else "OPT"
-                } else {
-                    typeName(type)
-                }
-                at = after + 10 + u16(message, after + 8)
-                name
-            }
+    /**
+     * The kind of DNSSEC failure, from a fixed list, so the text with the name
+     * never reaches the log.
+     */
+    fun bogusKind(whyBogus: String): String {
+        val text = whyBogus.lowercase()
+        return when {
+            text.isEmpty() -> "none"
+            "no signatures" in text -> "no signatures"
+            "crypto" in text -> "crypto"
+            "expired" in text || "before inception" in text -> "expired"
+            "servfail" in text || "no dnskey" in text || "no ds" in text ||
+                "could not fetch" in text || "timeout" in text || "no server" in text -> "fetch failure"
+            else -> "other"
         }
     }
 }
@@ -620,18 +568,23 @@ class OpenAliasResolver(
             } finally {
                 bridge.stop()
             }
-            trace?.invoke("kit ${kitFields(json)}")
+            trace?.invoke("kit ${kitSummary(json)}")
             OpenAlias.mapAnswer(json, bridge.synthesizedCount, torOn, check)
                 .also { debugLog(it, startedAt, bridge) }
         }
 
-    /** Debug builds only: the kit result fields, without the records. */
-    private fun kitFields(json: String): String = try {
+    /** Debug builds only: the kit result flags and the kind of DNSSEC failure. Never the name or the records. */
+    private fun kitSummary(json: String): String = try {
         val obj = org.json.JSONObject(json)
-        obj.remove("records")
-        obj.toString()
+        if (obj.optString("status") != "ok") {
+            "status ${obj.optString("status").takeIf { it in setOf("timeout", "error") } ?: "other"}"
+        } else {
+            "status ok, rcode ${obj.optInt("rcode")}, havedata ${obj.optBoolean("havedata")}, " +
+                "nxdomain ${obj.optBoolean("nxdomain")}, secure ${obj.optBoolean("secure")}, " +
+                "bogus ${obj.optBoolean("bogus")}, why_bogus ${DnsDebug.bogusKind(obj.optString("why_bogus"))}"
+        }
     } catch (e: Exception) {
-        "(unparsed, ${json.length} chars)"
+        "unparsed"
     }
 
     /** Debug builds only: the outcome, the time and the counts. Never the name, the records or the address. */
