@@ -1,0 +1,8 @@
+- Manage multiple wallets: add, switch, rename and reorder.
+- Refreshed design, icons, widgets and light/dark themes.
+- Clearer price and balance charts.
+- Faster PIN unlock and smoother wallet switching.
+- More reliable sync, reconnection and custom-node login.
+- Safer receive addresses, seed backup, restore and payment status.
+- Improved recovery-file protection and wallet-removal controls.
+- General stability improvements and bug fixes.
