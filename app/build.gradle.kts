@@ -35,7 +35,7 @@ android {
         applicationId = "one.monero.moneroone"
         minSdk = 27
         targetSdk = 36
-        versionCode = 13
+        versionCode = 14
         versionName = "1.0.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
