@@ -492,6 +492,7 @@
     <string name="l10n_mexican_peso_027e50dd" formatted="false">"멕시코 페소"</string>
     <string name="l10n_min_dea79332" formatted="false">"최소"</string>
     <string name="l10n_monero_address_c561cf4d" formatted="false">"Monero 주소"</string>
+    <string name="l10n_monero_one_does_not_include_tor_start_orbot_or_another__67399fa1" formatted="false">"Monero One에는 Tor가 포함되어 있지 않습니다. 이 기능을 켜기 전에 Orbot 또는 다른 Tor 프록시를 시작하세요."</string>
     <string name="l10n_monero_one_does_not_include_tor_turn_this_on_only_if_or_ac51a1c2" formatted="false">"Monero One에는 Tor가 포함되어 있지 않습니다. 이 iPhone에서 Orbot 또는 다른 Tor 프록시 앱이 실행 중일 때만 켜세요. 그렇지 않으면 어떤 노드에도 연결되지 않습니다."</string>
     <string name="l10n_monero_one_is_a_self_custody_wallet_your_seed_phrase_is_3a95ff43" formatted="false">"Monero One은 자기 수탁형 지갑입니다. 시드 문구는 자금에 접근할 수 있는 유일한 방법입니다. 저희는 시드 문구를 복구해 드릴 수 없습니다."</string>
     <string name="l10n_monero_one_is_open_source_you_can_verify_exactly_how_lo_4560ff4d" formatted="false">"Monero One은 오픈 소스입니다. 위치가 어떻게 사용되는지 코드에서 정확히 확인할 수 있습니다."</string>
@@ -648,6 +649,9 @@
     <string name="l10n_proceed_to_review_transaction_fd9f4a51" formatted="false">"거래 검토로 진행"</string>
     <string name="l10n_protect_your_seed_phrase_1f70b727" formatted="false">"시드 문구를 보호하세요"</string>
     <string name="l10n_proxy_details_b4e1da43" formatted="false">"프록시 세부사항"</string>
+    <string name="l10n_proxy_address_dba97df7" formatted="false">"프록시 주소"</string>
+    <string name="l10n_proxy_available_0685e44c" formatted="false">"프록시 사용 가능"</string>
+    <string name="l10n_proxy_unavailable_start_orbot_or_check_the_proxy_addres_f312428f" formatted="false">"프록시를 사용할 수 없습니다. Orbot을 시작하거나 프록시 주소를 확인하세요."</string>
     <string name="l10n_qr_code_5a779155" formatted="false">"Monero 주소 QR 코드"</string>
     <string name="l10n_qr_code_for_monero_address_8c58d28b" formatted="false">"Monero 주소 QR 코드"</string>
     <string name="l10n_qr_code_for_receiving_monero_d196da16" formatted="false">"Monero 받기용 QR 코드"</string>
@@ -904,6 +908,7 @@
     <string name="l10n_too_many_attempts_try_again_in_ss_6a974ab8" formatted="false">"시도 횟수가 너무 많습니다. %1$s초 후에 다시 시도하세요."</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_sm_ss_6bfba11a" formatted="false">"실패한 시도가 너무 많습니다. %1$s분 %2$s초 후에 다시 시도하세요."</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_ss_a7a8452c" formatted="false">"실패한 시도가 너무 많습니다. %1$s초 후에 다시 시도하세요."</string>
+    <string name="l10n_tor_nodes_064c373a" formatted="false">"Tor 노드"</string>
     <string name="l10n_tor_proxy_f1738d98" formatted="false">"Tor 프록시"</string>
     <string name="l10n_tor_proxy_required_681efdb1" formatted="false">"Tor 프록시 필요"</string>
     <string name="l10n_total_c9b3c382" formatted="false">"합계"</string>
@@ -970,6 +975,7 @@
     <string name="l10n_use_biometrics_11377f11" formatted="false">"생체 인식"</string>
     <string name="l10n_use_pin_3e03ee29" formatted="false">"PIN 사용"</string>
     <string name="l10n_use_tor_proxy_89445203" formatted="false">"Tor 프록시 사용"</string>
+    <string name="l10n_use_an_ip_address_and_port_for_example_127_0_0_1_9050_2e0d26ba" formatted="false">"IP 주소와 포트를 사용하세요. 예: 127.0.0.1:9050."</string>
     <string name="l10n_use_biometrics_7827a57f" formatted="false">"생체 인식"</string>
     <string name="l10n_use_fingerprint_or_face_to_unlock_5fdb5d2e" formatted="false">"지문 또는 얼굴로 잠금 해제"</string>
     <string name="l10n_use_one_of_your_unused_addresses_first_a_restore_from_t_d80d64ec" formatted="false">"먼저 사용하지 않은 주소 중 하나를 사용하십시오. 시드 문구로 복원하면 새 주소로 받은 결제를 놓칩니다."</string>
@@ -1013,6 +1019,7 @@
     <string name="l10n_wallet_missing_device_cache_identifier_re_pair_to_fix_c3897d37" formatted="false">"지갑에 기기 캐시 식별자가 없습니다 — 다시 페어링하여 해결하세요."</string>
     <string name="l10n_wallet_name_ff5cf34a" formatted="false">"지갑 이름"</string>
     <string name="l10n_wallet_not_ready_please_wait_for_sync_to_complete_bd652720" formatted="false">"지갑이 준비되지 않았습니다. 동기화가 완료될 때까지 기다려 주세요."</string>
+    <string name="l10n_wallet_sync_node_checks_and_prices_use_this_proxy_if_it_55354cd4" formatted="false">"지갑 동기화, 노드 확인 및 가격 조회에 이 프록시를 사용합니다. 사용할 수 없으면 연결은 오프라인 상태로 유지됩니다."</string>
     <string name="l10n_warn_only_4605a608" formatted="false">"경고만"</string>
     <string name="l10n_warning_e981ddae" formatted="false">"경고"</string>
     <string name="l10n_warning_anyone_with_this_phrase_can_access_your_funds_c_109dde26" formatted="false">"경고: 이 문구를 가진 사람은 누구나 자금에 접근할 수 있습니다! 클립보드는 5분 후에 지워집니다."</string>

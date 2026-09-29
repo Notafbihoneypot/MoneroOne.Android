@@ -492,6 +492,7 @@
     <string name="l10n_mexican_peso_027e50dd" formatted="false">"Mexican Peso"</string>
     <string name="l10n_min_dea79332" formatted="false">"Min"</string>
     <string name="l10n_monero_address_c561cf4d" formatted="false">"Monero Address"</string>
+    <string name="l10n_monero_one_does_not_include_tor_start_orbot_or_another__67399fa1" formatted="false">"Monero One does not include Tor. Start Orbot or another Tor proxy before turning this on."</string>
     <string name="l10n_monero_one_does_not_include_tor_turn_this_on_only_if_or_ac51a1c2" formatted="false">"Monero One does not include Tor. Turn this on only if Orbot or another Tor proxy app is running on this iPhone. Without one, none of your nodes will connect."</string>
     <string name="l10n_monero_one_is_a_self_custody_wallet_your_seed_phrase_is_3a95ff43" formatted="false">"Monero One is a self-custody wallet. Your seed phrase is the only way to access your funds. We cannot recover it for you."</string>
     <string name="l10n_monero_one_is_open_source_you_can_verify_exactly_how_lo_4560ff4d" formatted="false">"Monero One is open source. You can verify exactly how location is used in the code."</string>
@@ -648,6 +649,9 @@
     <string name="l10n_proceed_to_review_transaction_fd9f4a51" formatted="false">"Proceed to review transaction"</string>
     <string name="l10n_protect_your_seed_phrase_1f70b727" formatted="false">"Protect Your Seed Phrase"</string>
     <string name="l10n_proxy_details_b4e1da43" formatted="false">"Proxy Details"</string>
+    <string name="l10n_proxy_address_dba97df7" formatted="false">"Proxy address"</string>
+    <string name="l10n_proxy_available_0685e44c" formatted="false">"Proxy available"</string>
+    <string name="l10n_proxy_unavailable_start_orbot_or_check_the_proxy_addres_f312428f" formatted="false">"Proxy unavailable. Start Orbot or check the proxy address."</string>
     <string name="l10n_qr_code_5a779155" formatted="false">"QR Code"</string>
     <string name="l10n_qr_code_for_monero_address_8c58d28b" formatted="false">"QR code for Monero address"</string>
     <string name="l10n_qr_code_for_receiving_monero_d196da16" formatted="false">"QR code for receiving Monero"</string>
@@ -904,6 +908,7 @@
     <string name="l10n_too_many_attempts_try_again_in_ss_6a974ab8" formatted="false">"Too many attempts. Try again in %ss"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_sm_ss_6bfba11a" formatted="false">"Too many failed attempts. Try again in %sm %ss"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_ss_a7a8452c" formatted="false">"Too many failed attempts. Try again in %ss"</string>
+    <string name="l10n_tor_nodes_064c373a" formatted="false">"Tor Nodes"</string>
     <string name="l10n_tor_proxy_f1738d98" formatted="false">"Tor Proxy"</string>
     <string name="l10n_tor_proxy_required_681efdb1" formatted="false">"Tor Proxy Required"</string>
     <string name="l10n_total_c9b3c382" formatted="false">"Total"</string>
@@ -970,6 +975,7 @@
     <string name="l10n_use_biometrics_11377f11" formatted="false">"Use Biometrics"</string>
     <string name="l10n_use_pin_3e03ee29" formatted="false">"Use PIN"</string>
     <string name="l10n_use_tor_proxy_89445203" formatted="false">"Use Tor Proxy"</string>
+    <string name="l10n_use_an_ip_address_and_port_for_example_127_0_0_1_9050_2e0d26ba" formatted="false">"Use an IP address and port, for example 127.0.0.1:9050."</string>
     <string name="l10n_use_biometrics_7827a57f" formatted="false">"Use biometrics"</string>
     <string name="l10n_use_fingerprint_or_face_to_unlock_5fdb5d2e" formatted="false">"Use fingerprint or face to unlock"</string>
     <string name="l10n_use_one_of_your_unused_addresses_first_a_restore_from_t_d80d64ec" formatted="false">"Use one of your unused addresses first. A restore from the seed would miss payments to new ones."</string>
@@ -1013,6 +1019,7 @@
     <string name="l10n_wallet_missing_device_cache_identifier_re_pair_to_fix_c3897d37" formatted="false">"Wallet missing device cache identifier — re-pair to fix."</string>
     <string name="l10n_wallet_name_ff5cf34a" formatted="false">"Wallet name"</string>
     <string name="l10n_wallet_not_ready_please_wait_for_sync_to_complete_bd652720" formatted="false">"Wallet not ready. Please wait for sync to complete."</string>
+    <string name="l10n_wallet_sync_node_checks_and_prices_use_this_proxy_if_it_55354cd4" formatted="false">"Wallet sync, node checks, and prices use this proxy. If it is unavailable, connections stay offline."</string>
     <string name="l10n_warn_only_4605a608" formatted="false">"Warn Only"</string>
     <string name="l10n_warning_e981ddae" formatted="false">"Warning"</string>
     <string name="l10n_warning_anyone_with_this_phrase_can_access_your_funds_c_109dde26" formatted="false">"Warning: Anyone with this phrase can access your funds! Clipboard clears in 5 min."</string>

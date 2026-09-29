@@ -492,6 +492,7 @@
     <string name="l10n_mexican_peso_027e50dd" formatted="false">"Мексиканское песо"</string>
     <string name="l10n_min_dea79332" formatted="false">"Мин."</string>
     <string name="l10n_monero_address_c561cf4d" formatted="false">"Адрес Monero"</string>
+    <string name="l10n_monero_one_does_not_include_tor_start_orbot_or_another__67399fa1" formatted="false">"Monero One не включает Tor. Перед включением запустите Orbot или другой прокси Tor."</string>
     <string name="l10n_monero_one_does_not_include_tor_turn_this_on_only_if_or_ac51a1c2" formatted="false">"Monero One не включает Tor. Включайте этот параметр, только если на этом iPhone работает Orbot или другое приложение-прокси Tor. Без него ни один из ваших узлов не подключится."</string>
     <string name="l10n_monero_one_is_a_self_custody_wallet_your_seed_phrase_is_3a95ff43" formatted="false">"Monero One — некастодиальный кошелёк. Мнемоническая фраза — единственный способ получить доступ к средствам. Мы не можем восстановить её за вас."</string>
     <string name="l10n_monero_one_is_open_source_you_can_verify_exactly_how_lo_4560ff4d" formatted="false">"У Monero One открытый исходный код. Вы можете сами проверить в коде, как именно используется геопозиция."</string>
@@ -648,6 +649,9 @@
     <string name="l10n_proceed_to_review_transaction_fd9f4a51" formatted="false">"Перейти к проверке транзакции"</string>
     <string name="l10n_protect_your_seed_phrase_1f70b727" formatted="false">"Защитите мнемоническую фразу"</string>
     <string name="l10n_proxy_details_b4e1da43" formatted="false">"Сведения о прокси"</string>
+    <string name="l10n_proxy_address_dba97df7" formatted="false">"Адрес прокси"</string>
+    <string name="l10n_proxy_available_0685e44c" formatted="false">"Прокси доступен"</string>
+    <string name="l10n_proxy_unavailable_start_orbot_or_check_the_proxy_addres_f312428f" formatted="false">"Прокси недоступен. Запустите Orbot или проверьте адрес прокси."</string>
     <string name="l10n_qr_code_5a779155" formatted="false">"QR-код адреса Monero"</string>
     <string name="l10n_qr_code_for_monero_address_8c58d28b" formatted="false">"QR-код адреса Monero"</string>
     <string name="l10n_qr_code_for_receiving_monero_d196da16" formatted="false">"QR-код для получения Monero"</string>
@@ -904,6 +908,7 @@
     <string name="l10n_too_many_attempts_try_again_in_ss_6a974ab8" formatted="false">"Слишком много попыток. Повторите через %1$s сек"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_sm_ss_6bfba11a" formatted="false">"Слишком много неудачных попыток. Повторите через %1$s мин %2$s сек"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_ss_a7a8452c" formatted="false">"Слишком много неудачных попыток. Повторите через %1$s сек"</string>
+    <string name="l10n_tor_nodes_064c373a" formatted="false">"Узлы Tor"</string>
     <string name="l10n_tor_proxy_f1738d98" formatted="false">"Прокси Tor"</string>
     <string name="l10n_tor_proxy_required_681efdb1" formatted="false">"Требуется прокси Tor"</string>
     <string name="l10n_total_c9b3c382" formatted="false">"Итого"</string>
@@ -970,6 +975,7 @@
     <string name="l10n_use_biometrics_11377f11" formatted="false">"Биометрия"</string>
     <string name="l10n_use_pin_3e03ee29" formatted="false">"Ввести PIN-код"</string>
     <string name="l10n_use_tor_proxy_89445203" formatted="false">"Использовать прокси Tor"</string>
+    <string name="l10n_use_an_ip_address_and_port_for_example_127_0_0_1_9050_2e0d26ba" formatted="false">"Укажите IP-адрес и порт, например 127.0.0.1:9050."</string>
     <string name="l10n_use_biometrics_7827a57f" formatted="false">"Биометрия"</string>
     <string name="l10n_use_fingerprint_or_face_to_unlock_5fdb5d2e" formatted="false">"Разблокировать отпечатком пальца или лицом"</string>
     <string name="l10n_use_one_of_your_unused_addresses_first_a_restore_from_t_d80d64ec" formatted="false">"Сначала используйте один из неиспользованных адресов. При восстановлении из мнемонической фразы платежи на новые будут пропущены."</string>
@@ -1013,6 +1019,7 @@
     <string name="l10n_wallet_missing_device_cache_identifier_re_pair_to_fix_c3897d37" formatted="false">"У кошелька нет идентификатора кэша устройства — создайте пару заново, чтобы исправить."</string>
     <string name="l10n_wallet_name_ff5cf34a" formatted="false">"Название кошелька"</string>
     <string name="l10n_wallet_not_ready_please_wait_for_sync_to_complete_bd652720" formatted="false">"Кошелёк не готов. Дождитесь окончания синхронизации."</string>
+    <string name="l10n_wallet_sync_node_checks_and_prices_use_this_proxy_if_it_55354cd4" formatted="false">"Синхронизация кошелька, проверка узлов и загрузка цен используют этот прокси. Если он недоступен, соединения остаются отключёнными."</string>
     <string name="l10n_warn_only_4605a608" formatted="false">"Предупреждать"</string>
     <string name="l10n_warning_e981ddae" formatted="false">"Предупреждение"</string>
     <string name="l10n_warning_anyone_with_this_phrase_can_access_your_funds_c_109dde26" formatted="false">"Внимание: любой, у кого есть эта фраза, получит доступ к вашим средствам! Буфер обмена очистится через 5 мин."</string>

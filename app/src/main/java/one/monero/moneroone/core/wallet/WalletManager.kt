@@ -88,13 +88,19 @@ object WalletManager {
         // getInstance derives the Electrum seed from BIP39 (PBKDF2 + keccak)
         // and builds the native service; keep that off the main thread.
         val newKit = withContext(Dispatchers.IO) {
+            // Fails closed: an unloaded or invalid Tor setting throws instead of connecting directly.
+            val proxy = one.monero.moneroone.core.network.TorNetwork.route.walletProxy
+            check(proxy.isNotEmpty() || !one.monero.moneroone.core.network.isOnionNode(node)) {
+                "Tor is required for this node"
+            }
             MoneroKit.getInstance(
                 context = context,
                 seed = seed,
                 restoreDateOrHeight = restoreDateOrHeight,
                 walletId = walletId,
                 node = node,
-                trustNode = trustNode
+                trustNode = trustNode,
+                proxyAddress = proxy
             )
         }
 

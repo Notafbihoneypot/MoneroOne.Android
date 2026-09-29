@@ -7,6 +7,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import one.monero.moneroone.data.model.Currency
+import one.monero.moneroone.core.network.TorNetwork
 import one.monero.moneroone.data.repository.PriceRepository
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -55,6 +56,8 @@ class PriceUpdateWorker(
         val currencyCode = prefs.getString("selected_currency", Currency.USD.code) ?: Currency.USD.code
         val currency = Currency.entries.find { it.code == currencyCode } ?: Currency.USD
 
+        // WorkManager can start this before Application.onCreate loads the Tor setting.
+        TorNetwork.initialize(context)
         val priceRepository = PriceRepository()
         priceRepository.fetchCurrentPrice(currency).onSuccess { result ->
             WidgetDataStore.savePrice(

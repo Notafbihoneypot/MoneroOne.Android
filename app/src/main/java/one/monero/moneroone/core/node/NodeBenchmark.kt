@@ -2,19 +2,24 @@ package one.monero.moneroone.core.node
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.ConnectionPool
+import one.monero.moneroone.core.network.*
+import okhttp3.Call
+import okhttp3.EventListener
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
 import one.monero.moneroone.core.wallet.DefaultNodes
+import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.HttpURLConnection
-import java.util.concurrent.TimeUnit
+import java.net.InetSocketAddress
+import java.net.Proxy
 
 /** Latency probe for the node list, credential-aware. */
 object NodeBenchmark {
     const val UNREACHABLE = -1L
     const val UNAUTHORIZED = -2L
-    private const val TIMEOUT_MS = 5000L
     private const val PATH = "/get_info"
 
     /**
@@ -26,43 +31,52 @@ object NodeBenchmark {
      * For an authenticated node the timed request is the authenticated one,
      * which is what every wallet RPC after the first costs.
      */
-    suspend fun measure(uri: String, credentials: NodeCredentials?): Long = withContext(Dispatchers.IO) {
-        // monerod (epee) keeps the digest nonce per TCP connection, so the
-        // answer must travel on the socket that issued the challenge. A client
-        // of its own with a one-connection pool guarantees the second request
-        // reuses the first one's connection instead of any pooled socket.
-        val client = OkHttpClient.Builder()
-            .connectionPool(ConnectionPool(1, 30, TimeUnit.SECONDS))
-            .connectTimeout(TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            .readTimeout(TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            .writeTimeout(TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            .retryOnConnectionFailure(false)
-            .build()
+    suspend fun measure(uri: String, credentials: NodeCredentials?, route: TorConfig = TorNetwork.current): Long = withContext(Dispatchers.IO) {
+        val onion = isOnionNode(uri)
+        if (onion && !route.enabled) return@withContext UNREACHABLE
         try {
-            val scheme = if (DefaultNodes.isTls(uri)) "https" else "http"
-            val url = "$scheme://$uri$PATH"
-            val first = request(client, url, authorization = null)
-            when (first.code) {
-                HttpURLConnection.HTTP_OK -> first.millis
-                HttpURLConnection.HTTP_UNAUTHORIZED -> {
-                    if (credentials == null) return@withContext UNAUTHORIZED
-                    val authorization = first.challenges
-                        .firstNotNullOfOrNull { DigestAuth.authorization(it, "GET", PATH, credentials) }
-                        ?: return@withContext UNAUTHORIZED
-                    val second = request(client, url, authorization)
-                    when (second.code) {
-                        HttpURLConnection.HTTP_OK -> second.millis
-                        HttpURLConnection.HTTP_UNAUTHORIZED -> UNAUTHORIZED
-                        else -> UNREACHABLE
+            // monerod (epee) keeps the digest nonce per TCP connection, so the answer must travel on the
+            // socket that got the challenge: TorNetwork clients pool one connection.
+            TorNetwork.withClient(route, directTimeoutSeconds = 5) { routed ->
+                val start = System.currentTimeMillis()
+                var streamOpened = UNREACHABLE
+                // Tor opens a stream to an onion service only after the service reached the node's port.
+                val client = if (!onion) routed else routed.newBuilder().eventListener(object : EventListener() {
+                    override fun connectEnd(call: Call, inetSocketAddress: InetSocketAddress, proxy: Proxy, protocol: Protocol?) {
+                        if (streamOpened < 0) streamOpened = System.currentTimeMillis() - start
                     }
+                }).build()
+                val scheme = if (DefaultNodes.isTls(uri)) "https" else "http"
+                val url = "$scheme://$uri$PATH"
+                val first = try {
+                    request(client, url, authorization = null)
+                } catch (e: IOException) {
+                    // The Monero One onion services forward to TLS-only RPC. wallet2 reaches it with TLS
+                    // autodetect; a plain HTTP check gets a closed stream. A timeout still counts as down.
+                    if (streamOpened >= 0 && e !is InterruptedIOException) return@withClient streamOpened
+                    throw e
                 }
-                else -> UNREACHABLE
+                when (first.code) {
+                    HttpURLConnection.HTTP_OK -> first.millis
+                    HttpURLConnection.HTTP_UNAUTHORIZED -> {
+                        if (credentials == null) return@withClient UNAUTHORIZED
+                        val authorization = first.challenges
+                            .firstNotNullOfOrNull { DigestAuth.authorization(it, "GET", PATH, credentials) }
+                            ?: return@withClient UNAUTHORIZED
+                        val second = request(client, url, authorization)
+                        when (second.code) {
+                            HttpURLConnection.HTTP_OK -> second.millis
+                            HttpURLConnection.HTTP_UNAUTHORIZED -> UNAUTHORIZED
+                            else -> UNREACHABLE
+                        }
+                    }
+                    else -> UNREACHABLE
+                }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             UNREACHABLE
-        } finally {
-            client.connectionPool.evictAll()
-            client.dispatcher.executorService.shutdown()
         }
     }
 

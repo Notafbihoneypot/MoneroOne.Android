@@ -2,6 +2,10 @@ package one.monero.moneroone.ui.screens.settings
 
 import one.monero.moneroone.core.locale.tr
 import android.content.Context
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
+import one.monero.moneroone.core.network.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -49,8 +53,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,10 +65,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import one.monero.moneroone.core.node.NodeBenchmark
@@ -109,7 +113,8 @@ fun NodeSettingsScreen(
     val credentialStore = remember {
         NodeCredentialStore(SecurePrefs.open(context)).also { it.migrateInline(prefs) }
     }
-    val scope = rememberCoroutineScope()
+    var benchmarkAttempt by remember { mutableIntStateOf(0) }
+    val torConfig by TorNetwork.config.collectAsState()
     val json = remember { Json { ignoreUnknownKeys = true } }
 
     val customNodes = remember { mutableStateListOf<NodeInfo>() }
@@ -148,14 +153,17 @@ fun NodeSettingsScreen(
     }
 
     // Benchmark all nodes on screen entry
-    LaunchedEffect(customNodes.size) {
+    LaunchedEffect(customNodes.toList(), torConfig, benchmarkAttempt) {
         isBenchmarking = true
-        val allNodes = DEFAULT_NODES + customNodes
+        latencyMap.clear()
+        val allNodes = (DEFAULT_NODES + DefaultNodes.TOR.map { NodeInfo(it.uri, it.name, true) } + customNodes)
+            .filter { torConfig.enabled || !isOnionNode(it.uri) }
         val results = allNodes.map { node ->
             async {
-                node.uri to NodeBenchmark.measure(node.uri, credentialsFor(node))
+                node.uri to NodeBenchmark.measure(node.uri, credentialsFor(node), torConfig)
             }
         }.awaitAll()
+        currentCoroutineContext().ensureActive()
         results.forEach { (uri, latency) ->
             latencyMap[uri] = latency
         }
@@ -286,6 +294,27 @@ fun NodeSettingsScreen(
             }
         }
 
+        SettingsSectionHeader(tr("Tor Nodes"))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            DefaultNodes.TOR.forEach { entry ->
+                NodeItem(node = NodeInfo(entry.uri, entry.name, true), isSelected = selectedNode == entry.uri,
+                    isBenchmarking = torConfig.enabled && isBenchmarking && entry.uri !in latencyMap,
+                    latencyMs = latencyMap[entry.uri], enabled = torConfig.enabled,
+                    onSelect = {
+                        if (autoSelectEnabled) {
+                            autoSelectEnabled = false
+                            prefs.edit().putBoolean("auto_select_node", false).apply()
+                        }
+                        val changed = selectedNode != entry.uri
+                        selectedNode = entry.uri
+                        prefs.edit().putString("selected_node", entry.uri).apply()
+                        if (changed) onNodeChanged()
+                    }, onEdit = null, onDelete = null)
+            }
+        }
+        if (!torConfig.enabled) Text(tr("Requires Tor"), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
         // Custom Nodes
         SettingsSectionHeader(
             title = tr("Custom Nodes"),
@@ -325,7 +354,7 @@ fun NodeSettingsScreen(
                         isSelected = node.uri == selectedNode,
                         isBenchmarking = isBenchmarking && node.uri !in latencyMap,
                         latencyMs = latencyMap[node.uri],
-                        enabled = true,
+                        enabled = torConfig.enabled || !isOnionNode(node.uri),
                         onSelect = {
                             if (autoSelectEnabled) {
                                 autoSelectEnabled = false
@@ -354,6 +383,17 @@ fun NodeSettingsScreen(
             }
         }
 
+        // After the node lists, as on iOS. Every change reconnects the wallet on the new route.
+        TorProxySection(torConfig, onRetry = { benchmarkAttempt++; onNodeChanged() }) { next ->
+            if (!next.enabled && isOnionNode(selectedNode)) {
+                selectedNode = DefaultNodes.initial(context)
+                prefs.edit().putString("selected_node", selectedNode).apply()
+            }
+            TorNetwork.save(next)
+            latencyMap.clear()
+            onNodeChanged()
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
     }
 
@@ -364,16 +404,13 @@ fun NodeSettingsScreen(
             confirmLabel = tr("Add"),
             initialUri = "",
             initialCredentials = null,
-            takenUris = (customNodes.map { it.uri } + DefaultNodes.URIS).toSet(),
+            takenUris = (customNodes.map { it.uri } + (DefaultNodes.ALL + DefaultNodes.TOR).map { it.uri }).toSet(),
             onConfirm = { uri, credentials ->
                 credentialStore.save(uri, credentials)
+                benchmarkAttempt++
                 customNodes.add(NodeInfo(uri, tr("Custom Node"), false, credentials != null))
                 persistCustomNodes()
                 showAddNodeDialog = false
-                // Benchmark the new node
-                scope.launch {
-                    latencyMap[uri] = NodeBenchmark.measure(uri, credentials)
-                }
             },
             onDismiss = { showAddNodeDialog = false }
         )
@@ -387,7 +424,7 @@ fun NodeSettingsScreen(
             confirmLabel = tr("Save"),
             initialUri = node.uri,
             initialCredentials = previous,
-            takenUris = (customNodes.map { it.uri } + DefaultNodes.URIS).toSet() - node.uri,
+            takenUris = (customNodes.map { it.uri } + (DefaultNodes.ALL + DefaultNodes.TOR).map { it.uri }).toSet() - node.uri,
             onConfirm = { uri, credentials ->
                 val uriChanged = uri != node.uri
                 if (uriChanged) {
@@ -395,6 +432,7 @@ fun NodeSettingsScreen(
                     latencyMap.remove(node.uri)
                 }
                 credentialStore.save(uri, credentials)
+                benchmarkAttempt++
                 val updated = NodeInfo(uri, tr("Custom Node"), false, credentials != null)
                 val index = customNodes.indexOf(node)
                 if (index >= 0) customNodes[index] = updated else customNodes.add(updated)
@@ -409,9 +447,6 @@ fun NodeSettingsScreen(
                 // live node needs a restart just like a node switch does.
                 if (wasSelected && (uriChanged || credentials != previous)) onNodeChanged()
                 editingNode = null
-                scope.launch {
-                    latencyMap[uri] = NodeBenchmark.measure(uri, credentials)
-                }
             },
             onDismiss = { editingNode = null }
         )
@@ -430,7 +465,8 @@ private fun NodeItem(
     onDelete: (() -> Unit)?
 ) {
     val alpha = if (enabled) 1f else 0.6f
-    val tls = DefaultNodes.isTls(node.uri)
+    // Tor encrypts the whole path to an onion service.
+    val tls = DefaultNodes.isTls(node.uri) || isOnionNode(node.uri)
 
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -468,9 +504,11 @@ private fun NodeItem(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = node.uri,
+                        text = shortOnionUri(node.uri),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     if (node.hasCredentials) {
                         Spacer(modifier = Modifier.width(6.dp))
@@ -528,6 +566,12 @@ private fun NodeItem(
             }
         }
     }
+}
+
+/** A 56-letter onion name keeps its start and its end on one line, as iOS truncates it in the middle. */
+private fun shortOnionUri(uri: String): String {
+    val end = uri.indexOf(".onion", ignoreCase = true)
+    return if (!isOnionNode(uri) || end <= 16) uri else uri.take(8) + "…" + uri.substring(end - 6)
 }
 
 @Composable

@@ -492,6 +492,7 @@
     <string name="l10n_mexican_peso_027e50dd" formatted="false">"Peso mexicano"</string>
     <string name="l10n_min_dea79332" formatted="false">"Mín."</string>
     <string name="l10n_monero_address_c561cf4d" formatted="false">"Dirección de Monero"</string>
+    <string name="l10n_monero_one_does_not_include_tor_start_orbot_or_another__67399fa1" formatted="false">"Monero One no incluye Tor. Inicia Orbot u otro proxy Tor antes de activar esta opción."</string>
     <string name="l10n_monero_one_does_not_include_tor_turn_this_on_only_if_or_ac51a1c2" formatted="false">"Monero One no incluye Tor. Activa esta opción solo si Orbot u otra app de proxy Tor se está ejecutando en este iPhone. Sin una, ninguno de tus nodos se conectará."</string>
     <string name="l10n_monero_one_is_a_self_custody_wallet_your_seed_phrase_is_3a95ff43" formatted="false">"Monero One es una cartera de autocustodia. Tu frase semilla es la única forma de acceder a tus fondos. No podemos recuperarla por ti."</string>
     <string name="l10n_monero_one_is_open_source_you_can_verify_exactly_how_lo_4560ff4d" formatted="false">"Monero One es de código abierto. Puedes verificar en el código exactamente cómo se usa la ubicación."</string>
@@ -648,6 +649,9 @@
     <string name="l10n_proceed_to_review_transaction_fd9f4a51" formatted="false">"Continuar para revisar la transacción"</string>
     <string name="l10n_protect_your_seed_phrase_1f70b727" formatted="false">"Protege tu frase semilla"</string>
     <string name="l10n_proxy_details_b4e1da43" formatted="false">"Detalles del proxy"</string>
+    <string name="l10n_proxy_address_dba97df7" formatted="false">"Dirección del proxy"</string>
+    <string name="l10n_proxy_available_0685e44c" formatted="false">"Proxy disponible"</string>
+    <string name="l10n_proxy_unavailable_start_orbot_or_check_the_proxy_addres_f312428f" formatted="false">"Proxy no disponible. Inicia Orbot o comprueba la dirección del proxy."</string>
     <string name="l10n_qr_code_5a779155" formatted="false">"Código QR de la dirección de Monero"</string>
     <string name="l10n_qr_code_for_monero_address_8c58d28b" formatted="false">"Código QR de la dirección de Monero"</string>
     <string name="l10n_qr_code_for_receiving_monero_d196da16" formatted="false">"Código QR para recibir Monero"</string>
@@ -904,6 +908,7 @@
     <string name="l10n_too_many_attempts_try_again_in_ss_6a974ab8" formatted="false">"Demasiados intentos. Vuelve a intentarlo en %1$s s"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_sm_ss_6bfba11a" formatted="false">"Demasiados intentos fallidos. Vuelve a intentarlo en %1$s min %2$s s"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_ss_a7a8452c" formatted="false">"Demasiados intentos fallidos. Vuelve a intentarlo en %1$s s"</string>
+    <string name="l10n_tor_nodes_064c373a" formatted="false">"Nodos Tor"</string>
     <string name="l10n_tor_proxy_f1738d98" formatted="false">"Proxy Tor"</string>
     <string name="l10n_tor_proxy_required_681efdb1" formatted="false">"Se requiere proxy Tor"</string>
     <string name="l10n_total_c9b3c382" formatted="false">"Total"</string>
@@ -970,6 +975,7 @@
     <string name="l10n_use_biometrics_11377f11" formatted="false">"Biometría"</string>
     <string name="l10n_use_pin_3e03ee29" formatted="false">"Usar PIN"</string>
     <string name="l10n_use_tor_proxy_89445203" formatted="false">"Usar proxy Tor"</string>
+    <string name="l10n_use_an_ip_address_and_port_for_example_127_0_0_1_9050_2e0d26ba" formatted="false">"Usa una dirección IP y un puerto, por ejemplo 127.0.0.1:9050."</string>
     <string name="l10n_use_biometrics_7827a57f" formatted="false">"Biometría"</string>
     <string name="l10n_use_fingerprint_or_face_to_unlock_5fdb5d2e" formatted="false">"Usar huella o rostro para desbloquear"</string>
     <string name="l10n_use_one_of_your_unused_addresses_first_a_restore_from_t_d80d64ec" formatted="false">"Usa primero una de tus direcciones sin usar. Al restaurar con la frase semilla no se encontrarían pagos a las nuevas."</string>
@@ -1013,6 +1019,7 @@
     <string name="l10n_wallet_missing_device_cache_identifier_re_pair_to_fix_c3897d37" formatted="false">"Falta el identificador de caché del dispositivo en la cartera — vuelve a enlazar para solucionarlo."</string>
     <string name="l10n_wallet_name_ff5cf34a" formatted="false">"Nombre de la cartera"</string>
     <string name="l10n_wallet_not_ready_please_wait_for_sync_to_complete_bd652720" formatted="false">"La cartera no está lista. Espera a que termine la sincronización."</string>
+    <string name="l10n_wallet_sync_node_checks_and_prices_use_this_proxy_if_it_55354cd4" formatted="false">"La sincronización, las comprobaciones de nodos y los precios usan este proxy. Si no está disponible, las conexiones permanecen desconectadas."</string>
     <string name="l10n_warn_only_4605a608" formatted="false">"Solo avisar"</string>
     <string name="l10n_warning_e981ddae" formatted="false">"Advertencia"</string>
     <string name="l10n_warning_anyone_with_this_phrase_can_access_your_funds_c_109dde26" formatted="false">"Advertencia: ¡cualquiera con esta frase puede acceder a tus fondos! El portapapeles se borra en 5 min."</string>

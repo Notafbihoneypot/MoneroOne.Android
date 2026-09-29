@@ -15,6 +15,7 @@ import one.monero.moneroone.MainActivity
 import one.monero.moneroone.R
 import one.monero.moneroone.data.model.AlertCondition
 import one.monero.moneroone.data.model.Currency
+import one.monero.moneroone.core.network.TorNetwork
 import one.monero.moneroone.data.repository.PriceRepository
 import timber.log.Timber
 import java.text.NumberFormat
@@ -72,6 +73,8 @@ class PriceAlertWorker(
             return Result.success()
         }
 
+        // WorkManager can start this before Application.onCreate loads the Tor setting.
+        TorNetwork.initialize(context)
         val priceRepository = PriceRepository()
         val pricesResult = priceRepository.fetchAllPrices()
 

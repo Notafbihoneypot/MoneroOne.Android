@@ -83,6 +83,12 @@
                 android:resource="@xml/wallet_widget_info" />
         </receiver>
 
+        <!-- ML Kit uploads usage logs to Google on its own connection, outside the Tor proxy. With no
+             transport backend it drops them. Barcode scanning runs on the device and does not need it. -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="remove" />
+
     </application>
 
 </manifest>

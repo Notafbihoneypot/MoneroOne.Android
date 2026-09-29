@@ -18,7 +18,14 @@ object DefaultNodes {
         Node("nodes.hashvault.pro:18081", "HashVault"),
     )
 
+    val TOR = listOf(
+        Node("5tvl5acn3sm7id4gzc4mj6n7lrwlyrhssr2r57zkxk6eugxwix4ze4qd.onion:18089", "Monero One (US)"),
+        Node("zu3oyzi45x3ul24sncs4245nlpz76jzizm36tvrkfvq2r33azzjv5syd.onion:18089", "Monero One (EU)"),
+    )
+
     val URIS = ALL.map { it.uri }
+    fun available(torEnabled: Boolean) = ALL + if (torEnabled) TOR else emptyList()
+
 
     // MoneroKit (Node.getAddress) speaks TLS only on port 443; every other port
     // is cleartext HTTP. Keep this predicate in sync with that convention.

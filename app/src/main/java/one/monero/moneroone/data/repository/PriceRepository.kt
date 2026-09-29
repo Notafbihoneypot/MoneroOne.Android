@@ -11,8 +11,6 @@ import one.monero.moneroone.data.model.CMCChartResponse
 import one.monero.moneroone.data.util.ChartMath
 import one.monero.moneroone.ui.screens.chart.TimeRange
 import timber.log.Timber
-import java.net.HttpURLConnection
-import java.net.URL
 import java.io.File
 import one.monero.moneroone.data.model.PriceHistory
 import one.monero.moneroone.data.model.PriceHistoryResponse
@@ -121,28 +119,13 @@ class PriceRepository {
         }
     }
 
-    private fun fetchUrl(urlString: String): String {
-        val url = URL(urlString)
-        val connection = url.openConnection() as HttpURLConnection
-
-        return try {
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("Accept", "application/json")
-            // Generic UA on purpose: the platform default advertises Android and
-            // device model, and naming the app ties this IP to Monero ownership.
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-            connection.connectTimeout = 10000
-            connection.readTimeout = 10000
-            // Prices go stale in minutes; never answer from an HTTP cache.
-            connection.useCaches = false
-
-            if (connection.responseCode !in 200..299) {
-                throw Exception("HTTP ${connection.responseCode}: ${connection.responseMessage}")
-            }
-
-            connection.inputStream.bufferedReader().use { it.readText() }
-        } finally {
-            connection.disconnect()
+    private fun fetchUrl(urlString: String): String = one.monero.moneroone.core.network.TorNetwork.withClient { client ->
+        val request = okhttp3.Request.Builder().url(urlString)
+            .header("Accept", "application/json").header("User-Agent", "Mozilla/5.0")
+            .header("Cache-Control", "no-cache").build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw java.io.IOException("HTTP ${response.code}")
+            response.body?.string() ?: throw java.io.IOException("Empty price response")
         }
     }
 }

@@ -1957,15 +1957,16 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         if (isWalletLevelStartError(state.error)) return
         if (_wallets.value.isEmpty() || _activeWallet.value == null) return
         if (!prefs.getBoolean("auto_select_node", true)) return
-        if (failoverAttempts >= DefaultNodes.URIS.size) return
+        val candidates = DefaultNodes.available(one.monero.moneroone.core.network.TorNetwork.current.enabled).map { it.uri }
+        if (failoverAttempts >= candidates.size) return
         if (failoverJob?.isActive == true) return
 
         failoverJob = viewModelScope.launch {
             delay(FAILOVER_RETRY_DELAY_MS)
             val current = getSelectedNode()
-            val next = DefaultNodes.URIS[(DefaultNodes.URIS.indexOf(current) + 1).mod(DefaultNodes.URIS.size)]
+            val next = candidates[(candidates.indexOf(current) + 1).mod(candidates.size)]
             failoverAttempts++
-            Timber.w("Node failover $failoverAttempts/${DefaultNodes.URIS.size}: $current -> $next (${state.error.message})")
+            Timber.w("Node failover $failoverAttempts/${candidates.size}: $current -> $next (${state.error.message})")
             prefs.edit().putString("selected_node", next).apply()
             changeNode(resetFailover = false)
         }

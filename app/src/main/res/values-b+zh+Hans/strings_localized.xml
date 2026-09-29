@@ -492,6 +492,7 @@
     <string name="l10n_mexican_peso_027e50dd" formatted="false">"墨西哥比索"</string>
     <string name="l10n_min_dea79332" formatted="false">"最低"</string>
     <string name="l10n_monero_address_c561cf4d" formatted="false">"Monero 地址"</string>
+    <string name="l10n_monero_one_does_not_include_tor_start_orbot_or_another__67399fa1" formatted="false">"Monero One 不包含 Tor。启用前请启动 Orbot 或其他 Tor 代理。"</string>
     <string name="l10n_monero_one_does_not_include_tor_turn_this_on_only_if_or_ac51a1c2" formatted="false">"Monero One 不包含 Tor。仅当这台 iPhone 上正在运行 Orbot 或其他 Tor 代理 App 时，才打开此选项。否则，你的所有节点都将无法连接。"</string>
     <string name="l10n_monero_one_is_a_self_custody_wallet_your_seed_phrase_is_3a95ff43" formatted="false">"Monero One 是自托管钱包。助记词是访问你资金的唯一方式。我们无法为你找回。"</string>
     <string name="l10n_monero_one_is_open_source_you_can_verify_exactly_how_lo_4560ff4d" formatted="false">"Monero One 是开源软件。你可以在代码中查证位置信息的具体使用方式。"</string>
@@ -648,6 +649,9 @@
     <string name="l10n_proceed_to_review_transaction_fd9f4a51" formatted="false">"继续核对交易"</string>
     <string name="l10n_protect_your_seed_phrase_1f70b727" formatted="false">"保护你的助记词"</string>
     <string name="l10n_proxy_details_b4e1da43" formatted="false">"代理详情"</string>
+    <string name="l10n_proxy_address_dba97df7" formatted="false">"代理地址"</string>
+    <string name="l10n_proxy_available_0685e44c" formatted="false">"代理可用"</string>
+    <string name="l10n_proxy_unavailable_start_orbot_or_check_the_proxy_addres_f312428f" formatted="false">"代理不可用。请启动 Orbot 或检查代理地址。"</string>
     <string name="l10n_qr_code_5a779155" formatted="false">"Monero 地址二维码"</string>
     <string name="l10n_qr_code_for_monero_address_8c58d28b" formatted="false">"Monero 地址二维码"</string>
     <string name="l10n_qr_code_for_receiving_monero_d196da16" formatted="false">"用于接收 Monero 的二维码"</string>
@@ -904,6 +908,7 @@
     <string name="l10n_too_many_attempts_try_again_in_ss_6a974ab8" formatted="false">"尝试次数过多。请在 %1$s 秒后重试"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_sm_ss_6bfba11a" formatted="false">"失败次数过多。请在 %1$s 分 %2$s 秒后重试"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_ss_a7a8452c" formatted="false">"失败次数过多。请在 %1$s 秒后重试"</string>
+    <string name="l10n_tor_nodes_064c373a" formatted="false">"Tor 节点"</string>
     <string name="l10n_tor_proxy_f1738d98" formatted="false">"Tor 代理"</string>
     <string name="l10n_tor_proxy_required_681efdb1" formatted="false">"需要 Tor 代理"</string>
     <string name="l10n_total_c9b3c382" formatted="false">"总计"</string>
@@ -970,6 +975,7 @@
     <string name="l10n_use_biometrics_11377f11" formatted="false">"生物识别"</string>
     <string name="l10n_use_pin_3e03ee29" formatted="false">"使用 PIN 码"</string>
     <string name="l10n_use_tor_proxy_89445203" formatted="false">"使用 Tor 代理"</string>
+    <string name="l10n_use_an_ip_address_and_port_for_example_127_0_0_1_9050_2e0d26ba" formatted="false">"请使用 IP 地址和端口，例如 127.0.0.1:9050。"</string>
     <string name="l10n_use_biometrics_7827a57f" formatted="false">"生物识别"</string>
     <string name="l10n_use_fingerprint_or_face_to_unlock_5fdb5d2e" formatted="false">"使用指纹或面部解锁"</string>
     <string name="l10n_use_one_of_your_unused_addresses_first_a_restore_from_t_d80d64ec" formatted="false">"请先使用一个未使用的地址。用助记词恢复时，会漏掉发送到新地址的付款。"</string>
@@ -1013,6 +1019,7 @@
     <string name="l10n_wallet_missing_device_cache_identifier_re_pair_to_fix_c3897d37" formatted="false">"钱包缺少设备缓存标识符，请重新配对以修复。"</string>
     <string name="l10n_wallet_name_ff5cf34a" formatted="false">"钱包名称"</string>
     <string name="l10n_wallet_not_ready_please_wait_for_sync_to_complete_bd652720" formatted="false">"钱包尚未就绪。请等待同步完成。"</string>
+    <string name="l10n_wallet_sync_node_checks_and_prices_use_this_proxy_if_it_55354cd4" formatted="false">"钱包同步、节点检查和价格查询均使用此代理。代理不可用时，连接将保持离线。"</string>
     <string name="l10n_warn_only_4605a608" formatted="false">"仅警告"</string>
     <string name="l10n_warning_e981ddae" formatted="false">"警告"</string>
     <string name="l10n_warning_anyone_with_this_phrase_can_access_your_funds_c_109dde26" formatted="false">"警告：任何拥有此助记词的人都能动用你的资金！剪贴板将在 5 分钟后清除。"</string>
