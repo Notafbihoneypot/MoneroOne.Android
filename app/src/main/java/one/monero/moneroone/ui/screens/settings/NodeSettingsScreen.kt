@@ -2,6 +2,7 @@ package one.monero.moneroone.ui.screens.settings
 
 import one.monero.moneroone.core.locale.tr
 import android.content.Context
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.currentCoroutineContext
@@ -171,12 +172,10 @@ fun NodeSettingsScreen(
 
         // Auto-select fastest if enabled
         if (autoSelectEnabled) {
-            val fastest = results
-                .filter { it.second >= 0 }
-                .minByOrNull { it.second }
-            if (fastest != null && fastest.first != selectedNode) {
-                selectedNode = fastest.first
-                prefs.edit().putString("selected_node", fastest.first).apply()
+            val fastest = DefaultNodes.fastest(results.toMap())
+            if (fastest != null && fastest != selectedNode) {
+                selectedNode = fastest
+                prefs.edit().putString("selected_node", fastest).apply()
                 onNodeChanged()
             }
         }
@@ -249,12 +248,10 @@ fun NodeSettingsScreen(
                         prefs.edit().putBoolean("auto_select_node", enabled).apply()
                         if (enabled) {
                             // Pick fastest reachable node
-                            val fastest = latencyMap.entries
-                                .filter { it.value >= 0 }
-                                .minByOrNull { it.value }
-                            if (fastest != null && fastest.key != selectedNode) {
-                                selectedNode = fastest.key
-                                prefs.edit().putString("selected_node", fastest.key).apply()
+                            val fastest = DefaultNodes.fastest(latencyMap)
+                            if (fastest != null && fastest != selectedNode) {
+                                selectedNode = fastest
+                                prefs.edit().putString("selected_node", fastest).apply()
                                 onNodeChanged()
                             }
                         }
@@ -386,7 +383,7 @@ fun NodeSettingsScreen(
         // After the node lists, as on iOS. Every change reconnects the wallet on the new route.
         TorProxySection(torConfig, onRetry = { benchmarkAttempt++; onNodeChanged() }) { next ->
             if (!next.enabled && isOnionNode(selectedNode)) {
-                selectedNode = DefaultNodes.initial(context)
+                selectedNode = DefaultNodes.TOR_OFF_FALLBACK
                 prefs.edit().putString("selected_node", selectedNode).apply()
             }
             TorNetwork.save(next)
@@ -405,6 +402,7 @@ fun NodeSettingsScreen(
             initialUri = "",
             initialCredentials = null,
             takenUris = (customNodes.map { it.uri } + (DefaultNodes.ALL + DefaultNodes.TOR).map { it.uri }).toSet(),
+            torEnabled = torConfig.enabled,
             onConfirm = { uri, credentials ->
                 credentialStore.save(uri, credentials)
                 benchmarkAttempt++
@@ -425,6 +423,7 @@ fun NodeSettingsScreen(
             initialUri = node.uri,
             initialCredentials = previous,
             takenUris = (customNodes.map { it.uri } + (DefaultNodes.ALL + DefaultNodes.TOR).map { it.uri }).toSet() - node.uri,
+            torEnabled = torConfig.enabled,
             onConfirm = { uri, credentials ->
                 val uriChanged = uri != node.uri
                 if (uriChanged) {
@@ -603,13 +602,15 @@ private fun LatencyBadge(latencyMs: Long) {
  * Add / edit sheet for a custom node: URI plus an optional RPC login, the
  * same shape as the iOS AddCustomNodeView (Name, URL, Authentication group).
  */
+@VisibleForTesting
 @Composable
-private fun NodeDialog(
+internal fun NodeDialog(
     title: String,
     confirmLabel: String,
     initialUri: String,
     initialCredentials: NodeCredentials?,
     takenUris: Set<String>,
+    torEnabled: Boolean,
     onConfirm: (String, NodeCredentials?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -656,24 +657,35 @@ private fun NodeDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (parsed is NodeInput.Valid) {
+                    // Tor encrypts the whole path to an onion service: it reads "Tor" or
+                    // "Requires Tor", the words iOS uses for onion nodes, never "unencrypted".
+                    val onion = isOnionNode(parsed.uri)
                     val tls = DefaultNodes.isTls(parsed.uri)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = if (tls) Icons.Default.Lock else Icons.Default.LockOpen,
+                            imageVector = if (tls || onion) Icons.Default.Lock else Icons.Default.LockOpen,
                             contentDescription = null,
-                            tint = if (tls) SuccessGreen else WarningYellow,
+                            tint = when {
+                                onion -> if (torEnabled) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                                tls -> SuccessGreen
+                                else -> WarningYellow
+                            },
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (tls) {
-                                tr("Connection will be encrypted (TLS)")
-                            } else {
-                                tr("Connection will be unencrypted (HTTP)")
+                            text = when {
+                                onion -> if (torEnabled) tr("Tor") else tr("Requires Tor")
+                                tls -> tr("Connection will be encrypted (TLS)")
+                                else -> tr("Connection will be unencrypted (HTTP)")
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (tls) SuccessGreen else MaterialTheme.colorScheme.onSurface
+                            color = when {
+                                onion -> MaterialTheme.colorScheme.onSurfaceVariant
+                                tls -> SuccessGreen
+                                else -> MaterialTheme.colorScheme.onSurface
+                            }
                         )
                     }
                 }

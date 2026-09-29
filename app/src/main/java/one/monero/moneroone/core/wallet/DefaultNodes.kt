@@ -1,6 +1,7 @@
 package one.monero.moneroone.core.wallet
 
 import android.content.Context
+import one.monero.moneroone.core.network.isOnionNode
 import kotlin.random.Random
 
 /**
@@ -24,8 +25,16 @@ object DefaultNodes {
     )
 
     val URIS = ALL.map { it.uri }
-    fun available(torEnabled: Boolean) = ALL + if (torEnabled) TOR else emptyList()
 
+    /**
+     * Auto-select's pick from measured latencies (negative = no answer): the fastest node that
+     * answered. As on iOS, it never picks an onion node: only the user's own choice selects one.
+     */
+    fun fastest(latencies: Map<String, Long>): String? =
+        latencies.entries.filter { it.value >= 0 && !isOnionNode(it.key) }.minByOrNull { it.value }?.key
+
+    /** Turning Tor off while an onion node is selected moves the wallet here: the first default, as on iOS. */
+    val TOR_OFF_FALLBACK = ALL.first().uri
 
     // MoneroKit (Node.getAddress) speaks TLS only on port 443; every other port
     // is cleartext HTTP. Keep this predicate in sync with that convention.

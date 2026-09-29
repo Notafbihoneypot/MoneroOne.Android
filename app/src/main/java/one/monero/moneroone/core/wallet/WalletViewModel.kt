@@ -1957,7 +1957,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         if (isWalletLevelStartError(state.error)) return
         if (_wallets.value.isEmpty() || _activeWallet.value == null) return
         if (!prefs.getBoolean("auto_select_node", true)) return
-        val candidates = DefaultNodes.available(one.monero.moneroone.core.network.TorNetwork.current.enabled).map { it.uri }
+        // Clearnet defaults only, as on iOS: an onion node is never picked for the user.
+        val candidates = DefaultNodes.URIS
         if (failoverAttempts >= candidates.size) return
         if (failoverJob?.isActive == true) return
 
