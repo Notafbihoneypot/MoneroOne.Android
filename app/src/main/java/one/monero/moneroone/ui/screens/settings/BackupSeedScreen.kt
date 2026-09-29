@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.ui.components.SecureScreen
 import one.monero.moneroone.core.locale.pluralTr
 import one.monero.moneroone.core.locale.tr
 import android.content.Context
@@ -123,6 +124,7 @@ fun BackupSeedScreen(
     walletViewModel: WalletViewModel,
     onBack: () -> Unit
 ) {
+    SecureScreen()
     var pin by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf<String?>(null) }
     var shakeAnimation by remember { mutableStateOf(false) }

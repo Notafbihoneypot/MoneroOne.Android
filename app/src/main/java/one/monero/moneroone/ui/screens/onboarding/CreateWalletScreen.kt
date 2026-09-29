@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.ui.components.SecureScreen
 import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import android.view.accessibility.AccessibilityManager
@@ -81,6 +82,7 @@ fun CreateWalletScreen(
     onBack: () -> Unit,
     isAddingWallet: Boolean = false
 ) {
+    SecureScreen()
     // Step and flags survive an Activity recreation; the words never enter
     // saved state. The ViewModel holds them for the life of the flow.
     var currentStep by rememberSaveable { mutableIntStateOf(0) }

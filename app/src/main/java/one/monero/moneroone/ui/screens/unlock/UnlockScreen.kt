@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.unlock
 
+import one.monero.moneroone.ui.components.SecureScreen
 import one.monero.moneroone.core.locale.tr
 import android.content.Context
 import android.os.Build
@@ -88,6 +89,7 @@ fun UnlockScreen(
     onUnlocked: () -> Unit,
     onResetWallet: () -> Unit
 ) {
+    SecureScreen()
     var pin by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showResetDialog by remember { mutableStateOf(false) }

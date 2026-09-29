@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
+import one.monero.moneroone.ui.components.SecureScreen
 import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -68,6 +69,7 @@ fun ChangePinScreen(
     onBack: () -> Unit,
     onSuccess: () -> Unit
 ) {
+    SecureScreen()
     var step by remember { mutableStateOf(ChangePinStep.ENTER_CURRENT) }
     var currentPin by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }

@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.ui.components.SecureScreen
 import one.monero.moneroone.core.locale.tr
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -62,6 +63,7 @@ fun SetPinScreen(
     walletViewModel: WalletViewModel,
     onPinSet: () -> Unit
 ) {
+    SecureScreen()
     var currentStep by remember { mutableIntStateOf(0) } // 0 = set, 1 = confirm
     var pin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }

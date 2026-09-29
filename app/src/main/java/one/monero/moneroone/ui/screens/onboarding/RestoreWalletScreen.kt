@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.ui.components.SecureScreen
 import one.monero.moneroone.core.locale.pluralTr
 import one.monero.moneroone.core.locale.tr
 import android.text.InputType
@@ -72,6 +73,7 @@ fun RestoreWalletScreen(
     onBack: () -> Unit,
     isAddingWallet: Boolean = false
 ) {
+    SecureScreen()
     var seedPhrase by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf<Long?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }

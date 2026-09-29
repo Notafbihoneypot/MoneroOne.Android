@@ -4,7 +4,6 @@ import android.content.Intent
 import androidx.compose.runtime.mutableStateOf
 import android.content.Context
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -46,15 +45,7 @@ class MainActivity : AppCompatActivity() {
         pendingPaymentLink.value = savedInstanceState?.getString("pending_payment_link")
         acceptPaymentLink(intent)
 
-        // Block screenshots, screen recording and the recents-screen thumbnail.
-        // Single-Activity app, so this covers seed backup, PIN entry and balances.
-        // Debug builds stay capturable so device test runs can screenshot the UI.
-        if (!BuildConfig.DEBUG) {
-            window.setFlags(
-                WindowManager.LayoutParams.FLAG_SECURE,
-                WindowManager.LayoutParams.FLAG_SECURE
-            )
-        }
+        // Screenshots stay blocked only on screens with a seed or a PIN: see SecureScreen.
 
         val prefs = getSharedPreferences("monero_wallet", Context.MODE_PRIVATE)
         val themeMode = prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)

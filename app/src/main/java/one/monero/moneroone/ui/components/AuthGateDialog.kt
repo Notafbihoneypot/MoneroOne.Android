@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.launch
@@ -103,6 +104,7 @@ fun AuthGateDialog(
 
     AlertDialog(
         onDismissRequest = onCancel,
+        properties = DialogProperties(securePolicy = SecureScreens.dialogPolicy),
         title = { Text(title) },
         text = {
             Column(
