@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import one.monero.moneroone.core.alert.PriceAlertManager
 import one.monero.moneroone.core.alert.PriceAlertWorker
+import one.monero.moneroone.core.util.rememberNotificationPermission
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.data.model.AlertCondition
 import one.monero.moneroone.data.model.PriceAlert
@@ -57,6 +58,7 @@ fun AddPriceAlertScreen(
 ) {
     val context = LocalContext.current
     val manager = remember { PriceAlertManager(context) }
+    val notifications = rememberNotificationPermission()
     val currentPrice by walletViewModel.currentPrice.collectAsState()
     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
 
@@ -172,6 +174,8 @@ fun AddPriceAlertScreen(
                 )
                 manager.addAlert(alert)
                 PriceAlertWorker.schedule(context)
+                // A new alert needs notifications to reach the user.
+                if (!notifications.enabled) notifications.request()
                 onBack()
             },
             modifier = Modifier.fillMaxWidth(),

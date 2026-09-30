@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,14 +50,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import one.monero.moneroone.core.alert.PriceAlertManager
 import one.monero.moneroone.core.alert.PriceAlertWorker
+import one.monero.moneroone.core.util.rememberNotificationPermission
 import one.monero.moneroone.data.model.AlertCondition
 import one.monero.moneroone.data.model.Currency
 import one.monero.moneroone.data.model.PriceAlert
 import one.monero.moneroone.ui.components.CapsuleShape
+import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.MoneroSwitch
 import androidx.compose.material.icons.filled.Info
 import one.monero.moneroone.ui.theme.ErrorRed
+import one.monero.moneroone.ui.theme.WarningYellow
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.SuccessGreen
@@ -72,6 +76,9 @@ fun PriceAlertsScreen(
     val context = LocalContext.current
     val manager = remember { PriceAlertManager(context) }
     var alerts by remember { mutableStateOf(manager.getAlerts()) }
+    // Alerts arrive as notifications: without the permission the worker
+    // posts nothing (iOS PriceAlertsView shows the same row and asks).
+    val notifications = rememberNotificationPermission()
 
     Scaffold(
         containerColor = MoneroTheme.colors.bgGrouped,
@@ -112,6 +119,11 @@ fun PriceAlertsScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            if (!notifications.enabled) {
+                NotificationsDisabledRow(onEnable = notifications.enable)
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             if (alerts.isEmpty()) {
                 GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
@@ -186,6 +198,8 @@ fun PriceAlertsScreen(
                                     manager.toggleAlert(alert.id)
                                     alerts = manager.getAlerts()
                                     rescheduleWorker(context, manager)
+                                    // Turning an alert on asks for notifications.
+                                    if (!alert.isEnabled && !notifications.enabled) notifications.request()
                                 }
                             )
                         }
@@ -216,6 +230,45 @@ fun PriceAlertsScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+/**
+ * iOS PriceAlertsView's first row while notifications are off: a yellow
+ * bell with a slash, and Enable, which asks again or opens Settings.
+ */
+@Composable
+private fun NotificationsDisabledRow(onEnable: () -> Unit) {
+    GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.NotificationsOff,
+                contentDescription = null,
+                tint = WarningYellow,
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                text = tr("Notifications Disabled"),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+            // Compact capsule: an inline action inside a row.
+            GlassButton(onClick = onEnable) {
+                Text(
+                    text = tr("Enable"),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MoneroOrange,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
         }
     }
 }
