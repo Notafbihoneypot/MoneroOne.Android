@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -87,8 +88,10 @@ fun SyncSettingsScreen(
     val restoreHeight = activeWallet?.restoreHeight ?: 0L
     val restoreDateMillis = activeWallet?.restoreDateMillis ?: 0L
 
-    val dateFormatter = remember {
-        SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).apply {
+    // The long date in the app's language: "September 20, 2026", "20. September 2026".
+    val locale = LocalConfiguration.current.locales[0]
+    val dateFormatter = remember(locale) {
+        java.text.DateFormat.getDateInstance(java.text.DateFormat.LONG, locale).apply {
             timeZone = java.util.TimeZone.getTimeZone("UTC")
         }
     }
@@ -259,10 +262,10 @@ fun SyncSettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     val displayText = if (restoreDateMillis > 0L) {
-                        "${dateFormatter.format(Date(restoreDateMillis))} (Block $restoreHeight)"
+                        tr("%s (Block %s)", dateFormatter.format(Date(restoreDateMillis)), formatHeight(restoreHeight))
                     } else if (restoreHeight > 0) {
                         val estimatedDate = restoreHeightToDate(restoreHeight)
-                        "${dateFormatter.format(estimatedDate)} (Block $restoreHeight)"
+                        tr("%s (Block %s)", dateFormatter.format(estimatedDate), formatHeight(restoreHeight))
                     } else {
                         tr("From beginning (full scan)")
                     }

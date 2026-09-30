@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import one.monero.moneroone.MainActivity
 import one.monero.moneroone.R
+import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.data.model.AlertCondition
 import one.monero.moneroone.data.model.Currency
 import one.monero.moneroone.core.network.TorNetwork
@@ -94,15 +95,17 @@ class PriceAlertWorker(
         val currency = Currency.entries.find { it.code == alert.currencyCode } ?: return
         val currentPrice = prices[currency] ?: return
 
-        val conditionText = when (alert.condition) {
-            AlertCondition.ABOVE -> "above"
-            AlertCondition.BELOW -> "below"
-        }
-
         val format = NumberFormat.getCurrencyInstance(Locale.getDefault())
         try {
             format.currency = java.util.Currency.getInstance(currency.code.uppercase())
         } catch (_: Exception) {}
+        val target = format.format(alert.targetPrice)
+        val now = format.format(currentPrice)
+        // iOS PriceAlertNotificationManager text, in the app's language.
+        val body = when (alert.condition) {
+            AlertCondition.ABOVE -> tr("Monero is now above %s (currently %s)", target, now)
+            AlertCondition.BELOW -> tr("Monero is now below %s (currently %s)", target, now)
+        }
 
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -115,8 +118,8 @@ class PriceAlertWorker(
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(ContextCompat.getColor(context, R.color.monero_orange))
-            .setContentTitle("XMR Price Alert")
-            .setContentText("Monero is $conditionText ${format.format(alert.targetPrice)} (now ${format.format(currentPrice)})")
+            .setContentTitle(tr("XMR Price Alert"))
+            .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

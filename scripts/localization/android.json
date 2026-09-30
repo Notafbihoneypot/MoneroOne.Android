@@ -1171,5 +1171,22 @@
     "uk": "Відновити їх можна лише за допомогою мнемонічних фраз.",
     "zh-Hans": "只能用它们的助记词恢复。",
     "zh-Hant": "只能用它們的助記詞回復。"
+  },
+  "%s (Block %s)": {
+    "de": "%s (Block %s)",
+    "es": "%s (bloque %s)",
+    "fr": "%s (bloc %s)",
+    "it": "%s (blocco %s)",
+    "ja": "%s（ブロック%s）",
+    "ko": "%s (블록 %s)",
+    "nl": "%s (blok %s)",
+    "pl": "%s (blok %s)",
+    "pt-BR": "%s (bloco %s)",
+    "ro": "%s (blocul %s)",
+    "ru": "%s (блок %s)",
+    "tr": "%s (blok %s)",
+    "uk": "%s (блок %s)",
+    "zh-Hans": "%s（区块 %s）",
+    "zh-Hant": "%s（區塊 %s）"
   }
 }
