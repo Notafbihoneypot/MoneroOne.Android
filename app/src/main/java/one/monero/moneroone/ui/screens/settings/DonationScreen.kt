@@ -85,7 +85,7 @@ fun DonationScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = tr("Donate XMR"),
+                        text = tr("Donate"),
                         style = MaterialTheme.typography.titleMedium
                     )
                 },
