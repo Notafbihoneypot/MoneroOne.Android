@@ -31,7 +31,14 @@ class ChartTimeAxisTest {
         "yMMMdHmm" to "MMM d, y, HH:mm"
     )
 
-    private fun formats(use24Hour: Boolean = false) = ChartDateFormats(us, utc, use24Hour) { patterns.getValue(it) }
+    // What ICU's RelativeDateTimeFormatter gives for en-US.
+    private val englishDays = object : RelativeDayText {
+        override val yesterday = "Yesterday"
+        override fun join(day: String, time: String) = "$day, $time"
+    }
+
+    private fun formats(use24Hour: Boolean = false, days: RelativeDayText = englishDays) =
+        ChartDateFormats(us, utc, use24Hour, days) { patterns.getValue(it) }
 
     private fun stamp() = SimpleDateFormat("yyyy-MM-dd HH:mm", us).apply { timeZone = utc }
 
@@ -135,13 +142,25 @@ class ChartTimeAxisTest {
         val now = ms("2026-09-20 18:00")
         val t = ms("2026-09-20 15:05")
         assertEquals("3:05 PM", f.scrubLabel(ChartTimeAxis.DAY, t, now))
-        assertEquals("Yesterday at 11:05 PM", f.scrubLabel(ChartTimeAxis.DAY, ms("2026-09-19 23:05"), now))
-        assertEquals("Sep 18, 2026 at 3:05 PM", f.scrubLabel(ChartTimeAxis.DAY, ms("2026-09-18 15:05"), now))
+        assertEquals("Yesterday, 11:05 PM", f.scrubLabel(ChartTimeAxis.DAY, ms("2026-09-19 23:05"), now))
+        assertEquals("Sep 18, 2026, 3:05 PM", f.scrubLabel(ChartTimeAxis.DAY, ms("2026-09-18 15:05"), now))
         assertEquals("Sun, Sep 20, 3:05 PM", f.scrubLabel(ChartTimeAxis.WEEK, t, now))
         assertEquals("Sep 20, 3:05 PM", f.scrubLabel(ChartTimeAxis.MONTH, t, now))
         assertEquals("Sep 20, 2026", f.scrubLabel(ChartTimeAxis.YEAR, t, now))
         assertEquals("Sep 20, 2026", f.scrubLabel(ChartTimeAxis.ALL, t, now))
-        assertEquals("Sep 20, 2026 at 3:05 PM", f.dateTime(t))
+        assertEquals("Sep 20, 2026, 3:05 PM", f.dateTime(t))
+    }
+
+    @Test
+    fun `scrub labels take the day word and separator from the language`() {
+        val german = object : RelativeDayText {
+            override val yesterday = "Gestern"
+            override fun join(day: String, time: String) = "$day um $time"
+        }
+        val f = formats(use24Hour = true, days = german)
+        val now = ms("2026-09-20 18:00")
+        assertEquals("Gestern um 23:05", f.scrubLabel(ChartTimeAxis.DAY, ms("2026-09-19 23:05"), now))
+        assertEquals("Sep 18, 2026 um 15:05", f.scrubLabel(ChartTimeAxis.DAY, ms("2026-09-18 15:05"), now))
     }
 
     @Test

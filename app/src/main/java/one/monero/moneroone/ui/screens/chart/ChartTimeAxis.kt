@@ -1,5 +1,8 @@
 package one.monero.moneroone.ui.screens.chart
 
+import android.icu.text.DisplayContext
+import android.icu.text.RelativeDateTimeFormatter
+import android.icu.util.ULocale
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -138,6 +141,37 @@ enum class ChartTimeAxis {
 }
 
 /**
+ * The system's word for yesterday, and how it joins a day to a time:
+ * "Yesterday, 3:05 PM", "Gestern, 15:05", "昨日 15:05". Android's
+ * DateUtils.getRelativeDateTimeString builds its text the same way; iOS
+ * gets it from a relative DateFormatter.
+ */
+interface RelativeDayText {
+    /** "Yesterday", capitalized to start a label. */
+    val yesterday: String
+
+    /** [day] and [time] in the locale's order and separator. */
+    fun join(day: String, time: String): String
+}
+
+/** [RelativeDayText] from ICU, made on first use, so JVM tests can build [ChartDateFormats]. */
+class IcuRelativeDayText(private val locale: Locale) : RelativeDayText {
+    private val formatter by lazy {
+        RelativeDateTimeFormatter.getInstance(
+            ULocale.forLocale(locale),
+            null,
+            RelativeDateTimeFormatter.Style.LONG,
+            DisplayContext.CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE
+        )
+    }
+
+    override val yesterday: String
+        get() = formatter.format(RelativeDateTimeFormatter.Direction.LAST, RelativeDateTimeFormatter.AbsoluteUnit.DAY)
+
+    override fun join(day: String, time: String): String = formatter.combineDateAndTime(day, time)
+}
+
+/**
  * Chart dates in the user's locale and clock. [bestPattern] turns a
  * skeleton ("MMMd") into the locale's pattern; on a device that is
  * android.text.format.DateFormat.getBestDateTimePattern. Keeps one
@@ -147,6 +181,7 @@ class ChartDateFormats(
     val locale: Locale,
     val timeZone: TimeZone,
     private val use24Hour: Boolean,
+    private val relativeDays: RelativeDayText = IcuRelativeDayText(locale),
     private val bestPattern: (String) -> String
 ) {
     private val formats = HashMap<String, SimpleDateFormat>()
@@ -164,13 +199,17 @@ class ChartDateFormats(
         ChartTimeAxis.ALL -> format("y", ms)
     }
 
-    /** Label for the sample under the finger. It names the day whenever a bare time would be ambiguous. */
+    /**
+     * Label for the sample under the finger. It names the day whenever a bare
+     * time would be ambiguous, in the user's language, as iOS's relative
+     * DateFormatter does (medium date, short time).
+     */
     fun scrubLabel(axis: ChartTimeAxis, ms: Long, nowMs: Long = System.currentTimeMillis()): String = when (axis) {
         ChartTimeAxis.DAY -> {
             val day = startOfDay(ms)
             when (day) {
                 startOfDay(nowMs) -> time(ms)
-                startOfDay(nowMs, dayOffset = -1) -> "Yesterday at ${time(ms)}"
+                startOfDay(nowMs, dayOffset = -1) -> relativeDays.join(relativeDays.yesterday, time(ms))
                 else -> dateTime(ms)
             }
         }
@@ -179,8 +218,8 @@ class ChartDateFormats(
         ChartTimeAxis.YEAR, ChartTimeAxis.ALL -> format("yMMMd", ms)
     }
 
-    /** "Sep 20, 2026 at 3:05 PM". */
-    fun dateTime(ms: Long): String = "${format("yMMMd", ms)} at ${time(ms)}"
+    /** "Sep 20, 2026, 3:05 PM": the medium date and short time, joined as the locale joins them. */
+    fun dateTime(ms: Long): String = relativeDays.join(format("yMMMd", ms), time(ms))
 
     /**
      * "Sep 20, 2026, 3:05 PM" in the user's language and clock: iOS
