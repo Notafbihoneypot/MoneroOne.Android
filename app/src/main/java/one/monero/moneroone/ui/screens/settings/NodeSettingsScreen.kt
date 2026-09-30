@@ -49,6 +49,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -68,6 +69,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.serialization.encodeToString
@@ -98,6 +101,30 @@ data class NodeInfo(
     val isDefault: Boolean = false,
     val hasCredentials: Boolean = false
 )
+
+/** What the user typed in the Add or Edit Node dialog. */
+@Stable
+internal class NodeDraft(uri: String, credentials: NodeCredentials?) {
+    var nodeUri by mutableStateOf(uri)
+    var username by mutableStateOf(credentials?.username ?: "")
+    var password by mutableStateOf(credentials?.password ?: "")
+    var showAuth by mutableStateOf(credentials != null)
+    var showPassword by mutableStateOf(false)
+    var error by mutableStateOf<String?>(null)
+    var credentialError by mutableStateOf<String?>(null)
+}
+
+/** The open node dialog: the node it edits (null for Add), its saved login, and the draft. */
+internal class OpenNodeDialog(val editing: NodeInfo?, val previous: NodeCredentials?, val draft: NodeDraft)
+
+/**
+ * Holds the open node dialog. A theme change or a rotation recreates the
+ * Activity: a ViewModel outlives that, so the dialog stays open with what the
+ * user typed. The password stays in memory, never in the saved-state Bundle.
+ */
+internal class NodeDialogs : ViewModel() {
+    var open by mutableStateOf<OpenNodeDialog?>(null)
+}
 
 private val DEFAULT_NODES = DefaultNodes.ALL.map { NodeInfo(it.uri, it.name, true) }
 
@@ -131,8 +158,7 @@ fun NodeSettingsScreen(
         mutableStateOf(prefs.getBoolean("auto_select_node", true))
     }
 
-    var showAddNodeDialog by remember { mutableStateOf(false) }
-    var editingNode by remember { mutableStateOf<NodeInfo?>(null) }
+    val dialogs: NodeDialogs = viewModel()
 
     fun persistCustomNodes() {
         prefs.edit().putString("custom_nodes", json.encodeToString(customNodes.map { it.uri })).apply()
@@ -300,7 +326,7 @@ fun NodeSettingsScreen(
         SettingsSectionHeader(
             title = tr("Custom Nodes"),
             trailing = {
-                IconButton(onClick = { showAddNodeDialog = true }) {
+                IconButton(onClick = { dialogs.open = OpenNodeDialog(null, null, NodeDraft("", null)) }) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = tr("Add Node"),
@@ -346,7 +372,10 @@ fun NodeSettingsScreen(
                             prefs.edit().putString("selected_node", node.uri).apply()
                             if (changed) onNodeChanged()
                         },
-                        onEdit = { editingNode = node },
+                        onEdit = {
+                            val previous = credentialStore.load(node.uri)
+                            dialogs.open = OpenNodeDialog(node, previous, NodeDraft(node.uri, previous))
+                        },
                         onDelete = {
                             customNodes.remove(node)
                             latencyMap.remove(node.uri)
@@ -379,12 +408,12 @@ fun NodeSettingsScreen(
     }
 
     // Add Node Dialog
-    if (showAddNodeDialog) {
+    val openDialog = dialogs.open
+    if (openDialog != null && openDialog.editing == null) {
         NodeDialog(
             title = tr("Add Node"),
             confirmLabel = tr("Add"),
-            initialUri = "",
-            initialCredentials = null,
+            draft = openDialog.draft,
             takenUris = (customNodes.map { it.uri } + (DefaultNodes.ALL + DefaultNodes.TOR).map { it.uri }).toSet(),
             torEnabled = torConfig.enabled,
             onConfirm = { uri, credentials ->
@@ -392,20 +421,19 @@ fun NodeSettingsScreen(
                 benchmarkAttempt++
                 customNodes.add(NodeInfo(uri, tr("Custom Node"), false, credentials != null))
                 persistCustomNodes()
-                showAddNodeDialog = false
+                dialogs.open = null
             },
-            onDismiss = { showAddNodeDialog = false }
+            onDismiss = { dialogs.open = null }
         )
     }
 
     // Edit Node Dialog
-    editingNode?.let { node ->
-        val previous = remember(node.uri) { credentialStore.load(node.uri) }
+    openDialog?.editing?.let { node ->
+        val previous = openDialog.previous
         NodeDialog(
             title = tr("Edit Node"),
             confirmLabel = tr("Save"),
-            initialUri = node.uri,
-            initialCredentials = previous,
+            draft = openDialog.draft,
             takenUris = (customNodes.map { it.uri } + (DefaultNodes.ALL + DefaultNodes.TOR).map { it.uri }).toSet() - node.uri,
             torEnabled = torConfig.enabled,
             onConfirm = { uri, credentials ->
@@ -429,9 +457,9 @@ fun NodeSettingsScreen(
                 // The kit only reads credentials at start, so a change to the
                 // live node needs a restart just like a node switch does.
                 if (wasSelected && (uriChanged || credentials != previous)) onNodeChanged()
-                editingNode = null
+                dialogs.open = null
             },
-            onDismiss = { editingNode = null }
+            onDismiss = { dialogs.open = null }
         )
     }
 }
@@ -591,20 +619,20 @@ private fun LatencyBadge(latencyMs: Long) {
 internal fun NodeDialog(
     title: String,
     confirmLabel: String,
-    initialUri: String,
-    initialCredentials: NodeCredentials?,
+    draft: NodeDraft,
     takenUris: Set<String>,
     torEnabled: Boolean,
     onConfirm: (String, NodeCredentials?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var nodeUri by remember { mutableStateOf(initialUri) }
-    var username by remember { mutableStateOf(initialCredentials?.username ?: "") }
-    var password by remember { mutableStateOf(initialCredentials?.password ?: "") }
-    var showAuth by remember { mutableStateOf(initialCredentials != null) }
-    var showPassword by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var credentialError by remember { mutableStateOf<String?>(null) }
+    // The state lives in [draft], never here, so it outlives this composition.
+    var nodeUri by draft::nodeUri
+    var username by draft::username
+    var password by draft::password
+    var showAuth by draft::showAuth
+    var showPassword by draft::showPassword
+    var error by draft::error
+    var credentialError by draft::credentialError
     val parsed = parseNodeInput(nodeUri)
     // tokens.json: a field in a dialog (fillElevated) is #F2F2F7 light and
     // #3A3A3C dark, so it never matches the dialog and sits one step above

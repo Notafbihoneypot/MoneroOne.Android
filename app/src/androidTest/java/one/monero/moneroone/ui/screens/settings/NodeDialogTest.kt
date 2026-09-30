@@ -19,9 +19,10 @@ class NodeDialogTest {
 
     @Test fun onionNodeReadsAsTorNeverAsUnencryptedHttp() {
         var torEnabled by mutableStateOf(false)
+        val draft = NodeDraft("", null)
         rule.setContent {
             MoneroOneTheme {
-                NodeDialog(tr("Add Node"), tr("Add"), "", null, emptySet(), torEnabled, { _, _ -> }, {})
+                NodeDialog(tr("Add Node"), tr("Add"), draft, emptySet(), torEnabled, { _, _ -> }, {})
             }
         }
         val uriField = rule.onNode(hasSetTextAction())
@@ -39,5 +40,32 @@ class NodeDialogTest {
         // A clearnet node on a plain port still reads as unencrypted.
         uriField.performTextReplacement("node.example.com:18081")
         rule.onNodeWithText(unencrypted).assertExists()
+    }
+
+    // A theme change or a rotation recreates the Activity. The draft lives in a
+    // ViewModel then, so a new composition must show what the user typed.
+    @Test fun whatWasTypedOutlivesARecreatedScreen() {
+        val draft = NodeDraft("", null)
+        var shown by mutableStateOf(true)
+        rule.setContent {
+            MoneroOneTheme {
+                if (shown) NodeDialog(tr("Add Node"), tr("Add"), draft, emptySet(), false, { _, _ -> }, {})
+            }
+        }
+        rule.onAllNodes(hasSetTextAction())[0].performTextReplacement("node.example.com:18081")
+        rule.onNodeWithContentDescription(tr("Show authentication")).performClick()
+        rule.onAllNodes(hasSetTextAction())[1].performTextReplacement("alice")
+        rule.onAllNodes(hasSetTextAction())[2].performTextReplacement("secret")
+
+        shown = false
+        rule.waitForIdle()
+        rule.onNodeWithText(tr("Add Node")).assertDoesNotExist()
+        shown = true
+
+        rule.onNodeWithText(tr("Add Node")).assertExists()
+        rule.onNodeWithText("node.example.com:18081").assertExists()
+        rule.onNodeWithText("alice").assertExists()
+        rule.onNodeWithContentDescription(tr("Show password")).performClick()
+        rule.onNodeWithText("secret").assertExists()
     }
 }
