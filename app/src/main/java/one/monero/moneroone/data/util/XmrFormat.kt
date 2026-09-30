@@ -10,9 +10,11 @@ object XmrFormat {
     private val ATOMIC_UNITS_PER_XMR = BigDecimal(1_000_000_000_000L)
 
     /** Four decimals, or four significant digits for small amounts; never round up. */
-    fun compact(atomicUnits: Long): String {
+    fun compact(atomicUnits: Long): String = compact(BigInteger.valueOf(atomicUnits))
+
+    fun compact(atomicUnits: BigInteger): String {
         val xmr = BigDecimal(atomicUnits).divide(ATOMIC_UNITS_PER_XMR)
-        val scale = if (atomicUnits == 0L) 4 else
+        val scale = if (atomicUnits.signum() == 0) 4 else
             (4 - xmr.abs().precision() + xmr.abs().scale()).coerceIn(4, 12)
         return xmr.setScale(scale, RoundingMode.DOWN).stripTrailingZeros()
             .let { if (it.scale() < 4) it.setScale(4) else it }.toPlainString()

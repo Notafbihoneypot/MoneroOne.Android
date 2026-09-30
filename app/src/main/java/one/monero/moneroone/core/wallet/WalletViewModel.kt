@@ -1903,6 +1903,14 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         mergeWalletUpdate(info.id) {
             it.copy(addressLabels = if (clean.isEmpty()) it.addressLabels - index else it.addressLabels + (index to clean))
         }
+        // A name reserves the address, and rotation moves past reserved ones.
+        // Naming the address Receive shows keeps it there until it gets paid
+        // instead, as on iOS.
+        if (clean.isNotEmpty() && index == selectedAddressIndex(info.id) &&
+            !prefs.contains("wallet.${info.id}.receive_manual_count")) {
+            val count = ReceiveAddressLogic.usage(_walletState.value.transactions)[index]?.payments ?: 0
+            storeReceiveSelection(info.id, index, count)
+        }
         requestReceiveReconciliation()
         return true
     }
