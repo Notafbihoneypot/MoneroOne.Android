@@ -150,3 +150,9 @@ private const val MiddleTruncationKeep = 8
 fun truncateMiddle(value: String): String =
     if (value.length <= 2 * MiddleTruncationKeep + 1) value
     else value.take(MiddleTruncationKeep) + "…" + value.takeLast(MiddleTruncationKeep)
+
+/**
+ * A block height with en-US grouping ("3,512,345"), as iOS shows heights
+ * (`Locale.numbers`) whatever the phone's region.
+ */
+fun formatHeight(height: Long): String = String.format(java.util.Locale.US, "%,d", height)

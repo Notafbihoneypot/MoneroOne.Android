@@ -740,6 +740,7 @@
     <string name="l10n_scan_range_cd9a3ddf" formatted="false">"Zakres skanowania"</string>
     <string name="l10n_scanning_s_1ea7191b" formatted="false">"Skanowanie %1$s%%"</string>
     <string name="l10n_scanning_s_2e6d6eb1" formatted="false">"Skanowanie %1$s%%…"</string>
+    <string name="l10n_scanning_restarts_at_block_s_earlier_transactions_won_t_979db006" formatted="false">"Skanowanie rozpocznie się od bloku %s. Wcześniejsze transakcje nie zostaną znalezione."</string>
     <string name="l10n_scanning_a83820eb" formatted="false">"Skanowanie…"</string>
     <string name="l10n_screen_reader_is_on_f2332054" formatted="false">"Czytnik ekranu jest włączony"</string>
     <string name="l10n_screen_reader_is_on_d067b754" formatted="false">"Czytnik ekranu jest włączony"</string>

@@ -1,5 +1,7 @@
 package one.monero.moneroone.ui.screens.onboarding
 
+import one.monero.moneroone.ui.components.DismissTextButton
+import one.monero.moneroone.ui.components.RestoreDateRange
 import one.monero.moneroone.ui.components.SecureScreen
 import one.monero.moneroone.core.locale.pluralTr
 import one.monero.moneroone.core.locale.tr
@@ -19,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,9 +63,11 @@ import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.moneroTextFieldColors
 import one.monero.moneroone.ui.theme.MoneroOrange
 import io.horizontalsystems.monerokit.util.RestoreHeight
+import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +84,8 @@ fun RestoreWalletScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var namingStep by remember { mutableStateOf(false) }
+    // iOS: a birthday inside the last 30 days is confirmed before moving on.
+    var confirmRecentDate by remember { mutableStateOf(false) }
 
     val walletState by walletViewModel.walletState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -265,8 +272,11 @@ fun RestoreWalletScreen(
                             errorMessage = tr("Seed phrase must be 24 or 25 words")
                         }
                         else -> {
+                            // A date inside the last 30 days is the classic
+                            // mistake: confirm it first, as iOS does.
+                            val recent = selectedDate?.let { it > RestoreDateRange.todayMillis() - RecentDateWindowMillis } == true
                             // Naming happens at the end (iOS parity).
-                            namingStep = true
+                            if (recent) confirmRecentDate = true else namingStep = true
                         }
                     }
                 },
@@ -283,7 +293,9 @@ fun RestoreWalletScreen(
     // Date Picker Dialog
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate ?: System.currentTimeMillis()
+            initialSelectedDateMillis = selectedDate ?: RestoreDateRange.todayMillis(),
+            yearRange = RestoreDateRange.years(),
+            selectableDates = RestoreDateRange
         )
 
         DatePickerDialog(
@@ -312,7 +324,35 @@ fun RestoreWalletScreen(
             DatePicker(state = datePickerState)
         }
     }
+
+    selectedDate?.takeIf { confirmRecentDate }?.let { date ->
+        val shownDate = remember(date) {
+            DateFormat.getDateInstance(DateFormat.MEDIUM).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }.format(Date(date))
+        }
+        AlertDialog(
+            onDismissRequest = { confirmRecentDate = false },
+            title = { Text(tr("Restore from %s?", shownDate)) },
+            text = { Text(tr("Only finds transactions after this date.")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRecentDate = false
+                    namingStep = true
+                }) { Text(tr("Continue")) }
+            },
+            dismissButton = {
+                DismissTextButton(onClick = {
+                    confirmRecentDate = false
+                    showDatePicker = true
+                }) { Text(tr("Choose another date")) }
+            }
+        )
+    }
 }
+
+/** How recent a birthday has to be for the confirmation (iOS: 30 days). */
+private const val RecentDateWindowMillis = 30 * 86_400_000L
 
 /**
  * Asks the keyboard not to learn from text typed inside [content]

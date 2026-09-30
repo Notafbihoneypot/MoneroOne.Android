@@ -743,6 +743,7 @@ internal val localizedStrings: Map<String, Int> = mapOf(
     "Scan Range" to R.string.l10n_scan_range_cd9a3ddf,
     "Scanning %s%%" to R.string.l10n_scanning_s_1ea7191b,
     "Scanning %s%%..." to R.string.l10n_scanning_s_2e6d6eb1,
+    "Scanning restarts at block %s. Earlier transactions won't be found." to R.string.l10n_scanning_restarts_at_block_s_earlier_transactions_won_t_979db006,
     "Scanning..." to R.string.l10n_scanning_a83820eb,
     "Screen Reader Is On" to R.string.l10n_screen_reader_is_on_f2332054,
     "Screen reader is on" to R.string.l10n_screen_reader_is_on_d067b754,

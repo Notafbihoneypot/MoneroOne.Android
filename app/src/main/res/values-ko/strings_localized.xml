@@ -740,6 +740,7 @@
     <string name="l10n_scan_range_cd9a3ddf" formatted="false">"스캔 범위"</string>
     <string name="l10n_scanning_s_1ea7191b" formatted="false">"스캔 중 %1$s%%"</string>
     <string name="l10n_scanning_s_2e6d6eb1" formatted="false">"스캔 중 %1$s%%..."</string>
+    <string name="l10n_scanning_restarts_at_block_s_earlier_transactions_won_t_979db006" formatted="false">"블록 %s부터 스캔을 다시 시작합니다. 그 이전의 거래는 찾을 수 없습니다."</string>
     <string name="l10n_scanning_a83820eb" formatted="false">"스캔 중..."</string>
     <string name="l10n_screen_reader_is_on_f2332054" formatted="false">"스크린 리더가 켜져 있습니다"</string>
     <string name="l10n_screen_reader_is_on_d067b754" formatted="false">"스크린 리더가 켜져 있습니다"</string>

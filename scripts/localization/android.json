@@ -1120,5 +1120,22 @@
     "uk": "Синхронізація гаманця, перевірка вузлів і завантаження цін використовують цей проксі. Якщо він недоступний, з’єднання залишаються вимкненими.",
     "zh-Hans": "钱包同步、节点检查和价格查询均使用此代理。代理不可用时，连接将保持离线。",
     "zh-Hant": "錢包同步、節點檢查和價格查詢均使用此代理。代理無法使用時，連線將保持離線。"
+  },
+  "Scanning restarts at block %s. Earlier transactions won't be found.": {
+    "de": "Der Scan beginnt erneut bei Block %s. Frühere Transaktionen werden nicht gefunden.",
+    "es": "El escaneo se reinicia en el bloque %s. No se encontrarán las transacciones anteriores.",
+    "fr": "L’analyse reprend au bloc %s. Les transactions antérieures ne seront pas trouvées.",
+    "it": "La scansione riparte dal blocco %s. Le transazioni precedenti non verranno trovate.",
+    "ja": "ブロック%sからスキャンをやり直します。それより前のトランザクションは検出されません。",
+    "ko": "블록 %s부터 스캔을 다시 시작합니다. 그 이전의 거래는 찾을 수 없습니다.",
+    "nl": "Het scannen begint opnieuw bij blok %s. Eerdere transacties worden niet gevonden.",
+    "pl": "Skanowanie rozpocznie się od bloku %s. Wcześniejsze transakcje nie zostaną znalezione.",
+    "pt-BR": "A varredura recomeça no bloco %s. Transações anteriores não serão encontradas.",
+    "ro": "Scanarea repornește de la blocul %s. Tranzacțiile anterioare nu vor fi găsite.",
+    "ru": "Сканирование начнётся заново с блока %s. Более ранние транзакции не будут найдены.",
+    "tr": "Tarama %s numaralı bloktan yeniden başlar. Daha önceki işlemler bulunmaz.",
+    "uk": "Сканування почнеться знову з блоку %s. Раніші транзакції не буде знайдено.",
+    "zh-Hans": "将从区块 %s 重新开始扫描。更早的交易将无法找到。",
+    "zh-Hant": "將從區塊 %s 重新開始掃描。更早的交易將無法找到。"
   }
 }
