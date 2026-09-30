@@ -1,6 +1,8 @@
 package one.monero.moneroone.ui.screens.wallet
 
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -49,5 +51,20 @@ class WalletAccessibilityTest {
             assertTrue(actions.first { it.label == tr("Rename") }.action())
         }
         rule.onNode(hasSetTextAction()).assertExists()
+    }
+
+    @Test fun emojiPickerReadsEachEmojiByNameAsAButton() {
+        var picked: String? = null
+        rule.setContent { MoneroOneTheme { EmojiPickerGrid(selected = "💰", onSelect = { picked = it }) } }
+        val bag = rule.onNodeWithContentDescription("money bag")
+        bag.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+        bag.assertIsSelected()
+        bag.assertHasClickAction()
+        val other = rule.onAllNodes(hasClickAction() and SemanticsMatcher.expectValue(SemanticsProperties.Selected, false))
+            .onFirst()
+        other.performClick()
+        assertNotNull(picked)
+        assertNotEquals("💰", picked)
+        assertEquals("Icon, money bag", tr("Icon, %s", emojiSpokenName("💰")))
     }
 }
