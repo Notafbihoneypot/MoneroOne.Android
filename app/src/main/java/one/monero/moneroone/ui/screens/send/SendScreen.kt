@@ -124,10 +124,21 @@ import one.monero.moneroone.ui.theme.TabularFigures
 import one.monero.moneroone.ui.theme.WarningYellow
 import one.monero.moneroone.ui.theme.truncateMiddle
 
-private enum class SendPhase { ADDRESS, AMOUNT, REVIEW, SENDING, SUCCESS, ERROR }
+internal enum class SendPhase { ADDRESS, AMOUNT, REVIEW, SENDING, SUCCESS, ERROR }
 
 /** Where Send's pre-filled amount came from; the amount step says which (iOS AmountPrefill). */
 enum class SendPrefillSource { QR_CODE, LINK }
+
+/** A `monero:` link that arrived while Send is open, already checked by the caller. */
+class OpenSendLink(val address: String, val amount: String?)
+
+/**
+ * Whether an open Send takes a new payment link (iOS
+ * SendFlowPhase.acceptsPaymentRequest): yes until the user confirms. From
+ * Confirm on, the link must not touch this flow.
+ */
+internal fun acceptsPaymentLink(phase: SendPhase, confirmed: Boolean): Boolean =
+    !confirmed && phase in listOf(SendPhase.ADDRESS, SendPhase.AMOUNT, SendPhase.REVIEW)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -136,6 +147,8 @@ fun SendScreen(
     initialAddress: String? = null,
     initialAmount: String? = null,
     prefillSource: SendPrefillSource? = null,
+    incomingLink: OpenSendLink? = null,
+    onIncomingLink: (link: OpenSendLink, accepted: Boolean) -> Unit = { _, _ -> },
     onBack: () -> Unit,
     onScanQr: () -> Unit,
     onSent: () -> Unit
@@ -184,6 +197,7 @@ fun SendScreen(
     // unlocked, unattended phone must not be able to drain the wallet.
     var showAuthGate by remember { mutableStateOf(false) }
     var amountPrefilledFromQR by remember { mutableStateOf(prefilledAmount != null) }
+    var amountSource by remember { mutableStateOf(prefillSource) }
 
     // Fee state (estimated on REVIEW phase)
     var estimatedFee by remember { mutableLongStateOf(0L) }
@@ -212,6 +226,30 @@ fun SendScreen(
     fun goBack(to: SendPhase) {
         navigatingForward = false
         phase = to
+    }
+
+    // A link tapped while Send is open replaces what is on screen and stops on
+    // the amount step (iOS SendFlowView.apply). Once the user has confirmed, it
+    // is refused: holding it would fill the next Send the user opens on purpose.
+    LaunchedEffect(incomingLink) {
+        val link = incomingLink ?: return@LaunchedEffect
+        val accepted = acceptsPaymentLink(phase, confirmed = sendInProgress)
+        if (accepted) {
+            address = link.address
+            amount = link.amount?.trim()?.takeIf { walletViewModel.parseXmr(it) > 0 } ?: ""
+            amountPrefilledFromQR = amount.isNotEmpty()
+            amountSource = SendPrefillSource.LINK
+            isSweepAll = false
+            estimatedFee = 0L
+            feeLoading = false
+            feeError = null
+            when (phase) {
+                SendPhase.ADDRESS -> goForward(SendPhase.AMOUNT)
+                SendPhase.REVIEW -> goBack(SendPhase.AMOUNT)
+                else -> {}
+            }
+        }
+        onIncomingLink(link, accepted)
     }
 
     // Handle system back button/gesture
@@ -303,7 +341,7 @@ fun SendScreen(
                         unlockedBalance = walletState.balance.unlocked,
                         parseXmr = walletViewModel::parseXmr,
                         amountPrefilledFromQR = amountPrefilledFromQR,
-                        prefillSource = prefillSource,
+                        prefillSource = amountSource,
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
                         memo = memo,

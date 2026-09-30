@@ -5,7 +5,9 @@ import one.monero.moneroone.ui.screens.send.PaymentRequestError.INVALID_AMOUNT
 import one.monero.moneroone.ui.screens.send.PaymentRequestError.NOT_PAYMENT_LINK
 import one.monero.moneroone.ui.screens.send.PaymentRequestError.PAYMENT_ID
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PaymentRequestTest {
@@ -52,5 +54,17 @@ class PaymentRequestTest {
     @Test fun parseKeepsItsNullContract() {
         assertEquals(MoneroUriData(address), parsePaymentRequest(address, valid))
         assertNull(parsePaymentRequest("monero:$address?tx_amount=abc", valid))
+    }
+
+    // iOS SendFlowPhase.acceptsPaymentRequest: an open Send takes a new link
+    // until the user confirms, then refuses it.
+    @Test fun openSendTakesALinkUntilTheUserConfirms() {
+        for (phase in listOf(SendPhase.ADDRESS, SendPhase.AMOUNT, SendPhase.REVIEW)) {
+            assertTrue(phase.name, acceptsPaymentLink(phase, confirmed = false))
+        }
+        assertFalse(acceptsPaymentLink(SendPhase.REVIEW, confirmed = true))
+        for (phase in listOf(SendPhase.SENDING, SendPhase.SUCCESS, SendPhase.ERROR)) {
+            assertFalse(phase.name, acceptsPaymentLink(phase, confirmed = false))
+        }
     }
 }

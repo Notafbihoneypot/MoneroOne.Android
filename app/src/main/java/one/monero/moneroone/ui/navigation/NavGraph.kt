@@ -34,6 +34,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
+import one.monero.moneroone.ui.screens.send.OpenSendLink
 import one.monero.moneroone.ui.screens.send.PaymentRequestResult
 import one.monero.moneroone.ui.screens.send.SendPrefillSource
 import one.monero.moneroone.ui.screens.send.readMoneroUri
@@ -131,11 +132,16 @@ fun MoneroOneNavHost(
     val lifecycleOwner = LocalLifecycleOwner.current
     val entry by navController.currentBackStackEntryAsState()
     // Keep the request until a wallet is open and authentication is complete.
-    // Never interrupt an existing send or wallet setup flow.
+    // Main opens Send with it. An open Send takes it, or refuses it once the
+    // user has confirmed (iOS SendFlowView); while the scanner is up it waits
+    // for Send. Other screens, such as wallet setup, keep it until Main.
     // A refused link says why in an alert, as on iOS (openPaymentLink).
     var paymentLinkError by remember { mutableStateOf<String?>(null) }
+    var openSendLink by remember { mutableStateOf<OpenSendLink?>(null) }
     LaunchedEffect(paymentLink, isLocked, walletState.hasWallet, entry) {
-        if (paymentLink == null || isLocked || !walletState.hasWallet || entry?.destination?.route != Screen.Main.route) return@LaunchedEffect
+        val route = entry?.destination?.route
+        if (paymentLink == null || isLocked || !walletState.hasWallet ||
+            (route != Screen.Main.route && route != Screen.Send.route)) return@LaunchedEffect
         val result = readMoneroUri(paymentLink)
         onPaymentLinkConsumed()
         paymentLinkError = when {
@@ -145,7 +151,8 @@ fun MoneroOneNavHost(
                 tr("This wallet is view-only and cannot send. Switch to a wallet that can send, then open the link again.")
             else -> {
                 val request = (result as PaymentRequestResult.Valid).data
-                navController.navigate(Screen.Send.createRoute(request.address, request.amount, SendPrefillSource.LINK))
+                if (route == Screen.Send.route) openSendLink = OpenSendLink(request.address, request.amount)
+                else navController.navigate(Screen.Send.createRoute(request.address, request.amount, SendPrefillSource.LINK))
                 null
             }
         }
@@ -404,6 +411,11 @@ fun MoneroOneNavHost(
                     initialAddress = address,
                     initialAmount = amount,
                     prefillSource = source,
+                    incomingLink = openSendLink,
+                    onIncomingLink = { link, accepted ->
+                        if (openSendLink === link) openSendLink = null
+                        if (!accepted) paymentLinkError = tr("Send is still showing another payment. Close it, then open the link again.")
+                    },
                     onBack = { navController.popBackStack() },
                     onScanQr = { navController.navigate(Screen.QRScanner.route) },
                     onSent = {
