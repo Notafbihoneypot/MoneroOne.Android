@@ -423,7 +423,10 @@ fun ReceiveScreen(
                 }
             }
             ReceiveFooter(
-                mainAddress = (sub?.addressIndex ?: selectedAddressIndex) == 0,
+                // The choice, not the fallback: while a chosen subaddress is not
+                // listed yet the card shows the main address, and iOS keeps its
+                // warning off then.
+                mainAddress = selectedAddressIndex == 0,
                 freshAddress = freshAddress,
                 limitNote = ReceiveAddressLogic.creationWarning(addressRows)
             )

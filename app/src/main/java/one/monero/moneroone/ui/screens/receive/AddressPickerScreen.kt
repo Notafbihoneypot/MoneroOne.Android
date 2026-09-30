@@ -48,7 +48,7 @@ fun AddressPickerScreen(walletViewModel: WalletViewModel, onBack: () -> Unit, on
     val walletId = wallet?.id
     key(walletId) {
         AddressPickerContent(
-            rows = rows, selectedIndex = state.receiveIndex, blocked = addresses?.blocked == true,
+            rows = rows, selectedIndex = state.receiveIndex,
             canCreate = addresses?.complete == true && !addresses.blocked && !creating &&
                 ReceiveAddressLogic.unusedAfterLastUsed(rows) < ReceiveAddressLogic.STOP_THRESHOLD,
             creating = creating, onBack = onBack,
@@ -77,7 +77,7 @@ fun AddressPickerScreen(walletViewModel: WalletViewModel, onBack: () -> Unit, on
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun AddressPickerContent(
-    rows: List<ReceiveAddressRow>, selectedIndex: Int, blocked: Boolean, canCreate: Boolean, creating: Boolean,
+    rows: List<ReceiveAddressRow>, selectedIndex: Int, canCreate: Boolean, creating: Boolean,
     onBack: () -> Unit, onSelect: (ReceiveAddressRow) -> Unit, onRename: (ReceiveAddressRow, String) -> Unit, onCreate: () -> Unit
 ) {
     val context = LocalContext.current
@@ -125,7 +125,6 @@ internal fun AddressPickerContent(
             ReceiveAddressLogic.creationWarning(rows)?.let { warning -> item {
                 Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
-            if (blocked) item { KeysUnavailableMessage(Modifier.padding(20.dp)) }
             // Main address followed by newest subaddresses; every address stays available.
             items(displayedRows, key = { it.index }) { row ->
                 val top = if (row.index == displayedRows.first().index) 16.dp else 0.dp

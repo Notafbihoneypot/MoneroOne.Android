@@ -31,7 +31,7 @@ class ReceiveUiTest {
         var renamed: Pair<Int, String>? = null
         var creations = 0
         rule.setContent { MoneroOneTheme {
-            AddressPickerContent(rows, 0, false, true, false, {}, { selected = it.index },
+            AddressPickerContent(rows, 0, true, false, {}, { selected = it.index },
                 { row, label -> renamed = row.index to label }, { creations++ })
         } }
         rule.onNodeWithText(tr("Subaddress #%s", 2)).performClick()
@@ -49,7 +49,7 @@ class ReceiveUiTest {
 
     @Test fun creationStaysDisabledAtTheLimit() {
         val rows = ReceiveAddressLogic.rows(listOf(Subaddress(0, 190, "unused-address", "")), emptyList(), emptyMap())
-        rule.setContent { MoneroOneTheme { AddressPickerContent(rows, 190, false, false, false, {}, {}, { _, _ -> }, {}) } }
+        rule.setContent { MoneroOneTheme { AddressPickerContent(rows, 190, false, false, {}, {}, { _, _ -> }, {}) } }
         rule.onNodeWithText(tr("New Address")).assertIsNotEnabled()
         rule.onNodeWithText(ReceiveAddressLogic.creationWarning(rows)!!).assertExists()
     }
