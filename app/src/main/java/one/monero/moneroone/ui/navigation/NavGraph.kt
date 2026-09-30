@@ -18,7 +18,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -29,9 +34,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
-import androidx.compose.ui.platform.LocalContext
-import android.widget.Toast
-import one.monero.moneroone.ui.screens.send.parseMoneroUri
+import one.monero.moneroone.ui.screens.send.PaymentRequestResult
+import one.monero.moneroone.ui.screens.send.SendPrefillSource
+import one.monero.moneroone.ui.screens.send.readMoneroUri
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import one.monero.moneroone.ui.screens.MainScreen
@@ -74,11 +79,13 @@ sealed class Screen(val route: String) {
     data object SetupBiometrics : Screen("setup_biometrics")
     data object Unlock : Screen("unlock")
     data object Main : Screen("main")
-    data object Send : Screen("send?address={address}&amount={amount}") {
-        fun createRoute(address: String? = null, amount: String? = null): String {
+    data object Send : Screen("send?address={address}&amount={amount}&source={source}") {
+        /** [source]: where a pre-filled amount came from, a [SendPrefillSource] name. */
+        fun createRoute(address: String? = null, amount: String? = null, source: SendPrefillSource? = null): String {
             val params = mutableListOf<String>()
             if (!address.isNullOrBlank()) params.add("address=${android.net.Uri.encode(address)}")
             if (!amount.isNullOrBlank()) params.add("amount=${android.net.Uri.encode(amount)}")
+            if (source != null) params.add("source=${source.name}")
             return if (params.isEmpty()) "send" else "send?${params.joinToString("&")}"
         }
     }
@@ -117,19 +124,36 @@ fun MoneroOneNavHost(
     val walletState by walletViewModel.walletState.collectAsState()
     val isLocked by walletViewModel.isLocked.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val context = LocalContext.current
     val entry by navController.currentBackStackEntryAsState()
     // Keep the request until a wallet is open and authentication is complete.
     // Never interrupt an existing send or wallet setup flow.
+    // A refused link says why in an alert, as on iOS (openPaymentLink).
+    var paymentLinkError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(paymentLink, isLocked, walletState.hasWallet, entry) {
         if (paymentLink == null || isLocked || !walletState.hasWallet || entry?.destination?.route != Screen.Main.route) return@LaunchedEffect
-        val parsed = parseMoneroUri(paymentLink)
+        val result = readMoneroUri(paymentLink)
         onPaymentLinkConsumed()
-        if (parsed == null || parsed.paymentId != null) {
-            Toast.makeText(context, tr("Invalid Monero address or QR code"), Toast.LENGTH_LONG).show()
-        } else {
-            navController.navigate(Screen.Send.createRoute(parsed.address, parsed.amount))
+        paymentLinkError = when {
+            result is PaymentRequestResult.Invalid -> result.error.message
+            // No spend key: say so instead of opening a Send it cannot finish.
+            walletViewModel.activeWallet.value?.isViewOnly == true ->
+                tr("This wallet is view-only and cannot send. Switch to a wallet that can send, then open the link again.")
+            else -> {
+                val request = (result as PaymentRequestResult.Valid).data
+                navController.navigate(Screen.Send.createRoute(request.address, request.amount, SendPrefillSource.LINK))
+                null
+            }
         }
+    }
+    paymentLinkError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { paymentLinkError = null },
+            title = { Text(tr("Can't Open Payment Link")) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { paymentLinkError = null }) { Text(tr("OK")) }
+            }
+        )
     }
 
     // Price/chart fetches run only while a wallet exists, so no IP goes to
@@ -358,15 +382,23 @@ fun MoneroOneNavHost(
                         type = NavType.StringType
                         nullable = true
                         defaultValue = null
+                    },
+                    navArgument("source") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { backStackEntry ->
                 val address = backStackEntry.arguments?.getString("address")?.takeIf { it.isNotBlank() }
                 val amount = backStackEntry.arguments?.getString("amount")?.takeIf { it.isNotBlank() }
+                val source = backStackEntry.arguments?.getString("source")
+                    ?.let { name -> SendPrefillSource.entries.firstOrNull { it.name == name } }
                 SendScreen(
                     walletViewModel = walletViewModel,
                     initialAddress = address,
                     initialAmount = amount,
+                    prefillSource = source,
                     onBack = { navController.popBackStack() },
                     onScanQr = { navController.navigate(Screen.QRScanner.route) },
                     onSent = {
@@ -382,7 +414,7 @@ fun MoneroOneNavHost(
                     onBack = { navController.popBackStack() },
                     onScanned = { uriData ->
                         navController.popBackStack()
-                        navController.navigate(Screen.Send.createRoute(uriData.address, uriData.amount))
+                        navController.navigate(Screen.Send.createRoute(uriData.address, uriData.amount, SendPrefillSource.QR_CODE))
                     }
                 )
             }

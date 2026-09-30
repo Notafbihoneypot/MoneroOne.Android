@@ -126,12 +126,16 @@ import one.monero.moneroone.ui.theme.truncateMiddle
 
 private enum class SendPhase { ADDRESS, AMOUNT, REVIEW, SENDING, SUCCESS, ERROR }
 
+/** Where Send's pre-filled amount came from; the amount step says which (iOS AmountPrefill). */
+enum class SendPrefillSource { QR_CODE, LINK }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendScreen(
     walletViewModel: WalletViewModel,
     initialAddress: String? = null,
     initialAmount: String? = null,
+    prefillSource: SendPrefillSource? = null,
     onBack: () -> Unit,
     onScanQr: () -> Unit,
     onSent: () -> Unit
@@ -158,9 +162,11 @@ fun SendScreen(
         parsed > 0 && parsed <= walletState.balance.unlocked
     }
 
-    // Determine starting phase based on pre-fill
+    // Determine starting phase based on pre-fill. A payment link stops on
+    // the amount step, never the review: it is someone else's text, so the
+    // user confirms the amount first (iOS SendFlowView.apply).
     val startPhase = when {
-        prefilledAddress != null && prefillCoveredByBalance -> SendPhase.REVIEW
+        prefilledAddress != null && prefillCoveredByBalance && prefillSource != SendPrefillSource.LINK -> SendPhase.REVIEW
         prefilledAddress != null -> SendPhase.AMOUNT
         else -> SendPhase.ADDRESS
     }
@@ -297,6 +303,7 @@ fun SendScreen(
                         unlockedBalance = walletState.balance.unlocked,
                         parseXmr = walletViewModel::parseXmr,
                         amountPrefilledFromQR = amountPrefilledFromQR,
+                        prefillSource = prefillSource,
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
                         memo = memo,
@@ -538,6 +545,7 @@ private fun AmountPhase(
     unlockedBalance: Long,
     parseXmr: (String) -> Long,
     amountPrefilledFromQR: Boolean,
+    prefillSource: SendPrefillSource?,
     xmrPrice: Double?,
     currencySymbol: String,
     memo: String,
@@ -581,15 +589,21 @@ private fun AmountPhase(
             .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // QR warning
-        if (amountPrefilledFromQR) {
+        // Where the amount came from (iOS SendAmountStep); the donation's
+        // suggested amount has no note, as on iOS.
+        val prefillNote = when (prefillSource) {
+            SendPrefillSource.QR_CODE -> tr("Amount pre-filled from QR code")
+            SendPrefillSource.LINK -> tr("Amount pre-filled from payment link")
+            null -> null
+        }
+        if (amountPrefilledFromQR && prefillNote != null) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 8.dp)
             ) {
                 Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(14.dp))
-                Text(tr("Amount pre-filled from QR code"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(prefillNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
