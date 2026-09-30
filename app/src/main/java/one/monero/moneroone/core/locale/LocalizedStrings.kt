@@ -1071,6 +1071,7 @@ internal val localizedStrings: Map<String, Int> = mapOf(
     "You can change the name and icon later." to R.string.l10n_you_can_change_the_name_and_icon_later_074fe36e,
     "You can change this later" to R.string.l10n_you_can_change_this_later_a1dd0706,
     "You can restore them only with their seed phrases or keys." to R.string.l10n_you_can_restore_them_only_with_their_seed_phrases_or_ke_4ad7ab94,
+    "You can restore them only with their seed phrases." to R.string.l10n_you_can_restore_them_only_with_their_seed_phrases_9d64a0a8,
     "You're offline. Some features may be unavailable." to R.string.l10n_you_re_offline_some_features_may_be_unavailable_29abd526,
     "Your PIN is required to access your recovery phrase" to R.string.l10n_your_pin_is_required_to_access_your_recovery_phrase_636df823,
     "Your Seed Phrase" to R.string.l10n_your_seed_phrase_dd4949d6,

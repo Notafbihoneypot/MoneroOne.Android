@@ -1068,6 +1068,7 @@
     <string name="l10n_you_can_change_the_name_and_icon_later_074fe36e" formatted="false">"Vous pourrez modifier ce choix plus tard"</string>
     <string name="l10n_you_can_change_this_later_a1dd0706" formatted="false">"Vous pourrez modifier ce choix plus tard"</string>
     <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_or_ke_4ad7ab94" formatted="false">"Vous ne pourrez les restaurer qu’avec leurs phrases de récupération ou leurs clés."</string>
+    <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_9d64a0a8" formatted="false">"Vous ne pourrez les restaurer qu’avec leurs phrases de récupération."</string>
     <string name="l10n_you_re_offline_some_features_may_be_unavailable_29abd526" formatted="false">"Aucune connexion Internet"</string>
     <string name="l10n_your_pin_is_required_to_access_your_recovery_phrase_636df823" formatted="false">"Votre code PIN est requis pour accéder à votre phrase de récupération"</string>
     <string name="l10n_your_seed_phrase_dd4949d6" formatted="false">"Votre phrase de récupération"</string>

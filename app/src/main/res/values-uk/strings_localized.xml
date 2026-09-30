@@ -1068,6 +1068,7 @@
     <string name="l10n_you_can_change_the_name_and_icon_later_074fe36e" formatted="false">"Це можна змінити пізніше"</string>
     <string name="l10n_you_can_change_this_later_a1dd0706" formatted="false">"Це можна змінити пізніше"</string>
     <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_or_ke_4ad7ab94" formatted="false">"Відновити їх можна лише за допомогою мнемонічних фраз або ключів."</string>
+    <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_9d64a0a8" formatted="false">"Відновити їх можна лише за допомогою мнемонічних фраз."</string>
     <string name="l10n_you_re_offline_some_features_may_be_unavailable_29abd526" formatted="false">"Немає з’єднання з інтернетом"</string>
     <string name="l10n_your_pin_is_required_to_access_your_recovery_phrase_636df823" formatted="false">"Для доступу до фрази відновлення потрібен PIN"</string>
     <string name="l10n_your_seed_phrase_dd4949d6" formatted="false">"Ваша мнемонічна фраза"</string>

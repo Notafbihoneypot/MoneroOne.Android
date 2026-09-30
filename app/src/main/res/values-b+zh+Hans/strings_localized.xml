@@ -1068,6 +1068,7 @@
     <string name="l10n_you_can_change_the_name_and_icon_later_074fe36e" formatted="false">"你可以稍后更改"</string>
     <string name="l10n_you_can_change_this_later_a1dd0706" formatted="false">"你可以稍后更改"</string>
     <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_or_ke_4ad7ab94" formatted="false">"只能用它们的助记词或密钥恢复。"</string>
+    <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_9d64a0a8" formatted="false">"只能用它们的助记词恢复。"</string>
     <string name="l10n_you_re_offline_some_features_may_be_unavailable_29abd526" formatted="false">"没有互联网连接"</string>
     <string name="l10n_your_pin_is_required_to_access_your_recovery_phrase_636df823" formatted="false">"需要输入 PIN 才能查看恢复短语"</string>
     <string name="l10n_your_seed_phrase_dd4949d6" formatted="false">"你的助记词"</string>

@@ -1205,5 +1205,22 @@
     "uk": "Скидання даних синхронізації",
     "zh-Hans": "正在重置同步数据",
     "zh-Hant": "正在重置同步資料"
+  },
+  "You can restore them only with their seed phrases.": {
+    "de": "Du kannst sie nur mit ihren Seed-Phrasen wiederherstellen.",
+    "es": "Solo podrás restaurarlas con sus frases semilla.",
+    "fr": "Vous ne pourrez les restaurer qu’avec leurs phrases de récupération.",
+    "it": "Potrai ripristinarli solo con le loro frasi seed.",
+    "ja": "復元するには、各ウォレットのシードフレーズが必要です。",
+    "ko": "시드 문구가 있어야만 복원할 수 있습니다.",
+    "nl": "Je kunt ze alleen herstellen met hun seedzinnen.",
+    "pl": "Przywrócisz je tylko za pomocą ich fraz seed.",
+    "pt-BR": "Você só poderá restaurá-las com as frases-semente delas.",
+    "ro": "Le poți restaura doar cu frazele seed.",
+    "ru": "Восстановить их можно только с помощью мнемонических фраз.",
+    "tr": "Bunları yalnızca kurtarma ifadeleriyle geri yükleyebilirsiniz.",
+    "uk": "Відновити їх можна лише за допомогою мнемонічних фраз.",
+    "zh-Hans": "只能用它们的助记词恢复。",
+    "zh-Hant": "只能用它們的助記詞回復。"
   }
 }

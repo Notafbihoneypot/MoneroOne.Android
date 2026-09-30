@@ -330,7 +330,8 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(32.dp))
     }
 
-    // Remove-all confirmation dialog (iOS copy)
+    // Remove-all confirmation dialog (iOS copy). The body leaves out iOS's
+    // "or keys": Android restores wallets from seed phrases only.
     if (showRemoveAllDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveAllDialog = false },
@@ -342,7 +343,7 @@ fun SettingsScreen(
             },
             text = {
                 Text(
-                    text = tr("You can restore them only with their seed phrases or keys."),
+                    text = tr("You can restore them only with their seed phrases."),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
