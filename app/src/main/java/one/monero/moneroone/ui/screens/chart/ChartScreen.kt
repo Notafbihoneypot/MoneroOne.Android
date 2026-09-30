@@ -1,5 +1,11 @@
 package one.monero.moneroone.ui.screens.chart
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +62,8 @@ import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.GlassSegmentedPicker
 import one.monero.moneroone.ui.components.MoneroRefreshIndicator
+import one.monero.moneroone.ui.components.Motion
+import one.monero.moneroone.ui.components.RollingText
 import one.monero.moneroone.ui.components.SampledLineChart
 import one.monero.moneroone.ui.components.ShrinkToFitText
 import one.monero.moneroone.ui.components.rememberChartDateFormats
@@ -118,7 +126,7 @@ internal fun ChartContent(
     val currentValue = uiState.currentPrice?.price ?: uiState.close
     val displayValue = selected?.value ?: currentValue
     val value = displayValue?.let { MoneyFormat.format(it, currency) } ?: tr("Loading...")
-    val caption = selected?.let { formats.scrubLabel(range.axis, it.timestamp) } ?: tr("Current Price")
+    val scrubLabel = selected?.let { formats.scrubLabel(range.axis, it.timestamp) }
     val high = remember(points) { points.maxOfOrNull { it.value } }
     val low = remember(points) { points.minOfOrNull { it.value } }
     val domain = remember(points) { ChartMath.chartYDomain(points.map { it.value }) }
@@ -165,7 +173,7 @@ internal fun ChartContent(
                 }
             }
             ChartValueCard(
-                caption = caption,
+                scrubLabel = scrubLabel,
                 value = value,
                 valueDescription = tr("Current Monero price, %s", value),
                 change = uiState.rangeChange,
@@ -241,7 +249,8 @@ internal fun ChartContent(
 
 @Composable
 private fun ChartValueCard(
-    caption: String,
+    /** The time of the sample under the finger; null shows Current Price. */
+    scrubLabel: String?,
     value: String,
     valueDescription: String,
     change: Double?,
@@ -254,19 +263,35 @@ private fun ChartValueCard(
     val detailHeight = with(density) { (detailStyle.fontSize * 1.4f).toDp() } + 12.dp
     GlassCard(Modifier.fillMaxWidth().testTag("chart-value")) {
         Column(Modifier.padding(20.dp)) {
-            Text(
-                caption,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            // iOS fades the scrub label in and out as a touch starts and
+            // ends; from sample to sample it changes at once.
+            AnimatedContent(
+                targetState = scrubLabel,
+                modifier = Modifier.fillMaxWidth(),
+                transitionSpec = {
+                    val fade = tween<Float>(SCRUB_LABEL_FADE_MS, easing = Motion.EaseInOut)
+                    (fadeIn(fade) togetherWith fadeOut(fade)).using(SizeTransform(clip = false))
+                },
+                contentAlignment = Alignment.CenterStart,
+                contentKey = { it != null },
+                label = "priceCaption"
+            ) { label ->
+                Text(
+                    label ?: tr("Current Price"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Box(Modifier.fillMaxWidth().height(valueHeight), contentAlignment = Alignment.CenterStart) {
-                ShrinkToFitText(
+                // iOS .contentTransition(.numericText()) with .easeInOut(duration: 0.1).
+                RollingText(
                     text = value,
                     style = valueStyle,
                     modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = valueDescription },
+                    durationMillis = PRICE_DIGIT_MS,
                     minScale = 0.5f
                 )
             }
@@ -312,3 +337,9 @@ private fun ChartStat(label: String, value: String, color: Color, modifier: Modi
         }
     }
 }
+
+/** iOS rolls the price in 0.1 s. */
+private const val PRICE_DIGIT_MS = 100
+
+/** iOS fades the scrub label in and out in 0.15 s. */
+private const val SCRUB_LABEL_FADE_MS = 150
