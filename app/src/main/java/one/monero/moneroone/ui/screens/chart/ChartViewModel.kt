@@ -2,6 +2,7 @@ package one.monero.moneroone.ui.screens.chart
 
 import android.app.Application
 import android.content.Context
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineStart
@@ -54,6 +55,36 @@ data class ChartUiState(
 )
 
 /**
+ * What balance history draws from: every range's samples in USD with the
+ * live price as the last point, and the rate into [currency].
+ */
+@Immutable
+data class HistoryPrices(
+    val currency: Currency = Currency.USD,
+    /** USD to [currency]; null while unknown. */
+    val rate: Double? = 1.0,
+    /** Raw samples in USD, per range, without the live price. */
+    val cache: Map<TimeRange, List<PriceDataPoint>> = emptyMap(),
+    /** The live price in USD, the last point of every line. */
+    val tip: PriceDataPoint? = null,
+    val fetched: Set<TimeRange> = emptySet(),
+    /** The rate into [currency] failed to load. */
+    val rateFailed: Boolean = false
+) {
+    /** [range]'s samples in USD, the live price last; empty while the rate is unknown. */
+    fun series(range: TimeRange): List<PriceDataPoint> =
+        if (rate == null) emptyList() else ChartMath.chartSeries(cache[range].orEmpty(), tip)
+
+    /**
+     * True once [range] has samples, or its fetch finished without any, and
+     * the rate is known or failed to load. A range that loaded with nothing
+     * to draw says so instead of loading forever.
+     */
+    fun isLoaded(range: TimeRange): Boolean =
+        (!cache[range].isNullOrEmpty() || range in fetched) && (rate != null || rateFailed)
+}
+
+/**
  * Price data for the charts and the price widget, as iOS PriceService keeps
  * it: raw samples per range with a TTL, one fetch per range at a time, the
  * live price added as the line's tip on every read, and a refresh every
@@ -71,7 +102,9 @@ class ChartViewModel(application: Application) : AndroidViewModel(application) {
         val price: CurrentPrice? = null,
         val rate: Double = 1.0,
         /** The last price fetch for [currency] gave up. */
-        val priceFailed: Boolean = false
+        val priceFailed: Boolean = false,
+        /** Ranges whose fetch has finished once, with or without data. */
+        val fetched: Set<TimeRange> = emptySet()
     )
 
     private val priceRepository = PriceRepository()
@@ -87,6 +120,11 @@ class ChartViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<ChartUiState> = model
         .map { it.toUiState() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, model.value.toUiState())
+
+    /** Balance history's prices; it asks for its own ranges with [fetchRange]. */
+    val historyPrices: StateFlow<HistoryPrices> = model
+        .map { it.toHistoryPrices() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, model.value.toHistoryPrices())
 
     private val fetchedAt = HashMap<TimeRange, Long>()
     private val inFlight = HashMap<TimeRange, Deferred<Unit>>()
@@ -148,6 +186,16 @@ class ChartViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         // Before start the range waits for the startup fetch.
+        if (!started) return
+        viewModelScope.launch { fetchChart(range) }
+    }
+
+    /**
+     * Fetches [range] for balance history when it is missing or stale,
+     * without changing the range the Price tab shows. Before [start] the
+     * startup fetch brings every range.
+     */
+    fun fetchRange(range: TimeRange) {
         if (!started) return
         viewModelScope.launch { fetchChart(range) }
     }
@@ -257,7 +305,7 @@ class ChartViewModel(application: Application) : AndroidViewModel(application) {
             model.update { it.copy(cache = it.cache + (range to samples)) }
             if (range == TimeRange.DAY) saveWidget()
         } finally {
-            model.update { it.copy(loading = it.loading - range) }
+            model.update { it.copy(loading = it.loading - range, fetched = it.fetched + range) }
         }
     }
 
@@ -294,6 +342,15 @@ class ChartViewModel(application: Application) : AndroidViewModel(application) {
         if (!(rate > 0)) return null
         return PriceDataPoint(price.lastUpdated, price.price / rate)
     }
+
+    private fun Model.toHistoryPrices(): HistoryPrices = HistoryPrices(
+        currency = currency,
+        rate = rate.takeIf { currency == Currency.USD || price != null },
+        cache = cache,
+        tip = tip(),
+        fetched = fetched,
+        rateFailed = priceFailed
+    )
 
     private fun Model.toUiState(): ChartUiState {
         val tip = tip()

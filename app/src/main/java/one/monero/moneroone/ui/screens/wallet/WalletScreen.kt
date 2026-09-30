@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -18,6 +19,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,8 +44,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.NorthEast
-import androidx.compose.material.icons.filled.SouthEast
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Sync
@@ -55,7 +60,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,7 +77,23 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -79,7 +103,13 @@ import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.R
+import one.monero.moneroone.core.wallet.ReceiveAddressLogic
 import one.monero.moneroone.core.wallet.WalletViewModel
+import one.monero.moneroone.core.wallet.addressesOf
+import one.monero.moneroone.ui.components.rememberChartDateFormats
+import one.monero.moneroone.ui.screens.chart.HistoryPrices
+import one.monero.moneroone.ui.screens.chart.TimeRange
+import one.monero.moneroone.ui.screens.transactions.TransactionHistoryLogic
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.Motion
@@ -108,6 +138,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 /** Banner slide and fade (tokens.json motion.curves.banner). */
 private const val BannerMs = 350
@@ -119,11 +150,13 @@ fun WalletScreen(
     onSendClick: () -> Unit,
     onReceiveClick: () -> Unit,
     onTransactionClick: (TransactionInfo) -> Unit,
-    onSeeAllTransactionsClick: () -> Unit,
-    onBalanceClick: (() -> Unit)? = null,
-    onPriceClick: (() -> Unit)? = null,
-    onAddWalletClick: () -> Unit = {},
-    priceChange24h: Double? = null
+    /** Opens every transaction, up to [asOf] (ms) when History shows the past. */
+    onSeeAllTransactionsClick: (asOf: Long?) -> Unit,
+    history: BalanceHistoryState,
+    historyModel: BalanceHistoryModel,
+    historyPrices: HistoryPrices,
+    onFetchHistoryRange: (TimeRange) -> Unit,
+    onAddWalletClick: () -> Unit = {}
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val currentPrice by walletViewModel.currentPrice.collectAsState()
@@ -137,20 +170,33 @@ fun WalletScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     val isOnline by NetworkMonitor.isConnected.collectAsState()
 
-    // Calculate fiat value from balance × current price with correct currency symbol
+    // Fiat amounts with the selected currency's symbol, the same way for now and the past.
     val fiatFormat = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
         minimumFractionDigits = 2
         maximumFractionDigits = 2
     }
-    val fiatValue = currentPrice?.price?.let { price ->
-        val balanceXmr = walletState.balance.all.toDouble() / 1_000_000_000_000.0
-        val fiatAmount = balanceXmr * price
-        "≈ ${selectedCurrency.symbol}${fiatFormat.format(fiatAmount)}"
+    val formatFiat: (Double) -> String = { amount -> "${selectedCurrency.symbol}${fiatFormat.format(amount)}" }
+    val liveFiat: (Long) -> String? = { atomic -> currentPrice?.price?.let { formatFiat(atomic / 1_000_000_000_000.0 * it) } }
+
+    // History: the ledger it draws, and the past moment picked on it, if any.
+    val ledger = rememberBalanceLedger(walletState.balance.all, walletState.transactions, walletSessionId)
+    val historicalPoint = historyModel.shown
+        ?.takeIf { it.range == history.range }
+        ?.let { PortfolioHistory.historicalSelection(history.timestamp, it.points) }
+    val asOf = historicalPoint?.timestamp
+    val addressRows = remember(walletState.addresses, walletState.transactions, activeWallet?.addressLabels) {
+        ReceiveAddressLogic.rows(walletState.addressesOf(activeWallet?.id)?.list.orEmpty(), walletState.transactions, activeWallet?.addressLabels.orEmpty())
     }
-    val unlockedFiatValue = currentPrice?.price?.let { price ->
-        val unlockedXmr = walletState.balance.unlocked.toDouble() / 1_000_000_000_000.0
-        val fiatAmount = unlockedXmr * price
-        "${selectedCurrency.symbol}${fiatFormat.format(fiatAmount)}"
+    // The newest five by the moment picked (iOS TransactionListLogic.through).
+    val sortedTransactions = remember(walletState.transactions) {
+        walletState.transactions.sortedWith(
+            compareBy<TransactionInfo> { it.confirmations > 0L }  // pending (0 confirmations) first
+                .thenByDescending { it.timestamp }  // newest first within each group
+        )
+    }
+    val recentTransactions = remember(sortedTransactions, asOf) {
+        if (asOf == null) sortedTransactions.take(5)
+        else sortedTransactions.asSequence().filter { it.timestamp * 1000 <= asOf }.take(5).toList()
     }
 
     val refreshState = rememberPullToRefreshState()
@@ -307,19 +353,32 @@ fun WalletScreen(
                     )
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                        // Balance card - always show real data (iOS behavior)
-                        BalanceCard(
-                            balance = walletViewModel.formatXmr(walletState.balance.all),
-                            unlockedBalance = walletViewModel.formatXmr(walletState.balance.unlocked),
-                            fiatValue = fiatValue,
-                            fiatMode = fiatMode,
-                            unlockedFiatValue = unlockedFiatValue,
-                            syncState = walletState.syncState,
-                            isOnline = isOnline,
-                            priceChange24h = priceChange24h,
-                            onClick = onBalanceClick,
-                            onPriceClick = onPriceClick
-                        )
+                        // A new wallet gets a new card: History closed, its chart not built (iOS .id(walletSessionId)).
+                        key(walletSessionId) {
+                            BalanceCard(
+                                balance = walletState.balance.all,
+                                unlockedBalance = walletState.balance.unlocked,
+                                formatXmr = walletViewModel::formatXmr,
+                                liveFiat = liveFiat,
+                                formatFiat = formatFiat,
+                                fiatMode = fiatMode,
+                                syncState = walletState.syncState,
+                                isOnline = isOnline,
+                                history = history,
+                                historicalPoint = historicalPoint
+                            ) { isActive ->
+                                BalanceHistoryChart(
+                                    balance = walletState.balance.all,
+                                    ledger = ledger,
+                                    isActive = isActive,
+                                    model = historyModel,
+                                    walletSessionId = walletSessionId,
+                                    prices = historyPrices,
+                                    state = history,
+                                    onFetchRange = onFetchHistoryRange
+                                )
+                            }
+                        }
 
                         // Action buttons
                         Row(
@@ -331,14 +390,20 @@ fun WalletScreen(
                                 icon = Icons.Default.ArrowUpward,
                                 label = tr("Send"),
                                 color = MoneroOrange,
-                                onClick = onSendClick
+                                onClick = {
+                                    history.timestamp = null
+                                    onSendClick()
+                                }
                             )
                             ActionButton(
                                 modifier = Modifier.weight(1f),
                                 icon = Icons.Default.ArrowDownward,
                                 label = tr("Receive"),
                                 color = SuccessGreen,
-                                onClick = onReceiveClick
+                                onClick = {
+                                    history.timestamp = null
+                                    onReceiveClick()
+                                }
                             )
                         }
                     }
@@ -350,44 +415,60 @@ fun WalletScreen(
 
         if (!switcherExpanded) {
 
-        // Recent activity header
-        item {
+        // Recent activity header. While History is open it says which moment
+        // the rows are from; the line arrives with the chart, so scrubbing
+        // never moves the rows below.
+        item(key = "recentHeader") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = tr("Recent Activity"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (walletState.transactions.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics(mergeDescendants = true) { heading() }
+                        .testTag("wallet.activityHeader"),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = tr("Recent Activity"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    AnimatedVisibility(
+                        visible = history.expanded,
+                        enter = fadeIn(Motion.snappy()) + expandVertically(Motion.snappy(), expandFrom = Alignment.Top),
+                        exit = fadeOut(Motion.snappy()) + shrinkVertically(Motion.snappy(), shrinkTowards = Alignment.Top)
+                    ) {
+                        ActivityAsOfText(asOf = asOf, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                if (recentTransactions.isNotEmpty()) {
                     Text(
                         text = tr("See All"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MoneroOrange,
-                        modifier = Modifier.clickable { onSeeAllTransactionsClick() }
+                        modifier = Modifier.clickable { onSeeAllTransactionsClick(asOf) }
                     )
                 }
             }
         }
 
-        if (walletState.transactions.isEmpty()) {
-            item {
-                EmptyTransactionsCard(
-                    isSyncing = walletState.syncState is SyncState.Syncing ||
-                        walletState.syncState is SyncState.Connecting
-                )
+        if (recentTransactions.isEmpty()) {
+            item(key = "recentEmpty") {
+                if (asOf != null) {
+                    PastEmptyTransactionsCard()
+                } else {
+                    EmptyTransactionsCard(
+                        isSyncing = walletState.syncState is SyncState.Syncing ||
+                            walletState.syncState is SyncState.Connecting
+                    )
+                }
             }
         } else {
             items(
-                items = walletState.transactions
-                    .sortedWith(
-                        compareBy<TransactionInfo> { it.confirmations > 0L }  // pending (0 confirmations) first
-                            .thenByDescending { it.timestamp }  // newest first within each group
-                    )
-                    .take(5),
+                items = recentTransactions,
                 key = { it.hash }
             ) { transaction ->
                 TransactionCard(
@@ -395,7 +476,8 @@ fun WalletScreen(
                     onClick = { onTransactionClick(transaction) },
                     formatXmr = walletViewModel::formatXmr,
                     fiatMode = fiatMode,
-                    fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, selectedCurrency)
+                    fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, selectedCurrency),
+                    receivedOn = TransactionHistoryLogic.receivedOnName(transaction, addressRows)
                 )
             }
         }
@@ -447,143 +529,249 @@ private fun GreetingHeader(
 }
 
 @Composable
-private fun BalanceCard(
-    balance: String,
-    unlockedBalance: String,
-    fiatValue: String?,
+internal fun BalanceCard(
+    balance: Long,
+    unlockedBalance: Long,
+    formatXmr: (Long) -> String,
+    /** An amount's value at the live price; null without one. */
+    liveFiat: (Long) -> String?,
+    formatFiat: (Double) -> String,
     fiatMode: Boolean,
-    unlockedFiatValue: String?,
     syncState: SyncState,
     isOnline: Boolean,
-    priceChange24h: Double? = null,
-    onClick: (() -> Unit)? = null,
-    onPriceClick: (() -> Unit)? = null
+    history: BalanceHistoryState,
+    /** The past moment picked on the chart; null is now. */
+    historicalPoint: PortfolioPoint?,
+    historyChart: @Composable (isActive: Boolean) -> Unit
 ) {
-    val showFiat = fiatMode && fiatValue != null
-    val primaryBalance = if (showFiat) fiatValue!!.removePrefix("≈ ") else balance
-    GlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick
-    ) {
+    val dates = rememberChartDateFormats()
+    val isPast = historicalPoint != null
+    val shownBalance = historicalPoint?.balance ?: balance
+    // A past amount takes the price sampled at that same moment.
+    val fiatBalance = if (historicalPoint != null) formatFiat(historicalPoint.value) else liveFiat(balance)
+    // Fiat Mode puts fiat on top and XMR under it; with no price yet XMR stays on top.
+    val fiatFirst = fiatMode && fiatBalance != null
+    val xmrText = formatXmr(shownBalance)
+    val hero = if (fiatFirst) fiatBalance!! else xmrText
+    val caption = if (fiatFirst) "$xmrText XMR" else fiatBalance?.let { "≈ $it" }
+    val balanceLabel = when {
+        historicalPoint != null ->
+            tr("Historical balance: %s XMR, %s, as of %s", xmrText, fiatBalance.orEmpty(), dates.abbreviatedDateTime(historicalPoint.timestamp))
+        fiatFirst -> tr("Balance: %s, %s XMR", fiatBalance, xmrText)
+        else -> tr("Balance: %s XMR%s", xmrText, fiatBalance?.let { tr(", approximately %s", it) }.orEmpty())
+    }
+    // Digits roll briskly while a finger scrubs the chart, a little slower for live changes.
+    val digitMs = if (isPast) SCRUB_DIGIT_MS else Motion.DIGIT_MS
+
+    // The chart is built on first open and then kept, closed, so reopening
+    // and switching ranges never rebuild it. The first open builds it
+    // closed, then opens it once laid out.
+    var isHistoryMounted by remember { mutableStateOf(history.expanded) }
+    var opensHistoryOnMount by remember { mutableStateOf(false) }
+    val toggleHistory: () -> Unit = {
+        when {
+            history.expanded -> {
+                // Back to now first, so the activity list swaps its rows in
+                // place while the card closes around it.
+                history.timestamp = null
+                history.expanded = false
+            }
+            isHistoryMounted -> history.expanded = true
+            else -> {
+                opensHistoryOnMount = true
+                isHistoryMounted = true
+            }
+        }
+    }
+
+    GlassCard(modifier = Modifier.fillMaxWidth().testTag("wallet.balanceCard")) {
         Column(
             modifier = Modifier.padding(24.dp)
         ) {
-            // Top row with sync status and price change (matching iOS)
+            // Status row. The past covers the sync status without replacing
+            // it, so the row keeps its height while scrubbing.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Sync status
-                val status = when (syncState) {
-                    is SyncState.Synced -> SyncStatus.Synced
-                    is SyncState.Syncing -> SyncStatus.Syncing
-                    is SyncState.Connecting -> SyncStatus.Connecting
-                    is SyncState.NotSynced -> SyncStatus.NotConnected
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    val status = when (syncState) {
+                        is SyncState.Synced -> SyncStatus.Synced
+                        is SyncState.Syncing -> SyncStatus.Syncing
+                        is SyncState.Connecting -> SyncStatus.Connecting
+                        is SyncState.NotSynced -> SyncStatus.NotConnected
+                    }
+                    SyncStatusIndicator(
+                        status = status,
+                        progress = (syncState as? SyncState.Syncing)?.progress,
+                        syncState = syncState,
+                        isOnline = isOnline,
+                        modifier = Modifier
+                            .graphicsLayer { alpha = if (isPast) 0f else 1f }
+                            .then(if (isPast) Modifier.clearAndSetSemantics {} else Modifier)
+                    )
+                    if (isPast) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            ShrinkToFitText(
+                                text = tr("Historical balance"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                minScale = 0.8f
+                            )
+                        }
+                    }
                 }
-                val progress = (syncState as? SyncState.Syncing)?.progress
-
-                SyncStatusIndicator(
-                    status = status,
-                    progress = progress,
-                    syncState = syncState,
-                    isOnline = isOnline
-                )
-
-                // Price change indicator (moved from bottom to top right like iOS)
-                if (priceChange24h != null) {
-                    PriceChangeIndicator(priceChange = priceChange24h, onClick = onPriceClick)
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                HistoryToggle(expanded = history.expanded, onToggle = toggleHistory)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Balance row with Monero logo on left (matching iOS)
+            // Balance row with the Monero logo on the left (matching iOS).
+            // The amount and the space beside it open and close History, as
+            // the History button does; a drag that starts here still scrolls.
             Row(
+                modifier = Modifier
+                    .testTag("wallet.balanceValue")
+                    .clearAndSetSemantics {
+                        contentDescription = balanceLabel
+                        customActions = listOf(
+                            CustomAccessibilityAction(tr(if (history.expanded) "Hide history" else "Show history")) {
+                                toggleHistory()
+                                true
+                            }
+                        )
+                    },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Monero logo on left of balance
                 MoneroLogo(size = 48.dp)
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Balance amount
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val currentToggle by rememberUpdatedState(toggleHistory)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 44.dp)
+                        .pointerInput(Unit) { detectTapGestures { currentToggle() } },
+                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+                ) {
+                    // One height for every amount, so the card does not
+                    // move as a scrub changes how many digits there are.
+                    val heroStyle = MaterialTheme.typography.displaySmall
+                    val heroHeight = with(LocalDensity.current) { (heroStyle.fontSize * 1.25f).toDp() }
                     Row(
+                        modifier = Modifier.height(heroHeight),
                         verticalAlignment = Alignment.Bottom
                     ) {
                         val balanceFontSize = when {
-                            primaryBalance.length <= 10 -> 32.sp
-                            primaryBalance.length <= 13 -> 26.sp
-                            primaryBalance.length <= 16 -> 22.sp
+                            hero.length <= 10 -> 32.sp
+                            hero.length <= 13 -> 26.sp
+                            hero.length <= 16 -> 22.sp
                             else -> 18.sp
                         }
                         // Digits roll on change (iOS .contentTransition(.numericText())).
                         RollingText(
-                            text = primaryBalance,
-                            style = MaterialTheme.typography.displaySmall,
-                            fontSize = balanceFontSize
+                            text = hero,
+                            style = heroStyle,
+                            fontSize = balanceFontSize,
+                            durationMillis = digitMs
                         )
-                        if (!showFiat) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "XMR",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
+                        if (!fiatFirst) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "XMR",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
                         }
                     }
 
-                    // Fiat value below balance
-                    if (fiatValue != null) {
+                    // The other currency below the amount.
+                    if (caption != null) {
                         RollingText(
-                            text = if (showFiat) "$balance XMR" else fiatValue,
+                            text = caption,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            durationMillis = digitMs
                         )
                     }
                 }
             }
 
-            // Available (unlocked) balance if different from total
-            if (balance != unlockedBalance) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+            if (isHistoryMounted || history.expanded) {
+                HistoryReveal(
+                    expanded = history.expanded,
+                    onMounted = {
+                        if (opensHistoryOnMount) {
+                            opensHistoryOnMount = false
+                            history.expanded = true
+                        }
+                    }
                 ) {
-                    Text(
-                        text = tr("Available: "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = if (showFiat && unlockedFiatValue != null)
-                            "$unlockedFiatValue ($unlockedBalance XMR)"
-                        else "$unlockedBalance XMR" + (unlockedFiatValue?.let { " ($it)" } ?: ""),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    historyChart(history.expanded)
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+            }
+
+            // Available (unlocked) balance if different from total. Kept in
+            // place, hidden, while viewing the past, so the card does not shrink.
+            if (balance != unlockedBalance) {
+                val unlockedXmr = formatXmr(unlockedBalance)
+                val unlockedFiat = liveFiat(unlockedBalance)
+                val amounts = if (fiatFirst && unlockedFiat != null) "$unlockedFiat, $unlockedXmr XMR"
+                    else "$unlockedXmr XMR" + unlockedFiat?.let { tr(", approximately %s", it) }.orEmpty()
+                Column(
+                    modifier = Modifier
+                        .graphicsLayer { alpha = if (isPast) 0f else 1f }
+                        .clearAndSetSemantics {
+                            if (!isPast) contentDescription = tr("Available balance: %s. Some funds locked until recent transactions confirm.", amounts)
+                        }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Sync,
-                        contentDescription = null,
-                        tint = MoneroOrange,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = tr("Locked until recent transactions confirm"),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MoneroOrange
-                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = tr("Available: "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = if (fiatFirst && unlockedFiat != null)
+                                "$unlockedFiat ($unlockedXmr XMR)"
+                            else "$unlockedXmr XMR" + (unlockedFiat?.let { " ($it)" } ?: ""),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = null,
+                            tint = MoneroOrange,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = tr("Locked until recent transactions confirm"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MoneroOrange
+                        )
+                    }
                 }
             }
 
@@ -617,39 +805,135 @@ private fun BalanceCard(
     }
 }
 
+/**
+ * The card's History button: a brand capsule with a chevron that turns
+ * as History opens. Compact in the status row; touch finds it within the
+ * 48 dp minimum target all the same.
+ */
 @Composable
-private fun PriceChangeIndicator(priceChange: Double, onClick: (() -> Unit)? = null) {
-    val isPositive = priceChange >= 0
-    val color = if (isPositive) SuccessGreen else ErrorRed
-    val icon = if (isPositive) Icons.Default.NorthEast else Icons.Default.SouthEast
-    val sign = if (isPositive) "+" else ""
-
+private fun HistoryToggle(expanded: Boolean, onToggle: () -> Unit) {
+    val chevron by animateFloatAsState(if (expanded) 180f else 0f, Motion.snappy(), label = "historyChevron")
+    val onClickLabel = tr(if (expanded) "Hide history" else "Show history")
     Row(
-        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
+            .testTag("wallet.historyToggle")
             .clip(CapsuleShape)
-            .background(color.copy(alpha = 0.15f))
-            .then(if (onClick != null) Modifier.clickable(
-                role = androidx.compose.ui.semantics.Role.Button,
-                onClickLabel = tr("Price"),
-                onClick = onClick
-            ) else Modifier)
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .background(MoneroOrange.copy(alpha = 0.12f))
+            .clickable(role = Role.Button, onClickLabel = onClickLabel, onClick = onToggle)
+            .clearAndSetSemantics {
+                contentDescription = tr("Balance history")
+                stateDescription = tr(if (expanded) "Expanded" else "Collapsed")
+                role = Role.Button
+                onClick(label = onClickLabel) { onToggle(); true }
+            }
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(12.dp)
-        )
-        Spacer(modifier = Modifier.width(2.dp))
+        Icon(Icons.Default.ShowChart, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(14.dp))
         Text(
-            text = "$sign${String.format("%.2f", priceChange)}%",
+            text = tr("History"),
             style = MaterialTheme.typography.bodySmall,
-            color = color
+            fontWeight = FontWeight.SemiBold,
+            color = MoneroOrange,
+            maxLines = 1,
+            softWrap = false
+        )
+        Icon(
+            Icons.Default.KeyboardArrowDown,
+            contentDescription = null,
+            tint = MoneroOrange,
+            modifier = Modifier.size(14.dp).rotate(chevron)
         )
     }
 }
+
+/**
+ * Lives under the amount. It keeps its full layout while closed; only its
+ * height, clip and opacity animate, on the card's spring (iOS snappy 0.3),
+ * so opening and closing never lay the chart out again and everything
+ * below moves with the card. The clip cuts the top and bottom only, so
+ * markers at the sides are whole while it opens.
+ */
+@Composable
+private fun HistoryReveal(expanded: Boolean, onMounted: () -> Unit, content: @Composable () -> Unit) {
+    val reveal = animateFloatAsState(if (expanded) 1f else 0f, Motion.snappy(), label = "historyReveal")
+    val overflow = with(LocalDensity.current) { REVEAL_SIDE_OVERFLOW.toPx() }
+    val clip = remember(overflow) {
+        GenericShape { size, _ -> addRect(Rect(-overflow, 0f, size.width + overflow, size.height)) }
+    }
+    LaunchedEffect(Unit) { onMounted() }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                this.clip = true
+                shape = clip
+                alpha = reveal.value.coerceIn(0f, 1f)
+            }
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+                val height = (placeable.height * reveal.value).roundToInt().coerceAtLeast(0)
+                layout(placeable.width, height) { placeable.place(0, 0) }
+            }
+            .then(if (expanded) Modifier else Modifier.clearAndSetSemantics {})
+    ) {
+        content()
+    }
+}
+
+/**
+ * "As of now" while History shows the present, or the moment picked on the
+ * chart. Its digits roll like the balance above while a finger scrubs.
+ */
+@Composable
+private fun ActivityAsOfText(asOf: Long?, style: androidx.compose.ui.text.TextStyle) {
+    val dates = rememberChartDateFormats()
+    RollingText(
+        text = asOf?.let { tr("As of %s", dates.abbreviatedDateTime(it)) } ?: tr("As of now"),
+        style = style,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        durationMillis = SCRUB_DIGIT_MS
+    )
+}
+
+/** Recent activity at a past moment before any transaction. */
+@Composable
+private fun PastEmptyTransactionsCard() {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.History,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(40.dp)
+            )
+            Text(
+                text = tr("No transactions by this time"),
+                style = MaterialTheme.typography.titleSmall,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = tr("Move forward in history or return to Now."),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/** iOS rolls digits in 0.1 s while a finger scrubs the History chart. */
+private const val SCRUB_DIGIT_MS = 100
+
+/** How far chart markers may reach past the card's sides while History opens (iOS HistoryRevealClip). */
+private val REVEAL_SIDE_OVERFLOW = 24.dp
 
 @Composable
 private fun ActionButton(
@@ -747,11 +1031,16 @@ private fun TransactionCard(
     onClick: () -> Unit,
     formatXmr: (Long) -> String,
     fiatMode: Boolean,
-    fiatValue: String?
+    fiatValue: String?,
+    /** The subaddress an incoming payment arrived on, spoken only; null for sends and the main address. */
+    receivedOn: String?
 ) {
     val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
     val iconColor = if (isIncoming) SuccessGreen else MoneroOrange
     val amountPrefix = if (isIncoming) "+" else "-"
+
+    val date = formatRelativeTime(transaction.timestamp * 1000)
+    val label = TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
 
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -760,6 +1049,7 @@ private fun TransactionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clearAndSetSemantics { contentDescription = label }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -790,7 +1080,7 @@ private fun TransactionCard(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = formatRelativeTime(transaction.timestamp * 1000),
+                    text = date,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

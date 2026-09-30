@@ -26,7 +26,9 @@ class ChartTimeAxisTest {
         "Hmm" to "HH:mm",
         "EEEMMMdhmm" to "EEE, MMM d, h:mm a",
         "MMMdhmm" to "MMM d, h:mm a",
-        "yMMMd" to "MMM d, y"
+        "yMMMd" to "MMM d, y",
+        "yMMMdhmm" to "MMM d, y, h:mm a",
+        "yMMMdHmm" to "MMM d, y, HH:mm"
     )
 
     private fun formats(use24Hour: Boolean = false) = ChartDateFormats(us, utc, use24Hour) { patterns.getValue(it) }
@@ -149,5 +151,19 @@ class ChartTimeAxisTest {
         assertNull(TimeRange.ALL.spanMs)
         assertEquals(5 * 60_000L, TimeRange.DAY.cacheTtlMs)
         assertEquals(TimeRange.entries.map { it.name }, TimeRange.entries.map { it.axis.name })
+    }
+
+    @Test
+    fun `a moment picked on balance history names its date, year and time`() {
+        assertEquals("Sep 3, 2026, 12:01 AM", formats().abbreviatedDateTime(ms("2026-09-03 00:01")))
+        assertEquals("Sep 3, 2026, 00:01", formats(use24Hour = true).abbreviatedDateTime(ms("2026-09-03 00:01")))
+    }
+
+    @Test
+    fun `range buttons have spoken names`() {
+        assertEquals(
+            listOf("24 hours", "1 week", "1 month", "1 year", "All time"),
+            ChartTimeAxis.entries.map { it.spokenName }
+        )
     }
 }

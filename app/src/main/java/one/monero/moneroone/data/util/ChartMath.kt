@@ -82,14 +82,6 @@ object ChartMath {
     }
 
     /**
-     * The Y range for a portfolio line. A wallet that held nothing over the
-     * range draws flat at zero; scale it like an empty stretch of a funded
-     * wallet, zero near the bottom, so the axis shows no negative money.
-     */
-    fun portfolioYDomain(values: List<Double>): ClosedFloatingPointRange<Double> =
-        chartYDomain(if (values.isNotEmpty() && values.all { it == 0.0 }) listOf(0.0, 1.0) else values)
-
-    /**
      * The widget's 24h line: one value per 30-minute slot ending at [nowMs],
      * each the nearest real sample times [rate]. Slots before the first one
      * a sample falls near are left out, so a short history draws short

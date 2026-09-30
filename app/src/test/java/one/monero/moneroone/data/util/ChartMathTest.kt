@@ -88,15 +88,6 @@ class ChartMathTest {
     }
 
     @Test
-    fun `an empty wallet's portfolio axis stays at zero and above`() {
-        // Flat at zero scales like 0..1, so the lowest round tick is $0.00.
-        assertRange(-0.05, 1.05, ChartMath.portfolioYDomain(listOf(0.0, 0.0, 0.0)))
-        // Any held value keeps the shared rule.
-        assertRange(-5.0, 105.0, ChartMath.portfolioYDomain(listOf(0.0, 0.0, 100.0)))
-        assertRange(0.0, 100.0, ChartMath.portfolioYDomain(emptyList()))
-    }
-
-    @Test
     fun `the sparkline has one value per half hour over a full day`() {
         // A sample every 5 minutes for 24 hours, the price rising 1 per sample.
         val samples = (0..288).map { sample(nowMs - (288 - it) * 5 * 60_000L, 100.0 + it) }

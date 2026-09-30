@@ -36,6 +36,16 @@ enum class ChartTimeAxis {
         return ticks
     }
 
+    /** A range button as TalkBack says it: "1 week". English; pass it through tr. */
+    val spokenName: String
+        get() = when (this) {
+            DAY -> "24 hours"
+            WEEK -> "1 week"
+            MONTH -> "1 month"
+            YEAR -> "1 year"
+            ALL -> "All time"
+        }
+
     /** The time a chart on this range covers, as TalkBack says it: "past week". */
     val spokenSpan: String
         get() = when (this) {
@@ -171,6 +181,12 @@ class ChartDateFormats(
 
     /** "Sep 20, 2026 at 3:05 PM". */
     fun dateTime(ms: Long): String = "${format("yMMMd", ms)} at ${time(ms)}"
+
+    /**
+     * "Sep 20, 2026, 3:05 PM" in the user's language and clock: iOS
+     * `formatted(date: .abbreviated, time: .shortened)`.
+     */
+    fun abbreviatedDateTime(ms: Long): String = format("yMMMd$timeSkeleton", ms)
 
     private fun time(ms: Long): String = format(timeSkeleton, ms)
 

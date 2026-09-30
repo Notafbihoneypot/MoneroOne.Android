@@ -1,6 +1,7 @@
 package one.monero.moneroone.ui.components
 
 import androidx.compose.runtime.Immutable
+import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.data.model.Currency
 import one.monero.moneroone.data.util.MoneyFormat
 import one.monero.moneroone.ui.screens.chart.ChartDateFormats
@@ -41,7 +42,9 @@ data class ChartAxes(
 /**
  * What TalkBack says for a chart. The chart is one node: the label names
  * it, the state sums the line up, and when the chart has markers the
- * custom actions step through them.
+ * custom actions step through them. A chart that keeps its selection
+ * (balance history) is adjustable instead: a swipe up or down steps
+ * through its samples. The words are the iOS VoiceOver strings.
  */
 @Immutable
 data class ChartSpeech(
@@ -56,7 +59,7 @@ data class ChartSpeech(
     val markerName: String = "marker"
 ) {
     /** "Portfolio chart, past week". */
-    val label: String get() = "$title chart, $span"
+    val label: String get() = tr("%s chart, %s", title, span)
 
     /** A value on the line: "$1,234.56". */
     fun format(amount: Double): String = MoneyFormat.format(amount, currency, fractionDigits = 2)
@@ -66,7 +69,7 @@ data class ChartSpeech(
      * given from zero, as the headers give none.
      */
     fun summary(first: Double, last: Double): String {
-        val parts = mutableListOf("From ${format(first)} to ${format(last)}")
+        val parts = mutableListOf(tr("From %s to %s", format(first), format(last)))
         if (first > 0) parts.add(spokenChange((last - first) / first * 100))
         note?.let { parts.add(it) }
         return parts.joinToString(", ")
@@ -76,8 +79,8 @@ data class ChartSpeech(
         /** A percent change as the headers round it: "up 8.99%", "down 1.20%", "unchanged". */
         fun spokenChange(percent: Double): String {
             val size = String.format(Locale.US, "%.2f", abs(percent))
-            if (size == "0.00") return "unchanged"
-            return if (percent > 0) "up $size%" else "down $size%"
+            if (size == "0.00") return tr("unchanged")
+            return if (percent > 0) tr("up %s%%", size) else tr("down %s%%", size)
         }
     }
 }

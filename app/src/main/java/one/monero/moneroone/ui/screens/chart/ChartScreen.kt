@@ -29,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,17 +40,17 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import one.monero.moneroone.core.locale.tr
-import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.data.util.ChartMath
 import one.monero.moneroone.data.util.MoneyFormat
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.ChartAxes
-import one.monero.moneroone.ui.components.ChartPoint
 import one.monero.moneroone.ui.components.ChartSpeech
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
@@ -60,70 +59,50 @@ import one.monero.moneroone.ui.components.MoneroRefreshIndicator
 import one.monero.moneroone.ui.components.SampledLineChart
 import one.monero.moneroone.ui.components.ShrinkToFitText
 import one.monero.moneroone.ui.components.rememberChartDateFormats
-import one.monero.moneroone.ui.screens.wallet.BalanceLedger
-import one.monero.moneroone.ui.screens.wallet.PortfolioHistory
-import one.monero.moneroone.ui.screens.wallet.rememberBalanceLedger
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.TabularFigures
 import java.util.Locale
 
-enum class ChartMode(val label: String) {
-    PORTFOLIO("Portfolio"), PRICE("Price")
-}
-
+/**
+ * The Price tab: the Monero price over a range, with a touch-and-hold
+ * readout, its statistics and the price alerts. Balance history lives in
+ * the wallet's balance card.
+ */
 @Composable
 fun ChartScreen(
     viewModel: ChartViewModel,
-    walletViewModel: WalletViewModel,
-    selectedMode: ChartMode,
-    onModeSelected: (ChartMode) -> Unit,
     onPriceAlertsClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val walletState by walletViewModel.walletState.collectAsState()
-    val walletSessionId by walletViewModel.walletSessionId.collectAsState()
-    val ledger = rememberBalanceLedger(walletState.balance.all, walletState.transactions, walletSessionId)
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
 
-    // Changing modes only changes what is drawn; it never requests history again.
     LaunchedEffect(viewModel) { viewModel.showRange(viewModel.uiState.value.range) }
 
-    key(walletSessionId) {
-        ChartContent(
-            uiState = uiState,
-            ledger = ledger,
-            balanceLabel = "${walletViewModel.formatXmr(walletState.balance.all)} XMR",
-            selectedMode = selectedMode,
-            onModeSelected = onModeSelected,
-            onRangeSelected = viewModel::showRange,
-            onPriceAlertsClick = onPriceAlertsClick,
-            isRefreshing = isRefreshing,
-            onRefresh = {
-                if (!isRefreshing) scope.launch {
-                    isRefreshing = true
-                    try {
-                        viewModel.refreshNow()
-                    } finally {
-                        isRefreshing = false
-                    }
+    ChartContent(
+        uiState = uiState,
+        onRangeSelected = viewModel::showRange,
+        onPriceAlertsClick = onPriceAlertsClick,
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            if (!isRefreshing) scope.launch {
+                isRefreshing = true
+                try {
+                    viewModel.refreshNow()
+                } finally {
+                    isRefreshing = false
                 }
             }
-        )
-    }
+        }
+    )
 }
 
-/** One layout for both modes, with portfolio calculations retained across switches. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChartContent(
     uiState: ChartUiState,
-    ledger: BalanceLedger,
-    balanceLabel: String,
-    selectedMode: ChartMode,
-    onModeSelected: (ChartMode) -> Unit,
     onRangeSelected: (TimeRange) -> Unit,
     onPriceAlertsClick: () -> Unit,
     isRefreshing: Boolean,
@@ -132,48 +111,17 @@ internal fun ChartContent(
     val formats = rememberChartDateFormats()
     val range = uiState.range
     val currency = uiState.currency
-    val portfolio = remember(uiState.seriesUsd, uiState.rate, ledger, range) {
-        uiState.rate?.let { rate ->
-            PortfolioHistory.points(uiState.seriesUsd, rate, ledger, startAtFirstHolding = range == TimeRange.ALL)
-        }.orEmpty()
-    }
-    val portfolioPoints = remember(portfolio) { portfolio.map { ChartPoint(it.timestamp, it.value) } }
-    val portfolioChange = remember(portfolio) { ChartMath.percentChange(portfolio) { it.value } }
-    val transactionCount = remember(portfolio) { PortfolioHistory.spokenCount(portfolio) }
-    val markers = remember(portfolio, currency, formats) {
-        PortfolioHistory.markers(
-            portfolio,
-            formatValue = { MoneyFormat.format(it, currency, fractionDigits = 2) },
-            formatWhen = { formats.dateTime(it) }
-        )
-    }
-    val isPortfolio = selectedMode == ChartMode.PORTFOLIO
-    val points = if (isPortfolio) portfolioPoints else uiState.points
-    var selectedIndex by remember(selectedMode, points) { mutableStateOf<Int?>(null) }
+    val points = uiState.points
+    // New points drop the readout; the chart keys its own on the same list.
+    var selectedIndex by remember(points) { mutableStateOf<Int?>(null) }
     val selected = selectedIndex?.let { points.getOrNull(it) }
-    val selectedPortfolio = if (isPortfolio) selectedIndex?.let { portfolio.getOrNull(it) } else null
-    val currentValue = if (isPortfolio) {
-        if (ledger.balance == 0L) 0.0
-        else uiState.currentPrice?.let { ledger.balance / 1e12 * it.price } ?: portfolio.lastOrNull()?.value
-    } else {
-        uiState.currentPrice?.price ?: uiState.close
-    }
+    val currentValue = uiState.currentPrice?.price ?: uiState.close
     val displayValue = selected?.value ?: currentValue
     val value = displayValue?.let { MoneyFormat.format(it, currency) } ?: tr("Loading...")
-    val caption = selected?.let {
-        formats.scrubLabel(range.axis, selectedPortfolio?.let(PortfolioHistory::eventTime) ?: it.timestamp)
-    } ?: tr(if (isPortfolio) "Current Value" else "Current Price")
-    val details = if (isPortfolio) selectedPortfolio?.let(PortfolioHistory::scrubDetail) ?: balanceLabel else null
-    val change = if (isPortfolio) portfolioChange else uiState.rangeChange
+    val caption = selected?.let { formats.scrubLabel(range.axis, it.timestamp) } ?: tr("Current Price")
     val high = remember(points) { points.maxOfOrNull { it.value } }
     val low = remember(points) { points.minOfOrNull { it.value } }
-    val domain = remember(points, isPortfolio) {
-        if (isPortfolio) ChartMath.portfolioYDomain(points.map { it.value })
-        else ChartMath.chartYDomain(points.map { it.value })
-    }
-    val axis = if (isPortfolio && range == TimeRange.ALL && points.isNotEmpty()) {
-        ChartTimeAxis.fitting(points.last().timestamp - points.first().timestamp)
-    } else range.axis
+    val domain = remember(points) { ChartMath.chartYDomain(points.map { it.value }) }
 
     val refreshState = rememberPullToRefreshState()
     PullToRefreshBox(
@@ -202,29 +150,25 @@ internal fun ChartContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(tr("Chart"), style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    tr("Price"),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.semantics { heading() }
+                )
                 GlassButton(onClick = onPriceAlertsClick, modifier = Modifier.size(44.dp)) {
                     Icon(
                         Icons.Outlined.Notifications,
-                        contentDescription = tr("Price Alerts"),
+                        contentDescription = tr("Price alerts"),
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp)
                     )
                 }
             }
-            GlassSegmentedPicker(
-                options = ChartMode.entries.toList(),
-                selectedOption = selectedMode,
-                onOptionSelected = onModeSelected,
-                modifier = Modifier.fillMaxWidth().testTag("chart-mode"),
-                labelSelector = { tr(it.label) }
-            )
             ChartValueCard(
                 caption = caption,
                 value = value,
-                valueDescription = tr(if (isPortfolio) "Portfolio value, %s" else "Current Monero price, %s", value),
-                details = details,
-                change = change,
+                valueDescription = tr("Current Monero price, %s", value),
+                change = uiState.rangeChange,
                 range = range
             )
             GlassSegmentedPicker(
@@ -232,38 +176,31 @@ internal fun ChartContent(
                 selectedOption = range,
                 onOptionSelected = onRangeSelected,
                 modifier = Modifier.fillMaxWidth().testTag("chart-range"),
-                accessibilityLabel = { tr(it.axis.spokenSpan) },
+                accessibilityLabel = { tr(it.axis.spokenName) },
                 labelSelector = { tr(it.label) }
             )
             GlassCard(Modifier.fillMaxWidth().height(220.dp).testTag("chart-plot")) {
                 if (points.isNotEmpty()) {
-                    // Reset any pinned transaction when the mode changes, while the
-                    // cached history and surrounding layout remain in composition.
-                    key(selectedMode) {
-                        SampledLineChart(
-                            points = points,
-                            domain = domain,
-                            axes = ChartAxes(axis, formats, currency),
-                            speech = ChartSpeech(
-                                title = tr(if (isPortfolio) "Portfolio" else "Monero price"),
-                                span = tr(range.axis.spokenSpan),
-                                currency = currency,
-                                note = if (isPortfolio) transactionCount else null,
-                                markerName = if (isPortfolio) "transaction" else "marker"
-                            ),
-                            onSelect = { selectedIndex = it },
-                            modifier = Modifier.fillMaxSize().padding(16.dp),
-                            markers = if (isPortfolio) markers else emptyList(),
-                            axisLabelWidth = 64.dp
-                        )
-                    }
+                    SampledLineChart(
+                        points = points,
+                        domain = domain,
+                        axes = ChartAxes(range.axis, formats, currency),
+                        speech = ChartSpeech(
+                            title = tr("Monero price"),
+                            span = tr(range.axis.spokenSpan),
+                            currency = currency
+                        ),
+                        onSelect = { selectedIndex = it },
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        axisLabelWidth = 64.dp
+                    )
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         if (uiState.isLoading) {
                             CircularProgressIndicator(Modifier.size(32.dp), color = MoneroOrange, strokeWidth = 3.dp)
                         } else {
                             Text(
-                                tr(if (isPortfolio && ledger.balance == 0L) "Add XMR to see portfolio chart" else "Unable to load chart"),
+                                tr("Unable to load chart"),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -307,7 +244,6 @@ private fun ChartValueCard(
     caption: String,
     value: String,
     valueDescription: String,
-    details: String?,
     change: Double?,
     range: TimeRange
 ) {
@@ -340,13 +276,6 @@ private fun ChartValueCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (details != null) {
-                    ShrinkToFitText(
-                        details, style = detailStyle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f), minScale = 0.5f
-                    )
-                }
                 if (change != null) {
                     val color = if (change >= 0) SuccessGreen else ErrorRed
                     Text(

@@ -3,6 +3,7 @@ package one.monero.moneroone.ui.screens.wallet
 import one.monero.moneroone.data.model.PriceDataPoint
 import one.monero.moneroone.ui.components.ChartMarker
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -141,14 +142,39 @@ class PortfolioHistoryTest {
     }
 
     @Test
-    fun `scrub detail names the transaction, or the XMR held`() {
+    fun `a sample names its lone transaction and when it happened`() {
         val ledger = BalanceLedger(xmr * 3 / 2, listOf(received(1_500, xmr / 2)))
         val points = PortfolioHistory.points(prices(1_000, 2_000), rate = 1.0, ledger = ledger)
-        assertEquals("1.0000 XMR", PortfolioHistory.scrubDetail(points[0]))
-        assertEquals("Received 0.5000 XMR", PortfolioHistory.scrubDetail(points[1]))
+        assertNull(PortfolioHistory.summary(points[0].changes))
+        assertEquals("Received 0.5000 XMR", PortfolioHistory.summary(points[1].changes))
         assertEquals(1_000L, PortfolioHistory.eventTime(points[0]))
         assertEquals(1_500L, PortfolioHistory.eventTime(points[1]))
         assertEquals("1 transaction", PortfolioHistory.spokenCount(points))
         assertNull(PortfolioHistory.spokenCount(points.take(1)))
+    }
+
+    @Test
+    fun `a past selection is its own sample, and the last sample is Now`() {
+        val ledger = BalanceLedger(xmr, listOf(received(1_500, xmr)))
+        val points = PortfolioHistory.points(prices(1_000, 2_000, 3_000), rate = 1.0, ledger = ledger)
+        assertNull(PortfolioHistory.historicalSelection(null, points))
+        // The final sample holds the ledger now, so picking it is Now.
+        assertNull(PortfolioHistory.historicalSelection(3_000, points))
+        // A time with no sample (a refresh dropped it) falls back to Now.
+        assertNull(PortfolioHistory.historicalSelection(2_500, points))
+        assertEquals(points[0], PortfolioHistory.historicalSelection(1_000, points))
+        assertEquals(xmr, PortfolioHistory.historicalSelection(2_000, points)!!.balance)
+        assertNull(PortfolioHistory.historicalSelection(1_000, emptyList()))
+    }
+
+    @Test
+    fun `ledgers with the same content are equal, so kept charts are reused`() {
+        val ledger = BalanceLedger(xmr, listOf(received(2_000, xmr), sent(1_000, xmr / 2)))
+        val same = BalanceLedger(xmr, listOf(sent(1_000, xmr / 2), received(2_000, xmr)))
+        assertEquals(ledger, same)
+        assertEquals(ledger.hashCode(), same.hashCode())
+        assertNotEquals(ledger, BalanceLedger(2 * xmr, ledger.changes))
+        assertNotEquals(ledger, BalanceLedger(xmr, ledger.changes.take(1)))
+        assertNotEquals(ledger, BalanceLedger(xmr, ledger.changes, knownSinceMs = 500))
     }
 }

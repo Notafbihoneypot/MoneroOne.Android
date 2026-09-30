@@ -87,7 +87,10 @@ sealed class Screen(val route: String) {
     data object TransactionDetail : Screen("transaction/{txId}") {
         fun createRoute(txId: String) = "transaction/$txId"
     }
-    data object TransactionList : Screen("transaction_list")
+    data object TransactionList : Screen("transaction_list?asOf={asOf}") {
+        /** [asOf] (epoch ms) lists only what had happened by then; null lists everything. */
+        fun createRoute(asOf: Long? = null) = if (asOf != null) "transaction_list?asOf=$asOf" else "transaction_list"
+    }
     data object AddressPicker : Screen("address_picker")
     data object Settings : Screen("settings")
     data object BackupSeed : Screen("backup_seed")
@@ -420,9 +423,18 @@ fun MoneroOneNavHost(
                 )
             }
 
-            composable(Screen.TransactionList.route) {
+            composable(
+                route = Screen.TransactionList.route,
+                arguments = listOf(
+                    navArgument("asOf") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    }
+                )
+            ) { backStackEntry ->
                 TransactionListScreen(
                     walletViewModel = walletViewModel,
+                    asOf = backStackEntry.arguments?.getLong("asOf")?.takeIf { it >= 0 },
                     onBack = { navController.popBackStack() },
                     onTransactionClick = { txId ->
                         navController.navigate(Screen.TransactionDetail.createRoute(txId))

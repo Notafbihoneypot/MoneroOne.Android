@@ -1,34 +1,31 @@
 package one.monero.moneroone.ui.screens.chart
 
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.toSize
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.model.PriceDataPoint
 import one.monero.moneroone.ui.components.ChartPoint
-import one.monero.moneroone.ui.screens.wallet.BalanceLedger
 import one.monero.moneroone.ui.theme.MoneroOneTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/** The Price tab: the price alone, with no Chart/Portfolio switch (iOS PriceView). */
 @RunWith(AndroidJUnit4::class)
 class ChartScreenTest {
     @get:Rule val rule = createComposeRule()
@@ -38,48 +35,39 @@ class ChartScreenTest {
     private val state = mutableStateOf(fixture())
 
     @Test
-    fun switchingModesKeepsGeometryRangeAndOnlyExposesTheActiveChart() {
+    fun rangesKeepTheLayoutAndShowOnlyThePriceChart() {
         showChart()
-        rule.onNodeWithText(tr("1M")).performClick()
         val bounds = layoutBounds()
-        repeat(3) {
-            rule.onNodeWithText(tr("Price")).performClick()
-            assertEquals(bounds, layoutBounds())
-            rule.onNodeWithText(tr("1M")).assertIsSelected()
-            rule.onAllNodesWithContentDescription("${tr("Portfolio")} chart, ${tr("past month")}").assertCountEquals(0)
-            rule.onNodeWithContentDescription("${tr("Monero price")} chart, ${tr("past month")}").assertExists()
-            rule.onNodeWithText(tr("Portfolio")).performClick()
-            assertEquals(bounds, layoutBounds())
-            rule.onNodeWithText(tr("1M")).assertIsSelected()
-            rule.onAllNodesWithContentDescription("${tr("Monero price")} chart, ${tr("past month")}").assertCountEquals(0)
-            rule.onNodeWithContentDescription("${tr("Portfolio")} chart, ${tr("past month")}").assertExists()
-        }
-        assertEquals(listOf(TimeRange.MONTH), rangeRequests)
+        rule.onNodeWithText(tr("1M")).performClick()
+        rule.onNodeWithText(tr("1M")).assertIsSelected()
+        assertEquals(bounds, layoutBounds())
+        rule.onNodeWithContentDescription(tr("%s chart, %s", tr("Monero price"), tr("past month"))).assertExists()
+        rule.onNodeWithText(tr("Price")).assertExists()
+        rule.onAllNodesWithText(tr("Portfolio")).assertCountEquals(0)
+        rule.onNodeWithText(tr("1Y")).performClick()
+        assertEquals(bounds, layoutBounds())
+        assertEquals(listOf(TimeRange.MONTH, TimeRange.YEAR), rangeRequests)
         assertEquals(0, refreshRequests)
     }
 
     @Test
-    fun loadingAndMissingHistoryKeepBothModesAligned() {
+    fun loadingAndMissingHistoryKeepTheLayout() {
         state.value = ChartUiState(isLoading = true)
-        showChart(balance = 0)
+        showChart()
         val bounds = layoutBounds()
-        rule.onNodeWithText(tr("Price")).performClick()
-        assertEquals(bounds, layoutBounds())
         rule.runOnIdle { state.value = ChartUiState(isLoading = false) }
         assertEquals(bounds, layoutBounds())
-        rule.onNodeWithText(tr("Portfolio")).performClick()
-        assertEquals(bounds, layoutBounds())
-        rule.onNodeWithText(tr("Add XMR to see portfolio chart")).assertExists()
+        rule.onNodeWithText(tr("Unable to load chart")).assertExists()
         rule.onNodeWithText(tr("Statistics")).assertExists()
     }
 
     @Test
-    fun largeTypeAndLongPortfolioValuesKeepTheSameLayout() {
-        showChart(balance = 123456789012345678, fontScale = 1.5f)
+    fun largeTypeKeepsTheLayoutAcrossRanges() {
+        showChart(fontScale = 1.5f)
         val bounds = layoutBounds()
-        rule.onNodeWithText(tr("Price")).performClick()
+        rule.onNodeWithText(tr("24H")).performClick()
         assertEquals(bounds, layoutBounds())
-        rule.onNodeWithText(tr("Portfolio")).performClick()
+        rule.onNodeWithText(tr("All")).performClick()
         assertEquals(bounds, layoutBounds())
     }
 
@@ -88,19 +76,13 @@ class ChartScreenTest {
             rule.onNodeWithTag(it).fetchSemanticsNode().let { node -> Rect(node.positionInRoot, node.size.toSize()) }
         }
 
-    private fun showChart(balance: Long = 2000000000000, fontScale: Float = 1f) {
-        val ledger = BalanceLedger(balance, emptyList())
+    private fun showChart(fontScale: Float = 1f) {
         rule.setContent {
             MoneroOneTheme {
                 val density = LocalDensity.current
                 CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
-                    var mode by remember { mutableStateOf(ChartMode.PORTFOLIO) }
                     ChartContent(
                         uiState = state.value,
-                        ledger = ledger,
-                        balanceLabel = if (balance > 2000000000000) "123456.789012 XMR" else "2.000000 XMR",
-                        selectedMode = mode,
-                        onModeSelected = { mode = it },
                         onRangeSelected = {
                             rangeRequests += it
                             state.value = state.value.copy(range = it)

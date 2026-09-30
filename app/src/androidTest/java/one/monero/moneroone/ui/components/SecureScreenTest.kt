@@ -16,6 +16,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import one.monero.moneroone.BuildConfig
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.screens.settings.BackupSeedScreen
+import one.monero.moneroone.ui.screens.chart.HistoryPrices
+import one.monero.moneroone.ui.screens.wallet.BalanceHistoryModel
+import one.monero.moneroone.ui.screens.wallet.BalanceHistoryState
 import one.monero.moneroone.ui.screens.wallet.WalletScreen
 import one.monero.moneroone.ui.theme.MoneroOneTheme
 import org.junit.After
@@ -50,7 +53,11 @@ class SecureScreenTest {
         rule.setContent {
             MoneroOneTheme {
                 if (seedScreen) BackupSeedScreen(wallet, onBack = {})
-                else WalletScreen(wallet, onSendClick = {}, onReceiveClick = {}, onTransactionClick = {}, onSeeAllTransactionsClick = {})
+                else WalletScreen(
+                    wallet, onSendClick = {}, onReceiveClick = {}, onTransactionClick = {}, onSeeAllTransactionsClick = {},
+                    history = BalanceHistoryState(), historyModel = BalanceHistoryModel(),
+                    historyPrices = HistoryPrices(), onFetchHistoryRange = {}
+                )
             }
         }
         rule.waitForIdle()

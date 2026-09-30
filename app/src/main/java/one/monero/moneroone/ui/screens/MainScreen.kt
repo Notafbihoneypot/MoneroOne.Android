@@ -34,7 +34,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,11 +46,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import one.monero.moneroone.core.wallet.WalletViewModel
 import androidx.compose.runtime.collectAsState
-import one.monero.moneroone.ui.screens.chart.ChartMode
+import androidx.lifecycle.viewmodel.compose.viewModel
 import one.monero.moneroone.ui.screens.chart.ChartScreen
 import one.monero.moneroone.ui.screens.chart.ChartViewModel
 import one.monero.moneroone.ui.screens.settings.SettingsScreen
+import one.monero.moneroone.ui.screens.wallet.BalanceHistoryModel
 import one.monero.moneroone.ui.screens.wallet.WalletScreen
+import one.monero.moneroone.ui.screens.wallet.rememberBalanceHistoryState
+import one.monero.moneroone.ui.navigation.Screen
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.floatShadow
 import one.monero.moneroone.ui.theme.MoneroOrange
@@ -75,10 +77,14 @@ fun MainScreen(
     // plain remember reset the tab to Wallet and Back from Security/Sync/etc.
     // landed on the wallet home instead of Settings (GitHub issue #4).
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    var selectedChartMode by rememberSaveable { mutableStateOf(ChartMode.PORTFOLIO) }
     val context = LocalContext.current
-    val chartUiState by chartViewModel.uiState.collectAsState()
     val walletState by walletViewModel.walletState.collectAsState()
+    val walletSessionId by walletViewModel.walletSessionId.collectAsState()
+    // Held here, not in the Wallet tab, so History stays open and on its date
+    // across tab switches and detail pages, as on iOS. A wallet switch starts over.
+    val history = rememberBalanceHistoryState(walletSessionId)
+    val historyModel: BalanceHistoryModel = viewModel()
+    val historyPrices by chartViewModel.historyPrices.collectAsState()
 
     // When the last wallet is deleted, fall back to Welcome.
     LaunchedEffect(walletState.hasWallet) {
@@ -91,7 +97,7 @@ fun MainScreen(
 
     val navItems = listOf(
         BottomNavItem(tr("Wallet"), Icons.Filled.Wallet, Icons.Outlined.Wallet),
-        BottomNavItem(tr("Chart"), Icons.Filled.ShowChart, Icons.Outlined.ShowChart),
+        BottomNavItem(tr("Price"), Icons.Filled.ShowChart, Icons.Outlined.ShowChart),
         BottomNavItem(tr("Settings"), Icons.Filled.Settings, Icons.Outlined.Settings)
     )
     // The selected pill is the fill color on the white bar. In dark mode the
@@ -186,27 +192,19 @@ fun MainScreen(
                         onTransactionClick = { tx ->
                             navController.navigate("transaction/${tx.hash}")
                         },
-                        onSeeAllTransactionsClick = {
-                            navController.navigate("transaction_list")
+                        onSeeAllTransactionsClick = { asOf ->
+                            navController.navigate(Screen.TransactionList.createRoute(asOf))
                         },
-                        onBalanceClick = {
-                            selectedChartMode = ChartMode.PORTFOLIO
-                            selectedTab = 1
-                        },
-                        onPriceClick = {
-                            selectedChartMode = ChartMode.PRICE
-                            selectedTab = 1
-                        },
+                        history = history,
+                        historyModel = historyModel,
+                        historyPrices = historyPrices,
+                        onFetchHistoryRange = chartViewModel::fetchRange,
                         onAddWalletClick = {
                             navController.navigate("add_wallet")
-                        },
-                        priceChange24h = chartUiState.priceChange24h
+                        }
                     )
                     1 -> ChartScreen(
                         viewModel = chartViewModel,
-                        walletViewModel = walletViewModel,
-                        selectedMode = selectedChartMode,
-                        onModeSelected = { selectedChartMode = it },
                         onPriceAlertsClick = { navController.navigate("price_alerts") }
                     )
                     2 -> SettingsScreen(

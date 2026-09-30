@@ -58,6 +58,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import one.monero.moneroone.ui.components.rememberChartDateFormats
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -92,7 +96,9 @@ enum class TransactionFilter(val label: String) {
 fun TransactionListScreen(
     walletViewModel: WalletViewModel,
     onBack: () -> Unit,
-    onTransactionClick: (String) -> Unit
+    onTransactionClick: (String) -> Unit,
+    /** From History: only transactions up to this moment (ms); null for all. */
+    asOf: Long? = null
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val fiatMode by walletViewModel.fiatMode.collectAsState()
@@ -105,12 +111,15 @@ fun TransactionListScreen(
     var selectedFilter by rememberSaveable(activeWallet?.id) { mutableStateOf(TransactionFilter.ALL) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val addressRows = remember(walletState.addresses, walletState.transactions, activeWallet?.addressLabels) {
-        ReceiveAddressLogic.rows(walletState.addressesOf(activeWallet?.id)?.list.orEmpty(), walletState.transactions, activeWallet?.addressLabels.orEmpty())
+    // Opened from a past moment in History, the list stops there.
+    val transactions = remember(walletState.transactions, asOf) { TransactionHistoryLogic.through(asOf, walletState.transactions) }
+    val addressRows = remember(walletState.addresses, transactions, activeWallet?.addressLabels) {
+        ReceiveAddressLogic.rows(walletState.addressesOf(activeWallet?.id)?.list.orEmpty(), transactions, activeWallet?.addressLabels.orEmpty())
     }
-    val filteredTransactions = remember(walletState.transactions, selectedFilter, searchQuery, receivingIndex, addressRows) {
-        TransactionHistoryLogic.filter(walletState.transactions, selectedFilter, receivingIndex, searchQuery, addressRows)
+    val filteredTransactions = remember(transactions, selectedFilter, searchQuery, receivingIndex, addressRows) {
+        TransactionHistoryLogic.filter(transactions, selectedFilter, receivingIndex, searchQuery, addressRows)
     }
+    val dates = rememberChartDateFormats()
     val totals = remember(filteredTransactions) { TransactionHistoryLogic.totals(filteredTransactions) }
     val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice) {
         TransactionHistoryLogic.fiatTotals(filteredTransactions) {
@@ -196,6 +205,15 @@ fun TransactionListScreen(
                     }
                 }
             }
+            if (asOf != null) {
+                Text(
+                    text = tr("As of %s", dates.abbreviatedDateTime(asOf)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.padding(bottom = 8.dp).testTag("transactions.asOf")
+                )
+            }
             GlassCard(Modifier.fillMaxWidth(), shadow = false, cornerRadius = 16.dp) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(pluralTr("%s transactions", totals.count), style = MaterialTheme.typography.titleSmall)
@@ -255,6 +273,7 @@ fun TransactionListScreen(
                             formatXmr = walletViewModel::formatXmr,
                             fiatMode = fiatMode,
                             fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, currency),
+                            receivedOn = TransactionHistoryLogic.receivedOnName(transaction, addressRows),
                             onClick = { onTransactionClick(transaction.hash) }
                         )
                     }
@@ -272,9 +291,13 @@ private fun TransactionListItem(
     formatXmr: (Long) -> String,
     fiatMode: Boolean,
     fiatValue: String?,
+    /** The subaddress an incoming payment arrived on, spoken only; null for sends and the main address. */
+    receivedOn: String?,
     onClick: () -> Unit
 ) {
     val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
+    val date = formatDate(transaction.timestamp * 1000)
+    val label = TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
     val iconColor = if (isIncoming) SuccessGreen else MoneroOrange
     val amountPrefix = if (isIncoming) "+" else "-"
 
@@ -299,6 +322,7 @@ private fun TransactionListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clearAndSetSemantics { contentDescription = label }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -329,7 +353,7 @@ private fun TransactionListItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = formatDate(transaction.timestamp * 1000),
+                    text = date,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

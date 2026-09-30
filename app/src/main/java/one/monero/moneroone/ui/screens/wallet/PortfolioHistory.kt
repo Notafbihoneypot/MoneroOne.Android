@@ -50,6 +50,12 @@ class BalanceLedger(
 ) {
     /** Oldest first. */
     val changes: List<BalanceChange> = changes.sortedBy { it.timestampMs }
+
+    /** Equal by content, so a wallet refresh that changed nothing reuses the charts built from it. */
+    override fun equals(other: Any?): Boolean =
+        other is BalanceLedger && balance == other.balance && knownSinceMs == other.knownSinceMs && changes == other.changes
+
+    override fun hashCode(): Int = (balance.hashCode() * 31 + changes.hashCode()) * 31 + knownSinceMs.hashCode()
 }
 
 data class PortfolioPoint(
@@ -121,6 +127,17 @@ object PortfolioHistory {
         }
     }
 
+    /**
+     * The sample a selection at [timestamp] stands for in [points], or null
+     * for Now. The final sample is the current ledger, including changes
+     * since its price was fetched: it is Now, never a historical cutoff. A
+     * refresh keeps the same instant when its real sample survives.
+     */
+    fun historicalSelection(timestamp: Long?, points: List<PortfolioPoint>): PortfolioPoint? {
+        if (timestamp == null || timestamp == points.lastOrNull()?.timestamp) return null
+        return points.firstOrNull { it.timestamp == timestamp }
+    }
+
     /** "3 transactions" on the chart, for its TalkBack summary; null for none. */
     fun spokenCount(points: List<PortfolioPoint>): String? =
         when (val count = points.sumOf { it.changes.size }) {
@@ -135,14 +152,6 @@ object PortfolioHistory {
         if (changes.size != 1) return pluralTr("%s transactions", changes.size)
         return describe(first)
     }
-
-    /**
-     * Under the value while a sample is selected: the transactions that
-     * landed on it, or else the XMR held then. iOS puts this and
-     * [eventTime] on one line; Android keeps the time in the label above.
-     */
-    fun scrubDetail(point: PortfolioPoint): String =
-        summary(point.changes) ?: "${XmrFormat.format(point.balance)} XMR"
 
     /** When a sample happened: a lone transaction gives its own time rather than the sample's. */
     fun eventTime(point: PortfolioPoint): Long =

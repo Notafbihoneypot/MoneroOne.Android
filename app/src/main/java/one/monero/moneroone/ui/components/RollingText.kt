@@ -35,7 +35,9 @@ fun RollingText(
     modifier: Modifier = Modifier,
     color: Color = Color.Unspecified,
     fontSize: TextUnit = TextUnit.Unspecified,
-    fontWeight: FontWeight? = null
+    fontWeight: FontWeight? = null,
+    /** iOS rolls briskly (0.1 s) while a finger scrubs a chart, 0.2 s for live changes. */
+    durationMillis: Int = Motion.DIGIT_MS
 ) {
     val tabular = style.copy(fontFeatureSettings = "tnum")
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -44,8 +46,8 @@ fun RollingText(
                 targetState = ch,
                 modifier = Modifier.clipToBounds(),
                 transitionSpec = {
-                    val spec = tween<Float>(Motion.DIGIT_MS, easing = FastOutSlowInEasing)
-                    val offset = tween<androidx.compose.ui.unit.IntOffset>(Motion.DIGIT_MS, easing = FastOutSlowInEasing)
+                    val spec = tween<Float>(durationMillis, easing = FastOutSlowInEasing)
+                    val offset = tween<androidx.compose.ui.unit.IntOffset>(durationMillis, easing = FastOutSlowInEasing)
                     if (targetState.isDigit() && initialState.isDigit()) {
                         val up = targetState > initialState
                         (slideInVertically(offset) { h -> if (up) h else -h } + fadeIn(spec))

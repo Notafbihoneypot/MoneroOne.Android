@@ -13,6 +13,14 @@ data class FiatTotals(val received: BigDecimal, val sent: BigDecimal)
 data class TransactionDetailField(val label: String, val value: String, val secret: Boolean = false)
 
 object TransactionHistoryLogic {
+    /**
+     * Transactions up to [asOfMs], inclusive, for a past moment picked in
+     * History; every transaction for null. Shared by recent activity and
+     * See All, so both stop at the same moment.
+     */
+    fun through(asOfMs: Long?, transactions: List<TransactionInfo>): List<TransactionInfo> =
+        if (asOfMs == null) transactions else transactions.filter { it.timestamp * 1000 <= asOfMs }
+
     fun filter(transactions: List<TransactionInfo>, filter: TransactionFilter, receivingIndex: Int?, query: String,
                addresses: List<ReceiveAddressRow>): List<TransactionInfo> = transactions.filter { tx ->
         val incoming = tx.direction == TransactionInfo.Direction.Direction_In
@@ -53,6 +61,42 @@ object TransactionHistoryLogic {
             if (incoming) received += value else sent += value
         }
         return FiatTotals(received, sent)
+    }
+
+    /**
+     * The subaddress an incoming transaction arrived on, for TalkBack on its
+     * row: null for sends and for the main address, so a wallet that uses
+     * one address keeps quiet rows. The detail screen always names it.
+     */
+    fun receivedOnName(tx: TransactionInfo, addresses: List<ReceiveAddressRow>): String? {
+        if (tx.direction != TransactionInfo.Direction.Direction_In || tx.accountIndex != 0 || tx.addressIndex == 0) return null
+        return addresses.firstOrNull { it.index == tx.addressIndex }?.name
+            ?: ReceiveAddressLogic.name(tx.addressIndex, tx.subaddressLabel.orEmpty())
+    }
+
+    /**
+     * What TalkBack says for a transaction row, in the order the row shows
+     * it (iOS TransactionAmountText.spoken): "Received 1.2345 XMR on
+     * Savings, worth $150.23 at the time, 5 minutes ago, Confirmed", or in
+     * Fiat Mode "Received $150.23 at the time, 1.2345 XMR on Savings, …".
+     */
+    fun rowLabel(tx: TransactionInfo, fiatMode: Boolean, fiatValue: String?, date: String, receivedOn: String?): String {
+        val incoming = tx.direction == TransactionInfo.Direction.Direction_In
+        val on = receivedOn?.let { tr(" on %s", it) }.orEmpty()
+        val amount = if (fiatMode && fiatValue != null) {
+            tr("%s at the time, %s XMR", fiatValue, XmrFormat.compact(tx.amount)) + on
+        } else {
+            "${XmrFormat.format(tx.amount)} XMR" + on + fiatValue?.let { tr(", worth %s at the time", it) }.orEmpty()
+        }
+        return "${tr(if (incoming) "Received" else "Sent")} $amount, $date, ${rowStatus(tx)}"
+    }
+
+    /** The status word a row shows beside its amount. */
+    private fun rowStatus(tx: TransactionInfo): String = when {
+        tx.isFailed -> tr("Failed")
+        tx.confirmations == 0L -> tr("Pending")
+        tx.confirmations < 10 -> tr("Locked")
+        else -> tr("Confirmed")
     }
 
     fun status(tx: TransactionInfo): String = when {

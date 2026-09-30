@@ -49,6 +49,32 @@ class TransactionHistoryLogicTest {
         assertEquals(listOf("abc"), fields.filter { it.secret }.map { it.value })
         assertTrue(TransactionHistoryLogic.details(tx(), emptyList(), "date", null, null, null).none { it.secret })
     }
+    @Test fun `through keeps what had happened by the moment picked`() {
+        val first = tx(index = 1).apply { timestamp = 100 }
+        val later = tx(index = 2).apply { timestamp = 200 }
+        assertEquals(listOf(first, later), TransactionHistoryLogic.through(null, listOf(first, later)))
+        assertEquals(listOf(first), TransactionHistoryLogic.through(150_000, listOf(first, later)))
+        // Inclusive: a transaction at the very moment picked is shown.
+        assertEquals(listOf(first, later), TransactionHistoryLogic.through(200_000, listOf(first, later)))
+        assertTrue(TransactionHistoryLogic.through(99_999, listOf(first, later)).isEmpty())
+    }
+    @Test fun `row label names the address that received it, and only a subaddress`() {
+        val onGifts = tx(index = 2, amount = 1_250_000_000_000)
+        val rows = ReceiveAddressLogic.rows(listOf(Subaddress(0, 2, "receive-address", "")), listOf(onGifts), mapOf(2 to "🎁 Gifts"))
+        assertEquals("🎁 Gifts", TransactionHistoryLogic.receivedOnName(onGifts, rows))
+        assertNull(TransactionHistoryLogic.receivedOnName(tx(index = 0), rows))
+        assertNull(TransactionHistoryLogic.receivedOnName(tx(false, 2), rows))
+        assertNull(TransactionHistoryLogic.receivedOnName(tx(index = 2).apply { accountIndex = 1 }, rows))
+        assertEquals(
+            "Received 1.2500 XMR on 🎁 Gifts, worth $187.50 at the time, Sep 28, Confirmed",
+            TransactionHistoryLogic.rowLabel(onGifts, false, "$187.50", "Sep 28", "🎁 Gifts")
+        )
+        assertTrue(
+            TransactionHistoryLogic.rowLabel(onGifts, true, "$187.50", "Sep 28", "🎁 Gifts")
+                .startsWith("Received $187.50 at the time, ")
+        )
+        assertEquals("Sent 1.2500 XMR, Sep 28, Confirmed", TransactionHistoryLogic.rowLabel(tx(false, amount = 1_250_000_000_000), false, null, "Sep 28", null))
+    }
     @Test fun `missing recipients are stated instead of substituted with our receive address`() {
         val fields = TransactionHistoryLogic.details(tx(false), emptyList(), "date", null, null, null)
         assertTrue(fields.single { it.label == "Recipient" }.value.contains("not available", ignoreCase = true))

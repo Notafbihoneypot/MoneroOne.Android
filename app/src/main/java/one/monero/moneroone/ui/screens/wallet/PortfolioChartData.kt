@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import io.horizontalsystems.monerokit.model.TransactionInfo
 
-/** Keep the wallet's ledger across chart mode switches, and reset it on a wallet change. */
+/** The wallet's ledger for balance history, rebuilt when the balance or its transactions change. */
 @Composable
 internal fun rememberBalanceLedger(balance: Long, transactions: List<TransactionInfo>, walletSessionId: Long): BalanceLedger =
     remember(balance, transactions, walletSessionId) {
