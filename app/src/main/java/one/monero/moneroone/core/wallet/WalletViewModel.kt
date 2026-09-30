@@ -122,6 +122,19 @@ internal object EmptyRestoreHint {
     }
 }
 
+/**
+ * The live price the wallet screens show. The app keeps one live price, as
+ * iOS PriceService does: each price the Price tab fetches (at start, on
+ * resume when stale, every five minutes) replaces the wallet's own. So when
+ * the wallet's fetch at launch fails, the balance card gets a price without
+ * a pull to refresh. Only a price in the selected currency is taken.
+ */
+internal object LivePrice {
+    /** What the wallet shows once the Price tab has [fetched] a price in [fetchedIn]; null while it waits for one. */
+    fun afterPriceTab(shown: CurrentPrice?, selected: Currency, fetched: CurrentPrice?, fetchedIn: Currency): CurrentPrice? =
+        if (fetched != null && fetchedIn == selected) fetched else shown
+}
+
 class DuplicateWalletException(val existingName: String) :
     Exception("This wallet is already added as \"$existingName\"")
 
@@ -484,6 +497,11 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             prefs.edit().putString("selected_currency", currency.code).apply()
         }
         fetchPrice()
+    }
+
+    /** The Price tab's price, [price] in [currency] ([LivePrice]). */
+    fun takePriceTabPrice(currency: Currency, price: CurrentPrice?) {
+        _currentPrice.value = LivePrice.afterPriceTab(_currentPrice.value, _selectedCurrency.value, price, currency)
     }
 
     // =========================================================================

@@ -67,6 +67,8 @@ import one.monero.moneroone.ui.screens.settings.ThemeScreen
 import one.monero.moneroone.ui.screens.settings.WidgetSettingsScreen
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.screens.chart.ChartViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 sealed class Screen(val route: String) {
     data object Welcome : Screen("welcome")
@@ -176,6 +178,16 @@ fun MoneroOneNavHost(
         } else {
             chartViewModel.stop()
         }
+    }
+
+    // One live price, as on iOS: the wallet screens take each price the Price
+    // tab fetches, so the balance card gets one on resume even when the
+    // wallet's own fetch at launch failed.
+    LaunchedEffect(chartViewModel, walletViewModel) {
+        chartViewModel.uiState
+            .map { it.currency to it.currentPrice }
+            .distinctUntilChanged()
+            .collect { (currency, price) -> walletViewModel.takePriceTabPrice(currency, price) }
     }
 
     // Check for auto-lock when app resumes
