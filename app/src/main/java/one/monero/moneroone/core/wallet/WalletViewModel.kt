@@ -765,14 +765,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
      * unreadable cache), not the node. These must never trigger node
      * failover, and during an add they mean the add failed.
      */
-    private fun isWalletLevelStartError(error: Throwable): Boolean {
-        val message = error.message ?: return false
-        return when (error) {
-            is MoneroKit.SyncError.StartError -> message.startsWith("Wallet recovery error")
-            is MoneroKit.SyncError.InvalidNode -> message == "Invalid wallet"
-            else -> false
-        }
-    }
+    private fun isWalletLevelStartError(error: Throwable): Boolean = SyncRecovery.isWalletLevel(error)
 
     /** The kit found wallet files but wallet2 could not load them (openWallet returned null). */
     private fun isUnloadableCacheError(error: Throwable): Boolean =
@@ -2183,10 +2176,22 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
      * Only that wallet's own kit, and never while a lifecycle transition owns
      * the kit: its teardown and reopen start the right one. A resume during a
      * switch or an add used to restart the kit being released.
+     *
+     * A wallet on a node error opens again, as iOS refresh() restarts a wallet
+     * in .error (SyncRecovery). A start of a running kit does nothing, and the
+     * kit can keep showing a failed refresh after the node answers again.
      */
     fun startWallet() {
         val active = _activeWallet.value ?: return
         if (walletMutationMutex.isLocked || WalletManager.currentWalletId != active.derivedWalletId) return
+        val syncState = _walletState.value.syncState
+        if (SyncRecovery.reopens(syncState)) {
+            Timber.d("startWallet: opening the wallet again after ${syncState.description}")
+            // The reopen tries this node again; a failover queued for the error would move off it.
+            failoverJob?.cancel()
+            refreshSync()
+            return
+        }
         viewModelScope.launch {
             try {
                 WalletManager.start()
