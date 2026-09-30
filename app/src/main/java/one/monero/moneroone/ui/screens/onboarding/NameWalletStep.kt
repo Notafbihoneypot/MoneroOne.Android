@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import one.monero.moneroone.ui.screens.wallet.EmojiPickerGrid
+import one.monero.moneroone.ui.screens.wallet.emojiCircleSemantics
 import one.monero.moneroone.ui.components.MoneroTextField
 import one.monero.moneroone.ui.components.PrimaryButton
 
@@ -60,7 +61,8 @@ fun NameWalletStep(
                 .size(96.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable { showEmojiPicker = !showEmojiPicker },
+                .clickable { showEmojiPicker = !showEmojiPicker }
+                .emojiCircleSemantics(emoji),
             contentAlignment = Alignment.Center
         ) {
             Text(text = emoji, fontSize = 44.sp)

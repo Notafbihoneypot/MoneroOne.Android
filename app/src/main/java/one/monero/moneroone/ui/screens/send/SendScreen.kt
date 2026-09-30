@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -78,6 +79,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -114,6 +117,7 @@ import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ShrinkToFitText
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MoneroOrange
+import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.TabularFigures
@@ -122,12 +126,16 @@ import one.monero.moneroone.ui.theme.truncateMiddle
 
 private enum class SendPhase { ADDRESS, AMOUNT, REVIEW, SENDING, SUCCESS, ERROR }
 
+/** Where Send's pre-filled amount came from; the amount step says which (iOS AmountPrefill). */
+enum class SendPrefillSource { QR_CODE, LINK }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendScreen(
     walletViewModel: WalletViewModel,
     initialAddress: String? = null,
     initialAmount: String? = null,
+    prefillSource: SendPrefillSource? = null,
     onBack: () -> Unit,
     onScanQr: () -> Unit,
     onSent: () -> Unit
@@ -154,9 +162,11 @@ fun SendScreen(
         parsed > 0 && parsed <= walletState.balance.unlocked
     }
 
-    // Determine starting phase based on pre-fill
+    // Determine starting phase based on pre-fill. A payment link stops on
+    // the amount step, never the review: it is someone else's text, so the
+    // user confirms the amount first (iOS SendFlowView.apply).
     val startPhase = when {
-        prefilledAddress != null && prefillCoveredByBalance -> SendPhase.REVIEW
+        prefilledAddress != null && prefillCoveredByBalance && prefillSource != SendPrefillSource.LINK -> SendPhase.REVIEW
         prefilledAddress != null -> SendPhase.AMOUNT
         else -> SendPhase.ADDRESS
     }
@@ -293,6 +303,7 @@ fun SendScreen(
                         unlockedBalance = walletState.balance.unlocked,
                         parseXmr = walletViewModel::parseXmr,
                         amountPrefilledFromQR = amountPrefilledFromQR,
+                        prefillSource = prefillSource,
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
                         memo = memo,
@@ -384,6 +395,8 @@ private fun AddressPhase(
     onContinue: () -> Unit
 ) {
     val isValid = address.isNotEmpty() && isValidMoneroAddress(address)
+    // iOS SendAddressStep: no sending while offline (canContinue needs a network).
+    val isOnline by NetworkMonitor.isConnected.collectAsState()
     val clipboardManager = LocalClipboardManager.current
 
     // Entrance animation
@@ -407,6 +420,35 @@ private fun AddressPhase(
             .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() }
     ) {
         Spacer(modifier = Modifier.height(16.dp))
+
+        // iOS ErrorBanner(.offline) at the top of the step: gray tint, label
+        // text, 24 above the field. It appears without an animation, as on iOS.
+        if (!isOnline) {
+            val gray = MoneroTheme.colors.gray
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(gray.copy(alpha = 0.1f))
+                    .padding(16.dp)
+                    .clearAndSetSemantics { contentDescription = tr("Offline: no internet connection") },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = null,
+                    tint = gray,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = tr("No internet connection. Cannot send."),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
 
         Text(
             text = tr("Recipient Address"),
@@ -479,7 +521,7 @@ private fun AddressPhase(
         PrimaryButton(
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth(),
-            enabled = isValid
+            enabled = isValid && isOnline
         ) {
             Text(tr("Continue"))
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -503,6 +545,7 @@ private fun AmountPhase(
     unlockedBalance: Long,
     parseXmr: (String) -> Long,
     amountPrefilledFromQR: Boolean,
+    prefillSource: SendPrefillSource?,
     xmrPrice: Double?,
     currencySymbol: String,
     memo: String,
@@ -546,15 +589,21 @@ private fun AmountPhase(
             .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // QR warning
-        if (amountPrefilledFromQR) {
+        // Where the amount came from (iOS SendAmountStep); the donation's
+        // suggested amount has no note, as on iOS.
+        val prefillNote = when (prefillSource) {
+            SendPrefillSource.QR_CODE -> tr("Amount pre-filled from QR code")
+            SendPrefillSource.LINK -> tr("Amount pre-filled from payment link")
+            null -> null
+        }
+        if (amountPrefilledFromQR && prefillNote != null) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 8.dp)
             ) {
                 Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(14.dp))
-                Text(tr("Amount pre-filled from QR code"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(prefillNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 

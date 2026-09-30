@@ -75,9 +75,13 @@ import timber.log.Timber
 import java.util.concurrent.Executors
 
 /** Native checksum validation is shared by scanning and external payment links. */
-fun parseMoneroUri(uri: String): MoneroUriData? = parsePaymentRequest(uri) { address ->
+fun parseMoneroUri(uri: String): MoneroUriData? = parsePaymentRequest(uri, ::isKitValidAddress)
+
+/** [parseMoneroUri] with the reason for a refusal, for payment links. */
+fun readMoneroUri(uri: String): PaymentRequestResult = readPaymentRequest(uri, ::isKitValidAddress)
+
+private fun isKitValidAddress(address: String): Boolean =
     try { MoneroKit.validateAddress(address); true } catch (_: Exception) { false }
-}
 
 /**
  * ML Kit barcode analyzer for QR codes.

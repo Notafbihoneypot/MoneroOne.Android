@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,13 +49,16 @@ import io.horizontalsystems.monerokit.SyncState
 import one.monero.moneroone.core.service.WalletSyncService
 import one.monero.moneroone.core.util.rememberNotificationPermission
 import one.monero.moneroone.core.wallet.WalletViewModel
+import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.MoneroSwitch
+import one.monero.moneroone.ui.components.RestoreDateRange
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.SystemFill
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.ErrorRed
+import one.monero.moneroone.ui.theme.formatHeight
 import io.horizontalsystems.monerokit.util.RestoreHeight
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -319,7 +323,9 @@ fun SyncSettingsScreen(
         Spacer(modifier = Modifier.height(32.dp))
     }
 
-    // Date Picker Dialog
+    // Date Picker Dialog: iOS's Restore Height sheet. Genesis through today
+    // (the genesis day scans everything, iOS's only "from the beginning"),
+    // Cancel closes it, and Update Restore Height asks first.
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = if (restoreDateMillis > 0L) {
@@ -327,9 +333,13 @@ fun SyncSettingsScreen(
             } else if (restoreHeight > 0) {
                 restoreHeightToDate(restoreHeight).time
             } else {
-                System.currentTimeMillis()
-            }
+                RestoreDateRange.todayMillis()
+            },
+            yearRange = RestoreDateRange.years(),
+            selectableDates = RestoreDateRange
         )
+        // The height the confirmation shows; null while it is not up.
+        var pendingHeight by remember { mutableStateOf<Long?>(null) }
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -337,30 +347,45 @@ fun SyncSettingsScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { dateMillis ->
-                            val newHeight = dateToRestoreHeight(dateMillis)
-                            walletViewModel.setRestoreHeight(newHeight, dateMillis)
-                            walletViewModel.resetSync()
+                            pendingHeight = dateToRestoreHeight(dateMillis)
                         }
-                        showDatePicker = false
-                    }
+                    },
+                    enabled = datePickerState.selectedDateMillis != null
                 ) {
                     Text(tr("OK"), color = MoneroOrange)
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        // Clear / scan from beginning
-                        walletViewModel.setRestoreHeight(0L, 0L)
-                        walletViewModel.resetSync()
-                        showDatePicker = false
-                    }
-                ) {
-                    Text(tr("Scan All"))
+                DismissTextButton(onClick = { showDatePicker = false }) {
+                    Text(tr("Cancel"))
                 }
             }
         ) {
             DatePicker(state = datePickerState)
+        }
+
+        pendingHeight?.let { newHeight ->
+            AlertDialog(
+                onDismissRequest = { pendingHeight = null },
+                title = { Text(tr("Update Restore Height?")) },
+                text = { Text(tr("Scanning restarts at block %s. Earlier transactions won't be found.", formatHeight(newHeight))) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val dateMillis = datePickerState.selectedDateMillis ?: return@TextButton
+                        pendingHeight = null
+                        showDatePicker = false
+                        walletViewModel.setRestoreHeight(newHeight, dateMillis)
+                        walletViewModel.resetSync()
+                    }) {
+                        Text(tr("Update"))
+                    }
+                },
+                dismissButton = {
+                    DismissTextButton(onClick = { pendingHeight = null }) {
+                        Text(tr("Cancel"))
+                    }
+                }
+            )
         }
     }
 }

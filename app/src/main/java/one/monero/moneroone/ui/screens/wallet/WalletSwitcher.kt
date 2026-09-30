@@ -53,6 +53,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -596,7 +598,8 @@ fun RenameWalletSheet(
                     .size(72.dp)
                     .clip(CircleShape)
                     .background(CellFill)
-                    .clickable { showEmojiPicker = !showEmojiPicker },
+                    .clickable { showEmojiPicker = !showEmojiPicker }
+                    .emojiCircleSemantics(emoji),
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = emoji, fontSize = 36.sp)
@@ -666,11 +669,43 @@ fun EmojiPickerGrid(
                         if (candidate == selected) MoneroOrange.copy(alpha = 0.15f)
                         else androidx.compose.ui.graphics.Color.Transparent
                     )
-                    .clickable { onSelect(candidate) },
+                    .clickable { onSelect(candidate) }
+                    // iOS: the emoji's name, a button, selected when chosen.
+                    .clearAndSetSemantics {
+                        contentDescription = emojiSpokenName(candidate)
+                        role = Role.Button
+                        this.selected = candidate == selected
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = candidate, fontSize = 20.sp)
             }
         }
     }
+}
+
+/**
+ * TalkBack for the emoji circle that opens the picker, as VoiceOver reads
+ * iOS's EmojiPickerCircle: "Icon, money bag", a button.
+ */
+fun Modifier.emojiCircleSemantics(emoji: String): Modifier = clearAndSetSemantics {
+    contentDescription = tr("Icon, %s", emojiSpokenName(emoji))
+    role = Role.Button
+}
+
+/**
+ * An emoji's Unicode name, lowercased ("money bag"), as iOS speaks it
+ * (EmojiPickerSheet.spokenName): one name per code point, variation
+ * selectors left out, "icon" when there is no name.
+ */
+fun emojiSpokenName(emoji: String): String {
+    val names = mutableListOf<String>()
+    var index = 0
+    while (index < emoji.length) {
+        val codePoint = emoji.codePointAt(index)
+        index += Character.charCount(codePoint)
+        val name = Character.getName(codePoint)?.lowercase(java.util.Locale.ROOT) ?: continue
+        if (!name.startsWith("variation selector")) names += name
+    }
+    return if (names.isEmpty()) "icon" else names.joinToString(" ")
 }

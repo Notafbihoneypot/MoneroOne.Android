@@ -28,5 +28,17 @@ class TransactionDetailsUiTest {
         rule.onNodeWithText("test-recipient").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText(tr("Copy All Details")).performScrollTo().performClick()
         assertEquals(TransactionHistoryLogic.copyAll(fields), copied)
+        // Only an incoming payment has a sender to hide.
+        rule.onNodeWithText(tr("Sender address hidden by Monero privacy")).assertDoesNotExist()
+    }
+
+    @Test fun incomingPaymentSaysTheSenderIsHidden() {
+        val tx = TransactionInfo(0, false, false, 1000000000000, 0, 3000000,
+            "incoming-hash", 1790611200, "", 0, 1, 12, 0, "", emptyList())
+        val fields = TransactionHistoryLogic.details(tx, emptyList(), "Sep 28, 2026", null, null, null)
+        rule.setContent { MoneroOneTheme {
+            TransactionDetailsContent(tx, fields, {}, {}, {}, {}, false, false, {})
+        } }
+        rule.onNodeWithText(tr("Sender address hidden by Monero privacy")).performScrollTo().assertIsDisplayed()
     }
 }
