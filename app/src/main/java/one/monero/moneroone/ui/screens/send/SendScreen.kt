@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -78,6 +79,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -114,6 +117,7 @@ import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ShrinkToFitText
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MoneroOrange
+import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.TabularFigures
@@ -384,6 +388,8 @@ private fun AddressPhase(
     onContinue: () -> Unit
 ) {
     val isValid = address.isNotEmpty() && isValidMoneroAddress(address)
+    // iOS SendAddressStep: no sending while offline (canContinue needs a network).
+    val isOnline by NetworkMonitor.isConnected.collectAsState()
     val clipboardManager = LocalClipboardManager.current
 
     // Entrance animation
@@ -407,6 +413,35 @@ private fun AddressPhase(
             .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() }
     ) {
         Spacer(modifier = Modifier.height(16.dp))
+
+        // iOS ErrorBanner(.offline) at the top of the step: gray tint, label
+        // text, 24 above the field. It appears without an animation, as on iOS.
+        if (!isOnline) {
+            val gray = MoneroTheme.colors.gray
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(gray.copy(alpha = 0.1f))
+                    .padding(16.dp)
+                    .clearAndSetSemantics { contentDescription = tr("Offline: no internet connection") },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = null,
+                    tint = gray,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = tr("No internet connection. Cannot send."),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
 
         Text(
             text = tr("Recipient Address"),
@@ -479,7 +514,7 @@ private fun AddressPhase(
         PrimaryButton(
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth(),
-            enabled = isValid
+            enabled = isValid && isOnline
         ) {
             Text(tr("Continue"))
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
