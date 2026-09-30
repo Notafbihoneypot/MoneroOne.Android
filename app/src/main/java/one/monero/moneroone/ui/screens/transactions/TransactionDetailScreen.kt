@@ -13,11 +13,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -122,6 +124,16 @@ internal fun TransactionDetailsContent(
                         if (index != fields.lastIndex) HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
+            }
+            // iOS TransactionDetailView: the sender of an incoming payment is never known.
+            if (incoming) Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp).semantics(mergeDescendants = true) {},
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Outlined.Shield, null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
+                Text(tr("Sender address hidden by Monero privacy"), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (!incoming && fields.none { it.secret }) {
                 TextButton(onClick = onShowKey, enabled = !keyLoading, modifier = Modifier.fillMaxWidth()) {
