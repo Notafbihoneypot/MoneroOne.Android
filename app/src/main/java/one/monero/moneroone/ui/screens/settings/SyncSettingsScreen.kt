@@ -190,10 +190,15 @@ fun SyncSettingsScreen(
             }
         }
 
-        // Background Sync Section
-        SettingsSectionHeader(tr("Background Sync"))
+        // Connection section: the Remote Node row, as on iOS
+        SettingsSectionHeader(tr("Connection"))
 
-        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onNodeSettingsClick,
+            cornerRadius = 16.dp,
+            shadow = false
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,33 +206,23 @@ fun SyncSettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.Sync,
+                    imageVector = Icons.Default.Cloud,
                     contentDescription = null,
                     tint = MoneroOrange,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    text = tr("Sync in Background"),
+                    text = tr("Remote Node"),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                MoneroSwitch(
-                    checked = backgroundSyncEnabled,
-                    onCheckedChange = { enabled ->
-                        if (enabled && !hasNotificationPermission) {
-                            requestNotificationPermission()
-                        }
-                        backgroundSyncEnabled = enabled
-                        prefs.edit().putBoolean("background_sync_enabled", enabled).apply()
-                        if (enabled) {
-                            WalletSyncService.start(context)
-                        } else {
-                            WalletSyncService.stop(context)
-                        }
-                    }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MoneroTheme.colors.labelTertiary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -284,15 +279,11 @@ fun SyncSettingsScreen(
             }
         }
 
-        // Connection section: the Remote Node row, as on iOS
-        SettingsSectionHeader(tr("Connection"))
+        // Background Sync section: last, where iOS has its background
+        // sync section (Trusted Locations)
+        SettingsSectionHeader(tr("Background Sync"))
 
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onNodeSettingsClick,
-            cornerRadius = 16.dp,
-            shadow = false
-        ) {
+        GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -300,23 +291,33 @@ fun SyncSettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.Cloud,
+                    imageVector = Icons.Default.Sync,
                     contentDescription = null,
                     tint = MoneroOrange,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    text = tr("Remote Node"),
+                    text = tr("Sync in Background"),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f)
                 )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MoneroTheme.colors.labelTertiary,
-                    modifier = Modifier.size(20.dp)
+                Spacer(modifier = Modifier.width(8.dp))
+                MoneroSwitch(
+                    checked = backgroundSyncEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled && !hasNotificationPermission) {
+                            requestNotificationPermission()
+                        }
+                        backgroundSyncEnabled = enabled
+                        prefs.edit().putBoolean("background_sync_enabled", enabled).apply()
+                        if (enabled) {
+                            WalletSyncService.start(context)
+                        } else {
+                            WalletSyncService.stop(context)
+                        }
+                    }
                 )
             }
         }
