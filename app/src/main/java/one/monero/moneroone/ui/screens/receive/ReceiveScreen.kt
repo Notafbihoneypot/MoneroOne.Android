@@ -52,6 +52,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -143,9 +144,11 @@ fun ReceiveScreen(
         ReceiveAddressLogic.unusedAfterLastUsed(addressRows) < ReceiveAddressLogic.STOP_THRESHOLD
     val canShareAddress = address.isNotBlank() && !keysUnavailable
 
-    var requestAmount by remember { mutableStateOf("") }
-    var isFiatMode by remember { mutableStateOf(false) }
-    var fiatAmount by remember { mutableStateOf("") }
+    // Saved with the screen's back stack entry, so the amount stays through a
+    // trip to the address picker, as on iOS.
+    var requestAmount by rememberSaveable { mutableStateOf("") }
+    var isFiatMode by rememberSaveable { mutableStateOf(false) }
+    var fiatAmount by rememberSaveable { mutableStateOf("") }
     val currentPrice by walletViewModel.currentPrice.collectAsState()
     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
     val xmrPrice = currentPrice?.price
