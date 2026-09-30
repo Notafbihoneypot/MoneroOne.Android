@@ -110,7 +110,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /** Banner slide and fade (tokens.json motion.curves.banner). */
-private const val BannerMs = 350
+internal const val BannerMs = 350
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,6 +133,7 @@ fun WalletScreen(
     val wallets by walletViewModel.wallets.collectAsState()
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     val walletSessionId by walletViewModel.walletSessionId.collectAsState()
+    val showsRestoreHint by walletViewModel.showsEmptyRestoreHint.collectAsState()
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
     val isOnline by NetworkMonitor.isConnected.collectAsState()
@@ -239,6 +240,12 @@ fun WalletScreen(
                     )
                 }
             }
+
+            RestoreHeightHint(
+                visible = showsRestoreHint,
+                restoreHeight = activeWallet?.restoreHeight ?: 0L,
+                onDismiss = walletViewModel::dismissEmptyRestoreHint
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
