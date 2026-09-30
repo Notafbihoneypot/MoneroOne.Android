@@ -5,6 +5,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -14,6 +16,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.horizontalsystems.monerokit.SyncState
 import one.monero.moneroone.core.locale.tr
@@ -156,9 +159,52 @@ class BalanceHistoryCardTest {
         }
     }
 
+    /**
+     * A tap anywhere on the card opens History and closes it back at now,
+     * as the History button does (iOS testTappingTheCardTogglesHistory).
+     * In the open History a tap is the chart's: the line picks a time, and
+     * the date line does nothing.
+     */
+    @Test
+    fun tappingTheCardTogglesHistory() {
+        showCard()
+        // The Monero logo, at the start of the balance row.
+        rule.onNodeWithTag("wallet.balanceValue").performTouchInput { click(Offset(24.dp.toPx(), height / 2f)) }
+        rule.waitUntil(5_000) { model.shown?.range == state.range }
+        rule.waitForIdle()
+        rule.runOnIdle { assertTrue("the logo opens History", state.expanded) }
+
+        rule.onNodeWithTag("wallet.historyChart").performTouchInput { click(Offset(width * 0.4f, height / 2f)) }
+        rule.waitForIdle()
+        val picked = state.timestamp
+        assertNotNull("a tap on the chart picks a time", picked)
+        rule.runOnIdle { assertTrue("a tap on the chart leaves History open", state.expanded) }
+
+        rule.onNodeWithTag("wallet.historyDate").performClick()
+        rule.runOnIdle {
+            assertTrue("a tap on the date line leaves History open", state.expanded)
+            assertEquals("a tap on the date line keeps the time", picked, state.timestamp)
+        }
+
+        rule.onNodeWithText(tr("Historical balance")).performClick()
+        rule.runOnIdle {
+            assertFalse("a tap on the status row closes History", state.expanded)
+            assertNull("closing returns to now", state.timestamp)
+        }
+
+        // The card's bottom margin.
+        rule.onNodeWithTag("wallet.balanceCard").performTouchInput { click(Offset(width / 2f, height - 12.dp.toPx())) }
+        rule.runOnIdle { assertTrue("a tap on the card's margin opens History again", state.expanded) }
+        rule.onNodeWithTag("wallet.balanceValue").performClick()
+        rule.runOnIdle { assertFalse("a tap on the amount closes History", state.expanded) }
+    }
+
     @Test
     fun talkBackOpensAndClosesHistoryFromTheBalance() {
         showCard()
+        // The card's tap is one action on the balance; the card is no button.
+        assertEquals(listOf(tr("Show history")), balanceActions())
+        rule.onNodeWithTag("wallet.balanceCard").assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick))
         val toggle = rule.onNodeWithTag("wallet.historyToggle")
         assertEquals(tr("Collapsed"), toggle.fetchSemanticsNode().config[SemanticsProperties.StateDescription])
         balanceAction(tr("Show history")).action()
@@ -188,6 +234,10 @@ class BalanceHistoryCardTest {
     private fun balanceDescription(): String =
         rule.onNodeWithTag("wallet.balanceValue").fetchSemanticsNode()
             .config[SemanticsProperties.ContentDescription].single()
+
+    private fun balanceActions(): List<String> =
+        rule.onNodeWithTag("wallet.balanceValue").fetchSemanticsNode()
+            .config[SemanticsActions.CustomActions].map { it.label }
 
     private fun balanceAction(label: String) =
         rule.onNodeWithTag("wallet.balanceValue").fetchSemanticsNode()

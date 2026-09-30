@@ -19,6 +19,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.shape.GenericShape
@@ -591,9 +593,16 @@ internal fun BalanceCard(
         }
     }
 
+    val currentToggle by rememberUpdatedState(toggleHistory)
     GlassCard(modifier = Modifier.fillMaxWidth().testTag("wallet.balanceCard")) {
         Column(
-            modifier = Modifier.padding(24.dp)
+            // A tap anywhere on the card opens and closes History, as the
+            // History button does. The buttons keep their own taps, the open
+            // History keeps its taps and scrub, and a drag still scrolls.
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) { detectTapGestures { currentToggle() } }
+                .padding(24.dp)
         ) {
             // Status row. The past covers the sync status without replacing
             // it, so the row keeps its height while scrubbing.
@@ -642,8 +651,6 @@ internal fun BalanceCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Balance row with the Monero logo on the left (matching iOS).
-            // The amount and the space beside it open and close History, as
-            // the History button does; a drag that starts here still scrolls.
             Row(
                 modifier = Modifier
                     .testTag("wallet.balanceValue")
@@ -662,12 +669,10 @@ internal fun BalanceCard(
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                val currentToggle by rememberUpdatedState(toggleHistory)
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .defaultMinSize(minHeight = 44.dp)
-                        .pointerInput(Unit) { detectTapGestures { currentToggle() } },
+                        .defaultMinSize(minHeight = 44.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {
                     // One height for every amount, so the card does not
@@ -878,6 +883,15 @@ private fun HistoryReveal(expanded: Boolean, onMounted: () -> Unit, content: @Co
                 shape = clip
                 alpha = reveal.value.coerceIn(0f, 1f)
             }
+            // A tap on the open History is the chart's: after the chart, Now
+            // and the ranges see it, it stops here, so a near miss does not
+            // reach the card and close History. Only while open: closed, this
+            // 0 dp box would still catch taps within the 48 dp touch target.
+            .then(
+                if (expanded) Modifier.pointerInput(Unit) {
+                    awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() }
+                } else Modifier
+            )
             .layout { measurable, constraints ->
                 val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
                 val height = (placeable.height * reveal.value).roundToInt().coerceAtLeast(0)
