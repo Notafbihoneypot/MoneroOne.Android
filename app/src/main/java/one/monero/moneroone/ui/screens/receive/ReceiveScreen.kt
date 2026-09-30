@@ -8,15 +8,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import one.monero.moneroone.core.wallet.ReceiveAddressLogic
-import androidx.compose.foundation.layout.aspectRatio
 import java.util.Locale
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,7 +48,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,15 +55,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -81,14 +73,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.core.wallet.addressesOf
-import androidx.compose.ui.graphics.toArgb
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
-import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.toBitmap
-import one.monero.moneroone.R
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
@@ -97,7 +81,19 @@ import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.truncateMiddle
-import one.monero.moneroone.ui.theme.withNightMode
+import android.view.HapticFeedbackConstants
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import one.monero.moneroone.ui.components.FocusableQrPlate
+import one.monero.moneroone.ui.components.QrFocusContainer
+import one.monero.moneroone.ui.components.QrFocusItem
+import one.monero.moneroone.ui.components.QrRecedeEdge
+import one.monero.moneroone.ui.components.qrFocusRecede
+import one.monero.moneroone.ui.components.rememberSaveQrToPhotos
+import one.monero.moneroone.ui.components.rememberShareQr
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +105,7 @@ fun ReceiveScreen(
     val walletState by walletViewModel.walletState.collectAsState()
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     val context = LocalContext.current
+    val view = LocalView.current
 
     val selectedAddressIndex = walletState.receiveIndex
     val scope = rememberCoroutineScope()
@@ -149,46 +146,36 @@ fun ReceiveScreen(
     val xmrPrice = currentPrice?.price
     val currencySymbol = selectedCurrency.symbol
 
-    val qrData = remember(address, requestAmount) {
-        if (address.isBlank()) ""
-        else if (requestAmount.isBlank()) address
-        else "monero:$address?tx_amount=$requestAmount"
-    }
-
-    // Match the full payment request: an old address or amount must not remain
-    // visible while the replacement QR code is generated off the main thread.
-    var qrCode by remember { mutableStateOf<Pair<String, Bitmap>?>(null) }
-    LaunchedEffect(qrData) {
-        if (qrData.isNotBlank()) {
-            val encodedRequest = qrData
-            val bitmap = withContext(Dispatchers.Default) {
-                generateQRCode(qrData, 1024, context)
-            }
-            qrCode = bitmap?.let { encodedRequest to it }
-        } else {
-            qrCode = null
+    // A monero: URI rather than the bare address, so other wallets and the
+    // camera offer to open it (iOS ReceiveView.qrContent). Copy still copies
+    // the bare address.
+    val requestedXmr = remember(requestAmount) { requestAmount.toBigDecimalOrNull()?.takeIf { it.signum() > 0 } }
+    val qrContent = remember(address, requestedXmr, canShareAddress) {
+        when {
+            !canShareAddress -> ""
+            requestedXmr != null -> "monero:$address?tx_amount=${requestedXmr.stripTrailingZeros().toPlainString()}"
+            else -> "monero:$address"
         }
     }
-    val qrBitmap = qrCode?.takeIf { it.first == qrData && canShareAddress }?.second
+    val saveQr = rememberSaveQrToPhotos()
+    val shareQr = rememberShareQr()
+    var qrMenu by remember { mutableStateOf(false) }
 
     // Copy and Share act only on a shown address (iOS disables both without one).
     val copyAddress = {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val copyText = if (requestAmount.isNotBlank()) qrData else address
-        val clip = ClipData.newPlainText(tr("Monero Address"), copyText)
+        val clip = ClipData.newPlainText(tr("Monero Address"), address)
         clipboard.setPrimaryClip(clip)
         Toast.makeText(context, tr("Copied to clipboard"), Toast.LENGTH_SHORT).show()
     }
+    // The code's image and a line to send with it (iOS shareItems).
     val shareAddress = {
-        val shareText = if (requestAmount.isNotBlank()) qrData else address
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, shareText)
-        }
-        context.startActivity(Intent.createChooser(intent, tr("Share Address")))
+        shareQr(qrContent,
+            if (requestedXmr != null) tr("Send me %s XMR at this address:\n\n%s", requestAmount, address)
+            else tr("Send me Monero (XMR) at this address:\n\n%s", address))
     }
 
-    QrFocusContainer(qrBitmap, qrData) { qrModifier, expandQr ->
+    QrFocusContainer { focus ->
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0.dp),
@@ -222,40 +209,59 @@ fun ReceiveScreen(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            // QR Code
-            GlassCard(
-                modifier = Modifier.size(280.dp).clickable(enabled = qrBitmap != null) { expandQr() },
-                cornerRadius = 20.dp
-            ) {
+            // The code on its plate; a tap grows it into focus mode (iOS FocusableQRPlate).
+            if (keysUnavailable) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(20.dp),
+                    Modifier.size(280.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(20.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    val bitmap = qrBitmap
-                    if (keysUnavailable) {
-                        KeysUnavailableMessage()
-                    } else if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = tr("QR Code"),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .then(qrModifier)
-                                .clip(RoundedCornerShape(12.dp))
+                    KeysUnavailableMessage(Modifier.padding(horizontal = 8.dp))
+                }
+            } else if (qrContent.isNotEmpty()) {
+                Box {
+                    FocusableQrPlate(
+                        item = QrFocusItem(qrContent, addressLabel, requestedXmr),
+                        side = 280.dp,
+                        focus = focus,
+                        label = tr("QR code for receiving Monero"),
+                        onLongClick = {
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            qrMenu = true
+                        },
+                        actions = listOf(
+                            CustomAccessibilityAction(tr("Save to Photos")) { saveQr(qrContent); true },
+                            CustomAccessibilityAction(tr("Share QR Code")) { shareQr(qrContent, null); true }
                         )
-                    } else {
-                        Text(
-                            text = tr("Generating..."),
-                            style = MaterialTheme.typography.bodyMedium
+                    )
+                    DropdownMenu(expanded = qrMenu, onDismissRequest = { qrMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(tr("Save to Photos")) },
+                            leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) },
+                            onClick = { qrMenu = false; saveQr(qrContent) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(tr("Share QR Code")) },
+                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+                            onClick = { qrMenu = false; shareQr(qrContent, null) }
                         )
                     }
+                }
+            } else {
+                Box(
+                    Modifier.size(280.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(20.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MoneroOrange)
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Everything under the code steps back toward the bottom in focus mode.
+            Column(
+                Modifier.fillMaxWidth().qrFocusRecede(focus, QrRecedeEdge.Bottom),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             // "Request Amount (optional)" label row with currency toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -453,6 +459,7 @@ fun ReceiveScreen(
                     }
                 }
             }
+            }
 
             Spacer(modifier = Modifier.height(40.dp))
         }
@@ -494,70 +501,4 @@ internal fun KeysUnavailableMessage(modifier: Modifier = Modifier) {
             textAlign = TextAlign.Center
         )
     }
-}
-
-private fun generateQRCode(data: String, size: Int, context: Context): Bitmap? {
-    return try {
-        val hints = mapOf(
-            EncodeHintType.MARGIN to 1,
-            EncodeHintType.CHARACTER_SET to "UTF-8",
-            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H // High error correction for logo overlay
-        )
-        val writer = QRCodeWriter()
-        val bitMatrix = writer.encode(data, BarcodeFormat.QR_CODE, size, size, hints)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        for (x in 0 until size) {
-            for (y in 0 until size) {
-                bitmap.setPixel(
-                    x, y,
-                    if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
-                )
-            }
-        }
-
-        // Add Monero logo overlay in center (22% of QR size)
-        addMoneroLogoOverlay(bitmap, context)
-    } catch (e: Exception) {
-        null
-    }
-}
-
-private fun addMoneroLogoOverlay(qrBitmap: Bitmap, context: Context): Bitmap {
-    val size = qrBitmap.width
-    val logoSize = (size * 0.22).toInt()
-    val radius = logoSize / 2f
-
-    val result = qrBitmap.copy(Bitmap.Config.ARGB_8888, true)
-    val canvas = android.graphics.Canvas(result)
-    val cx = size / 2f
-    val cy = size / 2f
-
-    // White circle background (slightly larger for border)
-    val bgPaint = android.graphics.Paint().apply {
-        isAntiAlias = true
-        color = android.graphics.Color.WHITE
-    }
-    canvas.drawCircle(cx, cy, radius + 4f, bgPaint)
-
-    // Draw logo into a circle-clipped bitmap. The disc is white in both modes,
-    // so take the day art (its plate is white; the night plate is black).
-    val logoDrawable = ContextCompat.getDrawable(context.withNightMode(false), R.drawable.monero_logo) ?: return result
-    val clipped = Bitmap.createBitmap(logoSize, logoSize, Bitmap.Config.ARGB_8888)
-    val clipCanvas = android.graphics.Canvas(clipped)
-
-    // Circle clip mask
-    val maskPaint = android.graphics.Paint().apply { isAntiAlias = true }
-    clipCanvas.drawCircle(radius, radius, radius, maskPaint)
-    maskPaint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
-
-    // Draw the drawable centered, filling the circle
-    val logoBitmap = Bitmap.createBitmap(logoSize, logoSize, Bitmap.Config.ARGB_8888)
-    val logoCanvas = android.graphics.Canvas(logoBitmap)
-    logoDrawable.setBounds(0, 0, logoSize, logoSize)
-    logoDrawable.draw(logoCanvas)
-    clipCanvas.drawBitmap(logoBitmap, 0f, 0f, maskPaint)
-
-    // Place centered on QR
-    canvas.drawBitmap(clipped, cx - radius, cy - radius, null)
-    return result
 }

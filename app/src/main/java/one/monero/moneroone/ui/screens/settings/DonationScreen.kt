@@ -4,11 +4,8 @@ import one.monero.moneroone.core.locale.tr
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.graphics.Bitmap
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,7 +19,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -44,31 +40,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.toBitmap
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
-import one.monero.moneroone.R
+import one.monero.moneroone.ui.components.FocusableQrPlate
 import one.monero.moneroone.ui.components.GlassCard
+import one.monero.moneroone.ui.components.QrFocusContainer
+import one.monero.moneroone.ui.components.QrFocusItem
+import one.monero.moneroone.ui.components.QrRecedeEdge
+import one.monero.moneroone.ui.components.qrFocusRecede
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.SuccessGreen
-import one.monero.moneroone.ui.theme.withNightMode
 
 private const val DONATION_ADDRESS = "86AWuSFkMKCNp4e7dWho3CBvFpvAzj8hnZNWM9fedD5LKb2mXVfnmH9XuDD9zYqzzR6LAFxUSsdGTVUDABzcgjMfFVfBHpP"
 private const val SUGGESTED_DONATION_AMOUNT = "0.25"
@@ -89,13 +78,7 @@ fun DonationScreen(
         }
     }
 
-    var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(Unit) {
-        qrBitmap = withContext(Dispatchers.Default) {
-            generateDonationQRCode(DONATION_ADDRESS, 512, context)
-        }
-    }
-
+    QrFocusContainer { focus ->
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0.dp),
@@ -129,6 +112,11 @@ fun DonationScreen(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
+            // The header steps back toward the top in focus mode (iOS DonationView).
+            Column(
+                Modifier.qrFocusRecede(focus, QrRecedeEdge.Top),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             // Heart in the brand orange, as on iOS
             Icon(
                 imageVector = Icons.Default.Favorite,
@@ -153,39 +141,21 @@ fun DonationScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // QR Code
-            GlassCard(
-                modifier = Modifier.size(280.dp),
-                cornerRadius = 20.dp
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(20.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val bitmap = qrBitmap
-                    if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = tr("Donation QR Code"),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(12.dp))
-                        )
-                    } else {
-                        Text(
-                            text = tr("Generating..."),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
+            // The code on its plate; a tap grows it into focus mode.
+            FocusableQrPlate(
+                item = QrFocusItem("monero:$DONATION_ADDRESS", tr("Donate")),
+                side = 240.dp,
+                focus = focus
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            // The address and the buttons step back toward the bottom.
+            Column(Modifier.fillMaxWidth().qrFocusRecede(focus, QrRecedeEdge.Bottom)) {
 
             // Address display: iOS radius-12 card on the fill
             GlassCard(
@@ -254,68 +224,10 @@ fun DonationScreen(
                     Text(text = tr("Send XMR"))
                 }
             }
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
-}
-
-private fun generateDonationQRCode(data: String, size: Int, context: Context): Bitmap? {
-    return try {
-        val hints = mapOf(
-            EncodeHintType.MARGIN to 1,
-            EncodeHintType.CHARACTER_SET to "UTF-8",
-            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H
-        )
-        val writer = QRCodeWriter()
-        val bitMatrix = writer.encode(data, BarcodeFormat.QR_CODE, size, size, hints)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        for (x in 0 until size) {
-            for (y in 0 until size) {
-                bitmap.setPixel(
-                    x, y,
-                    if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
-                )
-            }
-        }
-
-        // Add Monero logo overlay in center
-        addMoneroLogoOverlay(bitmap, context)
-    } catch (e: Exception) {
-        null
     }
-}
-
-private fun addMoneroLogoOverlay(qrBitmap: Bitmap, context: Context): Bitmap {
-    val size = qrBitmap.width
-    val logoSize = (size * 0.22).toInt()
-
-    val result = qrBitmap.copy(Bitmap.Config.ARGB_8888, true)
-    val canvas = android.graphics.Canvas(result)
-    val centerX = size / 2f
-    val centerY = size / 2f
-
-    // Draw white circle background
-    val bgPaint = android.graphics.Paint().apply {
-        isAntiAlias = true
-        color = android.graphics.Color.WHITE
-    }
-    canvas.drawCircle(centerX, centerY, logoSize / 2f + 4f, bgPaint)
-
-    // Render slightly larger than clip to cover corner padding, then circle-clip.
-    // The disc is white in both modes, so take the day art (white plate).
-    val logoDrawable = ContextCompat.getDrawable(context.withNightMode(false), R.drawable.monero_logo) ?: return result
-    val imgSize = (logoSize * 1.03f).toInt()
-    val logoBitmap = logoDrawable.toBitmap(imgSize, imgSize, Bitmap.Config.ARGB_8888)
-
-    // Circle-clip into logoSize bitmap
-    val clipped = Bitmap.createBitmap(logoSize, logoSize, Bitmap.Config.ARGB_8888)
-    val c = android.graphics.Canvas(clipped)
-    val p = android.graphics.Paint().apply { isAntiAlias = true }
-    c.drawCircle(logoSize / 2f, logoSize / 2f, logoSize / 2f, p)
-    p.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
-    c.drawBitmap(logoBitmap, -(imgSize - logoSize) / 2f, -(imgSize - logoSize) / 2f, p)
-
-    canvas.drawBitmap(clipped, centerX - logoSize / 2f, centerY - logoSize / 2f, null)
-    return result
 }
