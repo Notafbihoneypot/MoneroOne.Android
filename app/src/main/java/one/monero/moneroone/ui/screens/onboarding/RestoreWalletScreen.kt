@@ -197,7 +197,7 @@ fun RestoreWalletScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp),
-                    label = { Text("Seed Phrase") },
+                    label = { Text(tr("Seed Phrase")) },
                     placeholder = { Text(tr("Separate words with spaces")) },
                     supportingText = {
                         val wordCount = seedPhrase.trim().split("\\s+".toRegex()).filter { it.isNotEmpty() }.size
@@ -222,7 +222,7 @@ fun RestoreWalletScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { showDatePicker = true },
-                label = { Text("Wallet Birthday (Optional)") },
+                label = { Text(tr("Wallet Birthday (Optional)")) },
                 placeholder = { Text(tr("Select date when wallet was created")) },
                 supportingText = { Text(tr("Leave empty to scan from beginning (slower)")) },
                 // Disabled only so the whole field takes the click; it reads as enabled.

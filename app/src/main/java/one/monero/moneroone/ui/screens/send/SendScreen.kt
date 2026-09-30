@@ -385,7 +385,7 @@ fun SendScreen(
                     onDone = onSent
                 )
                 SendPhase.ERROR -> ErrorPhase(
-                    message = (sendState as? SendState.Error)?.message ?: tr("Transaction failed"),
+                    message = (sendState as? SendState.Error)?.message ?: tr("Transaction Failed"),
                     onRetry = {
                         walletViewModel.resetSendState(flow)
                         goBack(SendPhase.REVIEW)

@@ -44,6 +44,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         pendingPaymentLink.value = savedInstanceState?.getString("pending_payment_link")
         acceptPaymentLink(intent)
+        // A language change recreates this activity: rename the channels to match.
+        (application as MoneroOneApp).createNotificationChannels()
 
         // Screenshots stay blocked only on screens with a seed or a PIN: see SecureScreen.
 

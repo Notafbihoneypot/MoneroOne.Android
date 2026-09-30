@@ -11,9 +11,12 @@
     <string name="l10n_s_change_s_s_c4a2b000" formatted="false">"%1$sの変動、%3$s%2$s"</string>
     <string name="l10n_s_chart_s_ef051333" formatted="false">"%1$sチャート、%2$s"</string>
     <string name="l10n_s_copied_c1726808" formatted="false">"%1$sをコピーしました"</string>
+    <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s は最新です"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s km"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"半径%1$s km"</string>
     <string name="l10n_s_on_s_745fc552" formatted="false">"%1$s（%2$s宛）"</string>
+    <string name="l10n_s_connecting_to_monero_network_70d08cc4" formatted="false">"%s — Moneroネットワークに接続中"</string>
+    <string name="l10n_s_syncing_s_04b3ee90" formatted="false">"%s — 同期中%s%%"</string>
     <string name="l10n_s_live_62e53b9a" formatted="false">"%1$s • 接続済み"</string>
     <string name="l10n_s_complete_1df710be" formatted="false">"%1$s%%完了"</string>
     <string name="l10n_s_synced_a39d45a5" formatted="false">"%1$s%%同期済み"</string>
@@ -212,6 +215,7 @@
     <string name="l10n_connect_trezor_acbbb3c5" formatted="false">"Trezorを接続"</string>
     <string name="l10n_connect_your_hardware_device_to_sign_this_transaction_b6ba9d1c" formatted="false">"このトランザクションに署名するには、ハードウェアデバイスを接続してください。"</string>
     <string name="l10n_connecting_d403c686" formatted="false">"接続中"</string>
+    <string name="l10n_connecting_to_monero_network_027b5946" formatted="false">"Moneroネットワークに接続中"</string>
     <string name="l10n_connecting_5f04ae9e" formatted="false">"接続中…"</string>
     <string name="l10n_connecting_72021eb7" formatted="false">"接続中…"</string>
     <string name="l10n_connection_639a40e8" formatted="false">"接続"</string>
@@ -826,6 +830,7 @@
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"新しいアドレスを表示中、%1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"コードを全画面で表示します。利用できるアクション：写真に保存、共有"</string>
     <string name="l10n_shows_transaction_details_f7f06755" formatted="false">"トランザクションの詳細を表示します"</string>
+    <string name="l10n_shows_wallet_sync_progress_while_running_in_the_backgro_9f004867" formatted="false">"バックグラウンドでのウォレット同期の進行状況を表示します"</string>
     <string name="l10n_shows_your_balance_over_time_40113f92" formatted="false">"残高の推移を表示します"</string>
     <string name="l10n_sign_with_trezor_63d35e0b" formatted="false">"Trezorで署名"</string>
     <string name="l10n_simple_private_secure_9cc5a4a5" formatted="false">"シンプル。プライベート。セキュア。"</string>
@@ -835,6 +840,7 @@
     <string name="l10n_statistics_a656107e" formatted="false">"統計"</string>
     <string name="l10n_status_920e413c" formatted="false">"状態"</string>
     <string name="l10n_status_s_8c0b936b" formatted="false">"状態：%1$s"</string>
+    <string name="l10n_stop_cae7d57b" formatted="false">"停止"</string>
     <string name="l10n_stored_only_on_the_device_that_originally_sent_this_tra_c689205f" formatted="false">"このトランザクションを送金したデバイスにのみ保存されます。受取人は、このキーとトランザクションID、送金先アドレスを使って支払いを検証します。"</string>
     <string name="l10n_subaddress_ba52bb8d" formatted="false">"サブアドレス"</string>
     <string name="l10n_subaddress_s_e0b14637" formatted="false">"サブアドレス#%1$s"</string>
@@ -853,6 +859,7 @@
     <string name="l10n_sync_settings_6427c761" formatted="false">"同期設定"</string>
     <string name="l10n_sync_settings_status_s_288656be" formatted="false">"同期設定、状態：%1$s"</string>
     <string name="l10n_sync_status_b3998276" formatted="false">"同期状況"</string>
+    <string name="l10n_sync_error_862ef880" formatted="false">"同期エラー"</string>
     <string name="l10n_sync_error_s_0c01e70a" formatted="false">"同期エラー：%1$s"</string>
     <string name="l10n_sync_everywhere_notify_when_outside_trusted_zones_f4e3774c" formatted="false">"どこでも同期し、信頼ゾーン外では通知します"</string>
     <string name="l10n_sync_failed_tap_retry_or_try_a_different_node_96bd03cc" formatted="false">"同期に失敗しました。「再試行」をタップするか、別のノードをお試しください。"</string>
@@ -863,11 +870,13 @@
     <string name="l10n_sync_status_paused_449169c6" formatted="false">"同期状況：一時停止中"</string>
     <string name="l10n_sync_status_synced_145509b7" formatted="false">"同期状況：同期済み"</string>
     <string name="l10n_synced_5da22fe4" formatted="false">"同期済み"</string>
+    <string name="l10n_syncing_s_30be5ab2" formatted="false">"同期中%s%%"</string>
     <string name="l10n_syncing_outside_trusted_zone_4081c17e" formatted="false">"信頼ゾーン外で同期中"</string>
     <string name="l10n_syncing_device_wallet_0ae568d7" formatted="false">"デバイスウォレットを同期中"</string>
     <string name="l10n_syncing_from_s_e0223ac8" formatted="false">"%1$sで同期中"</string>
     <string name="l10n_syncing_from_untrusted_location_81d75e44" formatted="false">"信頼されていない場所で同期中"</string>
     <string name="l10n_syncing_transactions_a6a21b0e" formatted="false">"トランザクションを同期中…"</string>
+    <string name="l10n_syncing_wallet_99450901" formatted="false">"ウォレットを同期中…"</string>
     <string name="l10n_syncing_1567e1da" formatted="false">"同期中…"</string>
     <string name="l10n_system_6725e7bb" formatted="false">"システム"</string>
     <string name="l10n_tap_to_create_your_first_alert_153768bc" formatted="false">"最初のアラートを追加すると、XMRの価格が設定値に達したときに通知を受け取れます"</string>
@@ -921,6 +930,7 @@
     <string name="l10n_too_many_attempts_try_again_in_ss_6a974ab8" formatted="false">"試行回数が多すぎます。%1$s秒後にもう一度お試しください"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_sm_ss_6bfba11a" formatted="false">"失敗回数が多すぎます。%1$s分%2$s秒後にもう一度お試しください"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_ss_a7a8452c" formatted="false">"失敗回数が多すぎます。%1$s秒後にもう一度お試しください"</string>
+    <string name="l10n_tor_e7121e9f" formatted="false">"Tor"</string>
     <string name="l10n_tor_nodes_064c373a" formatted="false">"Torノード"</string>
     <string name="l10n_tor_proxy_f1738d98" formatted="false">"Torプロキシ"</string>
     <string name="l10n_tor_proxy_required_681efdb1" formatted="false">"Torプロキシが必要です"</string>
@@ -1024,10 +1034,12 @@
     <string name="l10n_wallet_birthday_1b0a056d" formatted="false">"ウォレット作成日"</string>
     <string name="l10n_wallet_birthday_optional_ee94ef7e" formatted="false">"ウォレット作成日"</string>
     <string name="l10n_wallet_name_ad7c43f4" formatted="false">"ウォレット名"</string>
+    <string name="l10n_wallet_sync_0c6bef86" formatted="false">"ウォレットの同期"</string>
     <string name="l10n_wallet_error_occurred_98faccd3" formatted="false">"ウォレットでエラーが発生しました。"</string>
     <string name="l10n_wallet_is_locked_130c696d" formatted="false">"ウォレットはロックされています"</string>
     <string name="l10n_wallet_is_locked_1764609d" formatted="false">"ウォレットはロックされています。"</string>
     <string name="l10n_wallet_is_not_synced_please_wait_for_sync_to_complete_ec8d5e4e" formatted="false">"ウォレットが同期されていません。同期が完了するまでお待ちください。"</string>
+    <string name="l10n_wallet_is_up_to_date_06255c6f" formatted="false">"ウォレットは最新です"</string>
     <string name="l10n_wallet_keys_unavailable_9cdfbb10" formatted="false">"ウォレットのキーを利用できません"</string>
     <string name="l10n_wallet_keys_unavailable_no_receive_address_can_be_shown_84436628" formatted="false">"ウォレットのキーを利用できません。受取アドレスを表示できません。"</string>
     <string name="l10n_wallet_missing_device_cache_identifier_re_pair_to_fix_c3897d37" formatted="false">"ウォレットにデバイスキャッシュ識別子がありません。再ペアリングしてください。"</string>

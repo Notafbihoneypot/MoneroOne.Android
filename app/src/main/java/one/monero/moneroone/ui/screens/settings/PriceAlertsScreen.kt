@@ -141,7 +141,7 @@ fun PriceAlertsScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = tr("No price alerts"),
+                            text = tr("No Price Alerts"),
                             style = MaterialTheme.typography.titleMedium
                         )
                         Spacer(modifier = Modifier.height(4.dp))

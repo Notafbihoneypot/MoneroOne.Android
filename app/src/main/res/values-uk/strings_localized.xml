@@ -11,9 +11,12 @@
     <string name="l10n_s_change_s_s_c4a2b000" formatted="false">"%1$s: %2$s %3$s"</string>
     <string name="l10n_s_chart_s_ef051333" formatted="false">"%1$s, графік %2$s"</string>
     <string name="l10n_s_copied_c1726808" formatted="false">"%1$s: скопійовано"</string>
+    <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s: дані актуальні"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s км"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"Радіус %1$s км"</string>
     <string name="l10n_s_on_s_745fc552" formatted="false">"%1$s на адресу «%2$s»"</string>
+    <string name="l10n_s_connecting_to_monero_network_70d08cc4" formatted="false">"%s — підключення до мережі Monero"</string>
+    <string name="l10n_s_syncing_s_04b3ee90" formatted="false">"%s — синхронізація: %s%%"</string>
     <string name="l10n_s_live_62e53b9a" formatted="false">"%1$s • Онлайн"</string>
     <string name="l10n_s_complete_1df710be" formatted="false">"Завершено на %1$s%%"</string>
     <string name="l10n_s_synced_a39d45a5" formatted="false">"Синхронізовано на %1$s%%"</string>
@@ -212,6 +215,7 @@
     <string name="l10n_connect_trezor_acbbb3c5" formatted="false">"Підключити Trezor"</string>
     <string name="l10n_connect_your_hardware_device_to_sign_this_transaction_b6ba9d1c" formatted="false">"Підключіть апаратний пристрій, щоб підписати цю транзакцію."</string>
     <string name="l10n_connecting_d403c686" formatted="false">"Підключення"</string>
+    <string name="l10n_connecting_to_monero_network_027b5946" formatted="false">"Підключення до мережі Monero"</string>
     <string name="l10n_connecting_5f04ae9e" formatted="false">"Підключення…"</string>
     <string name="l10n_connecting_72021eb7" formatted="false">"Підключення…"</string>
     <string name="l10n_connection_639a40e8" formatted="false">"З’єднання"</string>
@@ -826,6 +830,7 @@
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Показано нову адресу, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Показує код на весь екран. Доступні дії: зберегти у Фото або поширити"</string>
     <string name="l10n_shows_transaction_details_f7f06755" formatted="false">"Показує подробиці транзакції"</string>
+    <string name="l10n_shows_wallet_sync_progress_while_running_in_the_backgro_9f004867" formatted="false">"Показує перебіг синхронізації гаманця у фоні"</string>
     <string name="l10n_shows_your_balance_over_time_40113f92" formatted="false">"Показує зміну балансу з часом"</string>
     <string name="l10n_sign_with_trezor_63d35e0b" formatted="false">"Підписати на Trezor"</string>
     <string name="l10n_simple_private_secure_9cc5a4a5" formatted="false">"Просто. Приватно. Безпечно."</string>
@@ -835,6 +840,7 @@
     <string name="l10n_statistics_a656107e" formatted="false">"Статистика"</string>
     <string name="l10n_status_920e413c" formatted="false">"Стан"</string>
     <string name="l10n_status_s_8c0b936b" formatted="false">"Стан: %1$s"</string>
+    <string name="l10n_stop_cae7d57b" formatted="false">"Зупинити"</string>
     <string name="l10n_stored_only_on_the_device_that_originally_sent_this_tra_c689205f" formatted="false">"Зберігається лише на пристрої, з якого надіслано цю транзакцію. Одержувачі використовують цей ключ разом з ID транзакції та адресою призначення, щоб перевірити платіж."</string>
     <string name="l10n_subaddress_ba52bb8d" formatted="false">"Субадреса"</string>
     <string name="l10n_subaddress_s_e0b14637" formatted="false">"Субадреса №%1$s"</string>
@@ -853,6 +859,7 @@
     <string name="l10n_sync_settings_6427c761" formatted="false">"Параметри синхронізації"</string>
     <string name="l10n_sync_settings_status_s_288656be" formatted="false">"Параметри синхронізації, стан: %1$s"</string>
     <string name="l10n_sync_status_b3998276" formatted="false">"Стан синхронізації"</string>
+    <string name="l10n_sync_error_862ef880" formatted="false">"Помилка синхронізації"</string>
     <string name="l10n_sync_error_s_0c01e70a" formatted="false">"Помилка синхронізації: %1$s"</string>
     <string name="l10n_sync_everywhere_notify_when_outside_trusted_zones_f4e3774c" formatted="false">"Синхронізувати всюди, сповіщати поза довіреними зонами"</string>
     <string name="l10n_sync_failed_tap_retry_or_try_a_different_node_96bd03cc" formatted="false">"Не вдалося синхронізувати. Торкніться «Повторити» або спробуйте інший вузол."</string>
@@ -863,11 +870,13 @@
     <string name="l10n_sync_status_paused_449169c6" formatted="false">"Стан синхронізації: призупинено"</string>
     <string name="l10n_sync_status_synced_145509b7" formatted="false">"Стан синхронізації: синхронізовано"</string>
     <string name="l10n_synced_5da22fe4" formatted="false">"Синхронізовано"</string>
+    <string name="l10n_syncing_s_30be5ab2" formatted="false">"Синхронізація: %s%%"</string>
     <string name="l10n_syncing_outside_trusted_zone_4081c17e" formatted="false">"Синхронізація поза довіреною зоною"</string>
     <string name="l10n_syncing_device_wallet_0ae568d7" formatted="false">"Синхронізація гаманця пристрою"</string>
     <string name="l10n_syncing_from_s_e0223ac8" formatted="false">"Синхронізація в місці «%1$s»"</string>
     <string name="l10n_syncing_from_untrusted_location_81d75e44" formatted="false">"Синхронізація в недовіреному місці"</string>
     <string name="l10n_syncing_transactions_a6a21b0e" formatted="false">"Синхронізація транзакцій…"</string>
+    <string name="l10n_syncing_wallet_99450901" formatted="false">"Синхронізація гаманця…"</string>
     <string name="l10n_syncing_1567e1da" formatted="false">"Синхронізація…"</string>
     <string name="l10n_system_6725e7bb" formatted="false">"Системний"</string>
     <string name="l10n_tap_to_create_your_first_alert_153768bc" formatted="false">"Додайте перше сповіщення, щоб дізнатися, коли ціна XMR перетне заданий поріг"</string>
@@ -921,6 +930,7 @@
     <string name="l10n_too_many_attempts_try_again_in_ss_6a974ab8" formatted="false">"Забагато спроб. Повторіть через %1$s с"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_sm_ss_6bfba11a" formatted="false">"Забагато невдалих спроб. Повторіть через %1$s хв %2$s с"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_ss_a7a8452c" formatted="false">"Забагато невдалих спроб. Повторіть через %1$s с"</string>
+    <string name="l10n_tor_e7121e9f" formatted="false">"Tor"</string>
     <string name="l10n_tor_nodes_064c373a" formatted="false">"Вузли Tor"</string>
     <string name="l10n_tor_proxy_f1738d98" formatted="false">"Проксі Tor"</string>
     <string name="l10n_tor_proxy_required_681efdb1" formatted="false">"Потрібен проксі Tor"</string>
@@ -1024,10 +1034,12 @@
     <string name="l10n_wallet_birthday_1b0a056d" formatted="false">"Дата створення гаманця"</string>
     <string name="l10n_wallet_birthday_optional_ee94ef7e" formatted="false">"Дата створення гаманця"</string>
     <string name="l10n_wallet_name_ad7c43f4" formatted="false">"Назва гаманця"</string>
+    <string name="l10n_wallet_sync_0c6bef86" formatted="false">"Синхронізація гаманця"</string>
     <string name="l10n_wallet_error_occurred_98faccd3" formatted="false">"Сталася помилка гаманця."</string>
     <string name="l10n_wallet_is_locked_130c696d" formatted="false">"Гаманець заблоковано"</string>
     <string name="l10n_wallet_is_locked_1764609d" formatted="false">"Гаманець заблоковано."</string>
     <string name="l10n_wallet_is_not_synced_please_wait_for_sync_to_complete_ec8d5e4e" formatted="false">"Гаманець не синхронізовано. Зачекайте, доки синхронізація завершиться."</string>
+    <string name="l10n_wallet_is_up_to_date_06255c6f" formatted="false">"Гаманець синхронізовано"</string>
     <string name="l10n_wallet_keys_unavailable_9cdfbb10" formatted="false">"Ключі гаманця недоступні"</string>
     <string name="l10n_wallet_keys_unavailable_no_receive_address_can_be_shown_84436628" formatted="false">"Ключі гаманця недоступні. Неможливо показати адресу для отримання."</string>
     <string name="l10n_wallet_missing_device_cache_identifier_re_pair_to_fix_c3897d37" formatted="false">"У гаманці бракує ідентифікатора кешу пристрою — створіть пару повторно, щоб виправити."</string>

@@ -90,7 +90,7 @@ fun NameWalletStep(
         MoneroTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Wallet name") },
+            label = { Text(tr("Wallet name")) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )

@@ -398,7 +398,7 @@ fun ReceiveScreen(
                     if (onSelectAddress != null) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = tr("Select address"),
+                            contentDescription = tr("Select Address"),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )

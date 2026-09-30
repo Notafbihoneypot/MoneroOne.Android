@@ -387,7 +387,7 @@ private fun NumberPad(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
         listOf("7", "8", "9"),
-        listOf(if (onBiometric != null) "bio" else "", "0", tr("back"))
+        listOf(if (onBiometric != null) "bio" else "", "0", "⌫")
     )
 
     Column(
@@ -414,7 +414,7 @@ private fun NumberPad(
                                 )
                             }
                         }
-                        tr("back") -> {
+                        "⌫" -> {
                             KeypadKey(onPress = onBackspace) { onClick ->
                                 IconButton(
                                     onClick = onClick,

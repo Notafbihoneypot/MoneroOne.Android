@@ -598,7 +598,7 @@ private fun NumberPadBackup(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
         listOf("7", "8", "9"),
-        listOf("", "0", tr("back"))
+        listOf("", "0", "⌫")
     )
 
     Column(
@@ -612,7 +612,7 @@ private fun NumberPadBackup(
                 row.forEach { button ->
                     when (button) {
                         "" -> Spacer(modifier = Modifier.size(80.dp))
-                        tr("back") -> {
+                        "⌫" -> {
                             KeypadKey(onPress = onBackspace) { onClick ->
                                 IconButton(
                                     onClick = onClick,

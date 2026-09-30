@@ -1,5 +1,6 @@
 package one.monero.moneroone.core.service
 
+import one.monero.moneroone.core.locale.tr
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -105,7 +106,7 @@ class WalletSyncService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .addAction(0, "Stop", stopPending)
+            .addAction(0, tr("Stop"), stopPending)
 
         // Identify which wallet is syncing (multi-wallet).
         val activeWallet = WalletStore.activeWalletInfo(this)
@@ -113,28 +114,28 @@ class WalletSyncService : Service() {
 
         when (syncState) {
             is SyncState.Connecting -> {
-                builder.setContentTitle("Connecting...")
-                builder.setContentText(walletLabel?.let { "$it — connecting to Monero network" }
-                    ?: "Connecting to Monero network")
+                builder.setContentTitle(tr("Connecting..."))
+                builder.setContentText(walletLabel?.let { tr("%s — connecting to Monero network", it) }
+                    ?: tr("Connecting to Monero network"))
                 builder.setProgress(0, 0, true)
             }
             is SyncState.Syncing -> {
                 val pct = ((syncState.progress ?: 0.0) * 100).toInt()
                 val blocks = syncState.remainingBlocks
-                builder.setContentTitle(walletLabel?.let { "$it — syncing $pct%" } ?: "Syncing $pct%")
+                builder.setContentTitle(walletLabel?.let { tr("%s — syncing %s%%", it, pct) } ?: tr("Syncing %s%%", pct))
                 builder.setContentText(
-                    if (blocks != null && blocks > 0) "$blocks blocks remaining"
-                    else "Syncing wallet..."
+                    if (blocks != null && blocks > 0) tr("%s blocks remaining", blocks)
+                    else tr("Syncing wallet...")
                 )
                 builder.setProgress(100, pct, false)
             }
             is SyncState.Synced -> {
-                builder.setContentTitle("Synced")
-                builder.setContentText(walletLabel?.let { "$it is up to date" } ?: "Wallet is up to date")
+                builder.setContentTitle(tr("Synced"))
+                builder.setContentText(walletLabel?.let { tr("%s is up to date", it) } ?: tr("Wallet is up to date"))
             }
             is SyncState.NotSynced -> {
-                builder.setContentTitle("Not synced")
-                builder.setContentText(syncState.error.message ?: "Sync error")
+                builder.setContentTitle(tr("Not synced"))
+                builder.setContentText(syncState.error.message ?: tr("Sync error"))
             }
         }
 

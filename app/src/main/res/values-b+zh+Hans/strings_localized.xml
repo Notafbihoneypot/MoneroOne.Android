@@ -11,9 +11,12 @@
     <string name="l10n_s_change_s_s_c4a2b000" formatted="false">"%1$s变化，%2$s %3$s"</string>
     <string name="l10n_s_chart_s_ef051333" formatted="false">"%1$s图表，%2$s"</string>
     <string name="l10n_s_copied_c1726808" formatted="false">"已拷贝%1$s"</string>
+    <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s 已是最新"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s 公里"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"半径 %1$s 公里"</string>
     <string name="l10n_s_on_s_745fc552" formatted="false">"%2$s：%1$s"</string>
+    <string name="l10n_s_connecting_to_monero_network_70d08cc4" formatted="false">"%s — 正在连接 Monero 网络"</string>
+    <string name="l10n_s_syncing_s_04b3ee90" formatted="false">"%s — 正在同步 %s%%"</string>
     <string name="l10n_s_live_62e53b9a" formatted="false">"%1$s • 已连接"</string>
     <string name="l10n_s_complete_1df710be" formatted="false">"已完成 %1$s%%"</string>
     <string name="l10n_s_synced_a39d45a5" formatted="false">"已同步 %1$s%%"</string>
@@ -212,6 +215,7 @@
     <string name="l10n_connect_trezor_acbbb3c5" formatted="false">"连接 Trezor"</string>
     <string name="l10n_connect_your_hardware_device_to_sign_this_transaction_b6ba9d1c" formatted="false">"连接你的硬件设备以签署此交易。"</string>
     <string name="l10n_connecting_d403c686" formatted="false">"正在连接"</string>
+    <string name="l10n_connecting_to_monero_network_027b5946" formatted="false">"正在连接 Monero 网络"</string>
     <string name="l10n_connecting_5f04ae9e" formatted="false">"正在连接…"</string>
     <string name="l10n_connecting_72021eb7" formatted="false">"正在连接…"</string>
     <string name="l10n_connection_639a40e8" formatted="false">"连接"</string>
@@ -826,6 +830,7 @@
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"正在显示新地址，%1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"全屏显示代码。可用操作：存储到“照片”或共享"</string>
     <string name="l10n_shows_transaction_details_f7f06755" formatted="false">"显示交易详细信息"</string>
+    <string name="l10n_shows_wallet_sync_progress_while_running_in_the_backgro_9f004867" formatted="false">"在后台显示钱包同步进度"</string>
     <string name="l10n_shows_your_balance_over_time_40113f92" formatted="false">"显示余额随时间的变化"</string>
     <string name="l10n_sign_with_trezor_63d35e0b" formatted="false">"使用 Trezor 签名"</string>
     <string name="l10n_simple_private_secure_9cc5a4a5" formatted="false">"简单。私密。安全。"</string>
@@ -835,6 +840,7 @@
     <string name="l10n_statistics_a656107e" formatted="false">"统计"</string>
     <string name="l10n_status_920e413c" formatted="false">"状态"</string>
     <string name="l10n_status_s_8c0b936b" formatted="false">"状态：%1$s"</string>
+    <string name="l10n_stop_cae7d57b" formatted="false">"停止"</string>
     <string name="l10n_stored_only_on_the_device_that_originally_sent_this_tra_c689205f" formatted="false">"仅存储在最初发送此交易的设备上。收款人可结合此密钥、交易 ID 和目标地址来验证付款。"</string>
     <string name="l10n_subaddress_ba52bb8d" formatted="false">"子地址"</string>
     <string name="l10n_subaddress_s_e0b14637" formatted="false">"子地址 #%1$s"</string>
@@ -853,6 +859,7 @@
     <string name="l10n_sync_settings_6427c761" formatted="false">"同步设置"</string>
     <string name="l10n_sync_settings_status_s_288656be" formatted="false">"同步设置，状态：%1$s"</string>
     <string name="l10n_sync_status_b3998276" formatted="false">"同步状态"</string>
+    <string name="l10n_sync_error_862ef880" formatted="false">"同步错误"</string>
     <string name="l10n_sync_error_s_0c01e70a" formatted="false">"同步错误：%1$s"</string>
     <string name="l10n_sync_everywhere_notify_when_outside_trusted_zones_f4e3774c" formatted="false">"随处同步，在可信区域外时通知"</string>
     <string name="l10n_sync_failed_tap_retry_or_try_a_different_node_96bd03cc" formatted="false">"同步失败。请轻点“重试”或尝试其他节点。"</string>
@@ -863,11 +870,13 @@
     <string name="l10n_sync_status_paused_449169c6" formatted="false">"同步状态：已暂停"</string>
     <string name="l10n_sync_status_synced_145509b7" formatted="false">"同步状态：已同步"</string>
     <string name="l10n_synced_5da22fe4" formatted="false">"已同步"</string>
+    <string name="l10n_syncing_s_30be5ab2" formatted="false">"正在同步 %s%%"</string>
     <string name="l10n_syncing_outside_trusted_zone_4081c17e" formatted="false">"正在可信区域外同步"</string>
     <string name="l10n_syncing_device_wallet_0ae568d7" formatted="false">"正在同步设备钱包"</string>
     <string name="l10n_syncing_from_s_e0223ac8" formatted="false">"正在从“%1$s”同步"</string>
     <string name="l10n_syncing_from_untrusted_location_81d75e44" formatted="false">"正在从不可信位置同步"</string>
     <string name="l10n_syncing_transactions_a6a21b0e" formatted="false">"正在同步交易…"</string>
+    <string name="l10n_syncing_wallet_99450901" formatted="false">"正在同步钱包…"</string>
     <string name="l10n_syncing_1567e1da" formatted="false">"正在同步…"</string>
     <string name="l10n_system_6725e7bb" formatted="false">"跟随系统"</string>
     <string name="l10n_tap_to_create_your_first_alert_153768bc" formatted="false">"添加你的第一个提醒，在 XMR 突破价格阈值时收到通知"</string>
@@ -921,6 +930,7 @@
     <string name="l10n_too_many_attempts_try_again_in_ss_6a974ab8" formatted="false">"尝试次数过多。请在 %1$s 秒后重试"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_sm_ss_6bfba11a" formatted="false">"失败次数过多。请在 %1$s 分 %2$s 秒后重试"</string>
     <string name="l10n_too_many_failed_attempts_try_again_in_ss_a7a8452c" formatted="false">"失败次数过多。请在 %1$s 秒后重试"</string>
+    <string name="l10n_tor_e7121e9f" formatted="false">"Tor"</string>
     <string name="l10n_tor_nodes_064c373a" formatted="false">"Tor 节点"</string>
     <string name="l10n_tor_proxy_f1738d98" formatted="false">"Tor 代理"</string>
     <string name="l10n_tor_proxy_required_681efdb1" formatted="false">"需要 Tor 代理"</string>
@@ -1024,10 +1034,12 @@
     <string name="l10n_wallet_birthday_1b0a056d" formatted="false">"钱包生日"</string>
     <string name="l10n_wallet_birthday_optional_ee94ef7e" formatted="false">"钱包生日"</string>
     <string name="l10n_wallet_name_ad7c43f4" formatted="false">"钱包名称"</string>
+    <string name="l10n_wallet_sync_0c6bef86" formatted="false">"钱包同步"</string>
     <string name="l10n_wallet_error_occurred_98faccd3" formatted="false">"钱包出错。"</string>
     <string name="l10n_wallet_is_locked_130c696d" formatted="false">"钱包已锁定"</string>
     <string name="l10n_wallet_is_locked_1764609d" formatted="false">"钱包已锁定。"</string>
     <string name="l10n_wallet_is_not_synced_please_wait_for_sync_to_complete_ec8d5e4e" formatted="false">"钱包尚未同步。请等待同步完成。"</string>
+    <string name="l10n_wallet_is_up_to_date_06255c6f" formatted="false">"钱包已是最新"</string>
     <string name="l10n_wallet_keys_unavailable_9cdfbb10" formatted="false">"钱包密钥不可用"</string>
     <string name="l10n_wallet_keys_unavailable_no_receive_address_can_be_shown_84436628" formatted="false">"钱包密钥不可用，无法显示收款地址。"</string>
     <string name="l10n_wallet_missing_device_cache_identifier_re_pair_to_fix_c3897d37" formatted="false">"钱包缺少设备缓存标识符，请重新配对以修复。"</string>

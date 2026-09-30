@@ -631,7 +631,7 @@ internal fun NodeDialog(
                         nodeUri = it
                         error = null
                     },
-                    label = { Text("Node URI") },
+                    label = { Text(tr("Node URI")) },
                     placeholder = { Text("host:port") },
                     singleLine = true,
                     isError = error != null,

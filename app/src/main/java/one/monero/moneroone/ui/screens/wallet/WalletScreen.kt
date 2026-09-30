@@ -749,7 +749,7 @@ internal fun BalanceCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = tr("Available: "),
+                            text = tr("Available:") + " ",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

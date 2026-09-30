@@ -485,7 +485,7 @@ private fun WalletRow(
                 IconButton(onClick = onRenameRequest) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = tr("Rename wallet"),
+                        contentDescription = tr("Rename Wallet"),
                         tint = MoneroTheme.colors.labelTertiary,
                         modifier = Modifier.size(18.dp)
                     )
@@ -627,7 +627,7 @@ fun RenameWalletSheet(
             MoneroTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Wallet name") },
+                label = { Text(tr("Wallet name")) },
                 singleLine = true,
                 colors = moneroTextFieldColors(containerColor = CellFill),
                 modifier = Modifier.fillMaxWidth()
