@@ -139,7 +139,6 @@
     <string name="l10n_backup_83855792" formatted="false">"Copia de seguridad"</string>
     <string name="l10n_backup_seed_b091568a" formatted="false">"Respaldar frase semilla"</string>
     <string name="l10n_backup_seed_phrase_ffb448a5" formatted="false">"Respaldar frase semilla"</string>
-    <string name="l10n_balance_transactions_c24c5896" formatted="false">"Saldo y transacciones"</string>
     <string name="l10n_balance_history_b7e0abe9" formatted="false">"Historial del saldo"</string>
     <string name="l10n_balance_s_xmr_s_d3a420c7" formatted="false">"Saldo: %1$s XMR%2$s"</string>
     <string name="l10n_balance_s_s_xmr_70285d70" formatted="false">"Saldo: %1$s, %2$s XMR"</string>
@@ -190,7 +189,6 @@
     <string name="l10n_clear_83b12c22" formatted="false">"Eliminar"</string>
     <string name="l10n_clear_address_8b6db0f3" formatted="false">"Borrar dirección"</string>
     <string name="l10n_clear_address_search_bdfb1064" formatted="false">"Borrar búsqueda de direcciones"</string>
-    <string name="l10n_clipboard_will_auto_clear_in_s_seconds_02609557" formatted="false">"El portapapeles se borrará automáticamente en %s segundos"</string>
     <string name="l10n_close_7d9eb7ac" formatted="false">"Cerrar"</string>
     <string name="l10n_closes_the_wallet_list_9f8cd790" formatted="false">"Cierra la lista de carteras"</string>
     <string name="l10n_collapsed_b322b652" formatted="false">"Contraído"</string>
@@ -405,8 +403,6 @@
     <string name="l10n_fee_estimation_failed_78e1320b" formatted="false">"Error al estimar la comisión"</string>
     <string name="l10n_fee_s_xmr_9efa7208" formatted="false">"Comisión: %1$s XMR"</string>
     <string name="l10n_fetching_price_f74cc78c" formatted="false">"Obteniendo precio…"</string>
-    <string name="l10n_fiat_mode_28fbc3ad" formatted="false">"Modo fiat"</string>
-    <string name="l10n_fiat_values_are_fetched_from_coinmarketcap_and_update_e_a3a24fb0" formatted="false">"Los valores en moneda fiat se obtienen de CoinMarketCap y se actualizan cada 5 minutos."</string>
     <string name="l10n_filter_transactions_00d87315" formatted="false">"Filtrar transacciones"</string>
     <string name="l10n_first_time_sync_can_take_a_few_minutes_2b7fc90b" formatted="false">"La primera sincronización puede tardar unos minutos."</string>
     <string name="l10n_forgot_pin_74ad27db" formatted="false">"Olvidé el PIN"</string>
@@ -450,7 +446,6 @@
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"Icono, %1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"Inactivo"</string>
     <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"Si esta cartera es más antigua, baja la altura de restauración en Configuración › Ajustes de sincronización y restablece los datos de sincronización."</string>
-    <string name="l10n_if_you_enjoy_monero_one_consider_donating_to_support_co_398cea0e" formatted="false">"Si te gusta Monero One, considera hacer una donación para apoyar su desarrollo."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"Si pierdes tu frase semilla, perderás tus fondos para siempre. Anótala y guárdala en un lugar seguro sin conexión."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"Inmediatamente"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"Información importante"</string>
@@ -734,6 +729,7 @@
     <string name="l10n_reset_app_a63cb257" formatted="false">"Restablecer app"</string>
     <string name="l10n_reset_sync_data_c1b021d1" formatted="false">"Restablecer datos de sincronización"</string>
     <string name="l10n_reset_sync_data_01f6fb03" formatted="false">"¿Restablecer datos de sincronización?"</string>
+    <string name="l10n_resetting_sync_data_5a37d4a5" formatted="false">"Restableciendo los datos de sincronización"</string>
     <string name="l10n_restore_a76e13b9" formatted="false">"Restaurar"</string>
     <string name="l10n_restore_date_d9ea95dc" formatted="false">"Fecha de creación"</string>
     <string name="l10n_restore_failed_4306a0ec" formatted="false">"Falló la restauración"</string>
@@ -748,7 +744,6 @@
     <string name="l10n_restoring_your_wallet_aded4dd9" formatted="false">"Restaurando tu cartera…"</string>
     <string name="l10n_restoring_fa31c224" formatted="false">"Restaurando tu cartera…"</string>
     <string name="l10n_restricted_a00571bc" formatted="false">"Restringido"</string>
-    <string name="l10n_resync_wallet_from_scratch_e21de5ed" formatted="false">"Borra todo el progreso de sincronización y vuelve a sincronizar desde el principio"</string>
     <string name="l10n_retry_942087cc" formatted="false">"Reintentar"</string>
     <string name="l10n_retry_transaction_d11152ea" formatted="false">"Reintentar transacción"</string>
     <string name="l10n_return_to_current_balance_and_activity_29fbc524" formatted="false">"Volver al saldo y la actividad actuales"</string>
@@ -835,11 +830,9 @@
     <string name="l10n_show_recovery_phrase_3744ad12" formatted="false">"Frase semilla"</string>
     <string name="l10n_show_seed_phrase_1d0bdfac" formatted="false">"Frase semilla"</string>
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"Mostrar autenticación"</string>
-    <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"Mostrar primero los importes en moneda fiat"</string>
     <string name="l10n_show_history_7dbece31" formatted="false">"Mostrar historial"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"Mostrar contraseña"</string>
     <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Mostrar clave de transacción"</string>
-    <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"Permitir que los widgets muestren información de la cartera"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Mostrando la dirección nueva, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Muestra el código a pantalla completa. Acciones disponibles: guardar en Fotos o compartir"</string>
     <string name="l10n_shows_transaction_details_f7f06755" formatted="false">"Muestra los detalles de la transacción"</string>
@@ -918,7 +911,6 @@
     <string name="l10n_this_may_take_a_moment_c1049c89" formatted="false">"Esto puede tardar un momento"</string>
     <string name="l10n_this_node_is_already_in_the_list_0720642a" formatted="false">"Este nodo ya está en la lista"</string>
     <string name="l10n_this_protects_you_from_wallet_activity_on_untrusted_net_91dd1d1c" formatted="false">"Esto te protege de actividad de la cartera en redes no confiables, como redes Wi-Fi públicas o ubicaciones desconocidas."</string>
-    <string name="l10n_this_removes_every_wallet_from_this_device_only_your_wa_77018e53" formatted="false">"Esto elimina todas las carteras solo de este dispositivo. Tus carteras siguen existiendo en la cadena de bloques y puedes recuperarlas con tus frases semilla."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_only_it_still__22761798" formatted="false">"Esto elimina la cartera de este dispositivo. Puedes recuperarla con la frase semilla."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_you_can_recove_6b8f3dd7" formatted="false">"Esto elimina la cartera de este dispositivo. Puedes recuperarla con la frase semilla."</string>
     <string name="l10n_this_removes_wallet_data_from_this_device_only_your_wal_e09970ba" formatted="false">"Esto elimina la cartera de este dispositivo. Puedes recuperarla con la frase semilla."</string>
@@ -927,8 +919,8 @@
     <string name="l10n_this_wallet_is_view_only_and_cannot_send_d1c7e692" formatted="false">"Esta cartera es de solo visualización y no puede enviar"</string>
     <string name="l10n_this_wallet_is_view_only_and_cannot_send_switch_to_a_wa_90c60f19" formatted="false">"Esta cartera es de solo visualización y no puede enviar. Cambia a una cartera que pueda enviar y vuelve a abrir el enlace."</string>
     <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_722eee0c" formatted="false">"Esta cartera se volverá a escanear desde su altura de restauración. Se borrarán las claves de transacción de los envíos anteriores."</string>
+    <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_3a4e903b" formatted="false">"Esta cartera se volverá a escanear desde su altura de restauración. Las claves de transacción de los envíos anteriores dejarán de estar disponibles."</string>
     <string name="l10n_this_wallet_was_restored_from_a_private_view_key_so_it__b286becb" formatted="false">"Esta cartera se restauró con una clave de vista privada, así que no puede firmar transacciones en este dispositivo. Para gastar, abre la cartera que tiene la clave de gasto."</string>
-    <string name="l10n_this_will_clear_all_sync_progress_and_re_sync_from_the__6d35e7c6" formatted="false">"Esto borrará todo el progreso de sincronización y volverá a sincronizar desde el principio. Tu cartera y tus claves no se verán afectadas."</string>
     <string name="l10n_this_will_delete_all_wallet_data_from_this_device_you_c_f5eb4984" formatted="false">"Esto eliminará todos los datos de la cartera de este dispositivo. Puedes restaurar tu cartera con tu frase semilla.\n\nEsta acción no se puede deshacer."</string>
     <string name="l10n_time_33b93476" formatted="false">"Tiempo"</string>
     <string name="l10n_timed_out_waiting_for_device_wallet_to_sync_2dbd6f57" formatted="false">"Se agotó el tiempo de espera para la sincronización de la cartera del dispositivo."</string>
@@ -1109,6 +1101,7 @@
     <string name="l10n_up_s_2fa9bc08" formatted="false">"subió %1$s %%"</string>
     <string name="l10n_view_only_8479be81" formatted="false">"solo visualización"</string>
     <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__89c5af9a" formatted="false">"La cartera “%1$s” se volverá a escanear desde su altura de restauración. Se borrarán las claves de transacción de los envíos anteriores."</string>
+    <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__28ab8822" formatted="false">"La cartera “%s” se volverá a escanear desde su altura de restauración. Las claves de transacción de los envíos anteriores dejarán de estar disponibles."</string>
     <plurals name="l10n_s_locations_cdc8a004">
         <item quantity="many">"%1$s ubicaciones"</item>
         <item quantity="one">"%1$s ubicación"</item>

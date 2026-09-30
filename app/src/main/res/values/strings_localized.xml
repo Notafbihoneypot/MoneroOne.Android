@@ -139,7 +139,6 @@
     <string name="l10n_backup_83855792" formatted="false">"Backup"</string>
     <string name="l10n_backup_seed_b091568a" formatted="false">"Backup Seed"</string>
     <string name="l10n_backup_seed_phrase_ffb448a5" formatted="false">"Backup Seed Phrase"</string>
-    <string name="l10n_balance_transactions_c24c5896" formatted="false">"Balance &amp; Transactions"</string>
     <string name="l10n_balance_history_b7e0abe9" formatted="false">"Balance history"</string>
     <string name="l10n_balance_s_xmr_s_d3a420c7" formatted="false">"Balance: %s XMR%s"</string>
     <string name="l10n_balance_s_s_xmr_70285d70" formatted="false">"Balance: %s, %s XMR"</string>
@@ -190,7 +189,6 @@
     <string name="l10n_clear_83b12c22" formatted="false">"Clear"</string>
     <string name="l10n_clear_address_8b6db0f3" formatted="false">"Clear address"</string>
     <string name="l10n_clear_address_search_bdfb1064" formatted="false">"Clear address search"</string>
-    <string name="l10n_clipboard_will_auto_clear_in_s_seconds_02609557" formatted="false">"Clipboard will auto-clear in %s seconds"</string>
     <string name="l10n_close_7d9eb7ac" formatted="false">"Close"</string>
     <string name="l10n_closes_the_wallet_list_9f8cd790" formatted="false">"Closes the wallet list"</string>
     <string name="l10n_collapsed_b322b652" formatted="false">"Collapsed"</string>
@@ -405,8 +403,6 @@
     <string name="l10n_fee_estimation_failed_78e1320b" formatted="false">"Fee estimation failed"</string>
     <string name="l10n_fee_s_xmr_9efa7208" formatted="false">"Fee: %s XMR"</string>
     <string name="l10n_fetching_price_f74cc78c" formatted="false">"Fetching price..."</string>
-    <string name="l10n_fiat_mode_28fbc3ad" formatted="false">"Fiat Mode"</string>
-    <string name="l10n_fiat_values_are_fetched_from_coinmarketcap_and_update_e_a3a24fb0" formatted="false">"Fiat values are fetched from CoinMarketCap and update every 5 minutes."</string>
     <string name="l10n_filter_transactions_00d87315" formatted="false">"Filter transactions"</string>
     <string name="l10n_first_time_sync_can_take_a_few_minutes_2b7fc90b" formatted="false">"First-time sync can take a few minutes."</string>
     <string name="l10n_forgot_pin_74ad27db" formatted="false">"Forgot PIN"</string>
@@ -450,7 +446,6 @@
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"Icon, %s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"Idle"</string>
     <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"If this wallet is older, lower the restore height in Settings › Sync Settings and reset the sync data."</string>
-    <string name="l10n_if_you_enjoy_monero_one_consider_donating_to_support_co_398cea0e" formatted="false">"If you enjoy Monero One, consider donating to support continued development."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"If you lose your seed phrase, your funds are permanently lost. Write it down and store it securely offline."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"Immediately"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"Important Information"</string>
@@ -734,6 +729,7 @@
     <string name="l10n_reset_app_a63cb257" formatted="false">"Reset App"</string>
     <string name="l10n_reset_sync_data_c1b021d1" formatted="false">"Reset Sync Data"</string>
     <string name="l10n_reset_sync_data_01f6fb03" formatted="false">"Reset Sync Data?"</string>
+    <string name="l10n_resetting_sync_data_5a37d4a5" formatted="false">"Resetting sync data"</string>
     <string name="l10n_restore_a76e13b9" formatted="false">"Restore"</string>
     <string name="l10n_restore_date_d9ea95dc" formatted="false">"Restore Date"</string>
     <string name="l10n_restore_failed_4306a0ec" formatted="false">"Restore Failed"</string>
@@ -748,7 +744,6 @@
     <string name="l10n_restoring_your_wallet_aded4dd9" formatted="false">"Restoring your wallet..."</string>
     <string name="l10n_restoring_fa31c224" formatted="false">"Restoring..."</string>
     <string name="l10n_restricted_a00571bc" formatted="false">"Restricted"</string>
-    <string name="l10n_resync_wallet_from_scratch_e21de5ed" formatted="false">"Resync wallet from scratch"</string>
     <string name="l10n_retry_942087cc" formatted="false">"Retry"</string>
     <string name="l10n_retry_transaction_d11152ea" formatted="false">"Retry transaction"</string>
     <string name="l10n_return_to_current_balance_and_activity_29fbc524" formatted="false">"Return to current balance and activity"</string>
@@ -835,11 +830,9 @@
     <string name="l10n_show_recovery_phrase_3744ad12" formatted="false">"Show Recovery Phrase"</string>
     <string name="l10n_show_seed_phrase_1d0bdfac" formatted="false">"Show Seed Phrase"</string>
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"Show authentication"</string>
-    <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"Show fiat amounts first"</string>
     <string name="l10n_show_history_7dbece31" formatted="false">"Show history"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"Show password"</string>
     <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Show transaction key"</string>
-    <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"Show wallet data on home screen"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Showing new address, %s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Shows the code full screen. Actions available: save to Photos, or share"</string>
     <string name="l10n_shows_transaction_details_f7f06755" formatted="false">"Shows transaction details"</string>
@@ -918,7 +911,6 @@
     <string name="l10n_this_may_take_a_moment_c1049c89" formatted="false">"This may take a moment"</string>
     <string name="l10n_this_node_is_already_in_the_list_0720642a" formatted="false">"This node is already in the list"</string>
     <string name="l10n_this_protects_you_from_wallet_activity_on_untrusted_net_91dd1d1c" formatted="false">"This protects you from wallet activity on untrusted networks like public Wi-Fi or unknown locations."</string>
-    <string name="l10n_this_removes_every_wallet_from_this_device_only_your_wa_77018e53" formatted="false">"This removes every wallet from this device only. Your wallets still exist on the blockchain and can be recovered with your seed phrases."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_only_it_still__22761798" formatted="false">"This removes the wallet from this device only. It still exists on the blockchain and can be recovered with its seed phrase."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_you_can_recove_6b8f3dd7" formatted="false">"This removes the wallet from this device. You can recover it with the seed phrase."</string>
     <string name="l10n_this_removes_wallet_data_from_this_device_only_your_wal_e09970ba" formatted="false">"This removes wallet data from this device only. Your wallet still exists on the blockchain and can be recovered with your seed phrase."</string>
@@ -927,8 +919,8 @@
     <string name="l10n_this_wallet_is_view_only_and_cannot_send_d1c7e692" formatted="false">"This wallet is view-only and cannot send"</string>
     <string name="l10n_this_wallet_is_view_only_and_cannot_send_switch_to_a_wa_90c60f19" formatted="false">"This wallet is view-only and cannot send. Switch to a wallet that can send, then open the link again."</string>
     <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_722eee0c" formatted="false">"This wallet scans again from its restore height. Transaction keys for its past sends are deleted."</string>
+    <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_3a4e903b" formatted="false">"This wallet scans again from its restore height. Transaction keys for its past sends are no longer available."</string>
     <string name="l10n_this_wallet_was_restored_from_a_private_view_key_so_it__b286becb" formatted="false">"This wallet was restored from a private view key, so it can\'t sign transactions on this device. To spend, open the wallet that owns the spend key."</string>
-    <string name="l10n_this_will_clear_all_sync_progress_and_re_sync_from_the__6d35e7c6" formatted="false">"This will clear all sync progress and re-sync from the beginning. Your wallet and keys are not affected."</string>
     <string name="l10n_this_will_delete_all_wallet_data_from_this_device_you_c_f5eb4984" formatted="false">"This will delete all wallet data from this device. You can restore your wallet using your seed phrase.\n\nThis action cannot be undone."</string>
     <string name="l10n_time_33b93476" formatted="false">"Time"</string>
     <string name="l10n_timed_out_waiting_for_device_wallet_to_sync_2dbd6f57" formatted="false">"Timed out waiting for device wallet to sync."</string>
@@ -1109,6 +1101,7 @@
     <string name="l10n_up_s_2fa9bc08" formatted="false">"up %s%%"</string>
     <string name="l10n_view_only_8479be81" formatted="false">"view-only"</string>
     <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__89c5af9a" formatted="false">"“%s” scans again from its restore height. Transaction keys for its past sends are deleted."</string>
+    <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__28ab8822" formatted="false">"“%s” scans again from its restore height. Transaction keys for its past sends are no longer available."</string>
     <plurals name="l10n_s_locations_cdc8a004">
         <item quantity="one">"%1$s location"</item>
         <item quantity="other">"%1$s locations"</item>

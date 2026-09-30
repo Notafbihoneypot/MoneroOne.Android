@@ -139,7 +139,6 @@
     <string name="l10n_backup_83855792" formatted="false">"Backup"</string>
     <string name="l10n_backup_seed_b091568a" formatted="false">"Backup frază seed"</string>
     <string name="l10n_backup_seed_phrase_ffb448a5" formatted="false">"Backup frază seed"</string>
-    <string name="l10n_balance_transactions_c24c5896" formatted="false">"Sold și tranzacții"</string>
     <string name="l10n_balance_history_b7e0abe9" formatted="false">"Istoricul soldului"</string>
     <string name="l10n_balance_s_xmr_s_d3a420c7" formatted="false">"Sold: %1$s XMR%2$s"</string>
     <string name="l10n_balance_s_s_xmr_70285d70" formatted="false">"Sold: %1$s, %2$s XMR"</string>
@@ -190,7 +189,6 @@
     <string name="l10n_clear_83b12c22" formatted="false">"Șterge"</string>
     <string name="l10n_clear_address_8b6db0f3" formatted="false">"Șterge adresa"</string>
     <string name="l10n_clear_address_search_bdfb1064" formatted="false">"Șterge căutarea adreselor"</string>
-    <string name="l10n_clipboard_will_auto_clear_in_s_seconds_02609557" formatted="false">"Clipboardul va fi șters automat în %s secunde"</string>
     <string name="l10n_close_7d9eb7ac" formatted="false">"Închide"</string>
     <string name="l10n_closes_the_wallet_list_9f8cd790" formatted="false">"Închide lista de portofele"</string>
     <string name="l10n_collapsed_b322b652" formatted="false">"Restrâns"</string>
@@ -405,8 +403,6 @@
     <string name="l10n_fee_estimation_failed_78e1320b" formatted="false">"Estimarea comisionului a eșuat"</string>
     <string name="l10n_fee_s_xmr_9efa7208" formatted="false">"Comision: %1$s XMR"</string>
     <string name="l10n_fetching_price_f74cc78c" formatted="false">"Se obține prețul…"</string>
-    <string name="l10n_fiat_mode_28fbc3ad" formatted="false">"Mod fiat"</string>
-    <string name="l10n_fiat_values_are_fetched_from_coinmarketcap_and_update_e_a3a24fb0" formatted="false">"Valorile fiat sunt preluate de la CoinMarketCap și se actualizează la fiecare 5 minute."</string>
     <string name="l10n_filter_transactions_00d87315" formatted="false">"Filtrează tranzacțiile"</string>
     <string name="l10n_first_time_sync_can_take_a_few_minutes_2b7fc90b" formatted="false">"Prima sincronizare poate dura câteva minute."</string>
     <string name="l10n_forgot_pin_74ad27db" formatted="false">"Ai uitat PIN-ul"</string>
@@ -450,7 +446,6 @@
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"Pictogramă, %1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"Inactiv"</string>
     <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"Dacă acest portofel este mai vechi, scade înălțimea de restaurare în Configurări › Configurări sincronizare și resetează datele de sincronizare."</string>
-    <string name="l10n_if_you_enjoy_monero_one_consider_donating_to_support_co_398cea0e" formatted="false">"Dacă îți place Monero One, ia în considerare o donație pentru a susține dezvoltarea în continuare."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"Dacă pierzi fraza seed, fondurile sunt pierdute definitiv. Noteaz-o și păstreaz-o în siguranță, offline."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"Imediat"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"Informații importante"</string>
@@ -734,6 +729,7 @@
     <string name="l10n_reset_app_a63cb257" formatted="false">"Resetează aplicația"</string>
     <string name="l10n_reset_sync_data_c1b021d1" formatted="false">"Resetează datele de sincronizare"</string>
     <string name="l10n_reset_sync_data_01f6fb03" formatted="false">"Resetezi datele de sincronizare?"</string>
+    <string name="l10n_resetting_sync_data_5a37d4a5" formatted="false">"Se resetează datele de sincronizare"</string>
     <string name="l10n_restore_a76e13b9" formatted="false">"Restaurează"</string>
     <string name="l10n_restore_date_d9ea95dc" formatted="false">"Data creării"</string>
     <string name="l10n_restore_failed_4306a0ec" formatted="false">"Restaurarea a eșuat"</string>
@@ -748,7 +744,6 @@
     <string name="l10n_restoring_your_wallet_aded4dd9" formatted="false">"Se restaurează portofelul…"</string>
     <string name="l10n_restoring_fa31c224" formatted="false">"Se restaurează portofelul…"</string>
     <string name="l10n_restricted_a00571bc" formatted="false">"Restricționat"</string>
-    <string name="l10n_resync_wallet_from_scratch_e21de5ed" formatted="false">"Șterge tot progresul sincronizării și sincronizează din nou de la început"</string>
     <string name="l10n_retry_942087cc" formatted="false">"Reîncearcă"</string>
     <string name="l10n_retry_transaction_d11152ea" formatted="false">"Reîncearcă tranzacția"</string>
     <string name="l10n_return_to_current_balance_and_activity_29fbc524" formatted="false">"Revino la soldul și activitatea curente"</string>
@@ -835,11 +830,9 @@
     <string name="l10n_show_recovery_phrase_3744ad12" formatted="false">"Frază seed"</string>
     <string name="l10n_show_seed_phrase_1d0bdfac" formatted="false">"Frază seed"</string>
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"Arată autentificarea"</string>
-    <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"Afișează întâi sumele în monedă fiduciară"</string>
     <string name="l10n_show_history_7dbece31" formatted="false">"Afișează istoricul"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"Arată parola"</string>
     <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Arată cheia tranzacției"</string>
-    <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"Permite widgeturilor să afișeze informații despre portofel"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Se afișează adresa nouă, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Afișează codul pe tot ecranul. Acțiuni disponibile: salvează în Poze sau partajează"</string>
     <string name="l10n_shows_transaction_details_f7f06755" formatted="false">"Afișează detaliile tranzacției"</string>
@@ -918,7 +911,6 @@
     <string name="l10n_this_may_take_a_moment_c1049c89" formatted="false">"Poate dura câteva momente"</string>
     <string name="l10n_this_node_is_already_in_the_list_0720642a" formatted="false">"Acest nod este deja în listă"</string>
     <string name="l10n_this_protects_you_from_wallet_activity_on_untrusted_net_91dd1d1c" formatted="false">"Te protejează de activitatea portofelului în rețele nesigure, cum ar fi Wi-Fi public sau locații necunoscute."</string>
-    <string name="l10n_this_removes_every_wallet_from_this_device_only_your_wa_77018e53" formatted="false">"Această acțiune elimină toate portofelele doar de pe acest dispozitiv. Portofelele există în continuare pe blockchain și pot fi recuperate cu frazele seed."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_only_it_still__22761798" formatted="false">"Portofelul va fi eliminat de pe acest dispozitiv. Îl poți recupera cu fraza seed."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_you_can_recove_6b8f3dd7" formatted="false">"Portofelul va fi eliminat de pe acest dispozitiv. Îl poți recupera cu fraza seed."</string>
     <string name="l10n_this_removes_wallet_data_from_this_device_only_your_wal_e09970ba" formatted="false">"Portofelul va fi eliminat de pe acest dispozitiv. Îl poți recupera cu fraza seed."</string>
@@ -927,8 +919,8 @@
     <string name="l10n_this_wallet_is_view_only_and_cannot_send_d1c7e692" formatted="false">"Acest portofel este doar de citire și nu poate trimite"</string>
     <string name="l10n_this_wallet_is_view_only_and_cannot_send_switch_to_a_wa_90c60f19" formatted="false">"Acest portofel este doar de citire și nu poate trimite. Comută la un portofel care poate trimite, apoi deschide din nou linkul."</string>
     <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_722eee0c" formatted="false">"Acest portofel va fi scanat din nou de la înălțimea de restaurare. Cheile tranzacțiilor trimise anterior vor fi șterse."</string>
+    <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_3a4e903b" formatted="false">"Acest portofel va fi scanat din nou de la înălțimea de restaurare. Cheile tranzacțiilor trimise anterior nu vor mai fi disponibile."</string>
     <string name="l10n_this_wallet_was_restored_from_a_private_view_key_so_it__b286becb" formatted="false">"Acest portofel a fost restaurat dintr-o cheie secretă de citire, așa că nu poate semna tranzacții pe acest dispozitiv. Pentru a cheltui, deschide portofelul care deține cheia de cheltuială."</string>
-    <string name="l10n_this_will_clear_all_sync_progress_and_re_sync_from_the__6d35e7c6" formatted="false">"Se va șterge tot progresul sincronizării și se va sincroniza din nou de la început. Portofelul și cheile nu sunt afectate."</string>
     <string name="l10n_this_will_delete_all_wallet_data_from_this_device_you_c_f5eb4984" formatted="false">"Toate datele portofelului vor fi șterse de pe acest dispozitiv. Poți restaura portofelul folosind fraza seed.\n\nAceastă acțiune nu poate fi anulată."</string>
     <string name="l10n_time_33b93476" formatted="false">"Timp"</string>
     <string name="l10n_timed_out_waiting_for_device_wallet_to_sync_2dbd6f57" formatted="false">"Timpul de așteptare pentru sincronizarea portofelului de pe dispozitiv a expirat."</string>
@@ -1109,6 +1101,7 @@
     <string name="l10n_up_s_2fa9bc08" formatted="false">"în creștere cu %1$s%%"</string>
     <string name="l10n_view_only_8479be81" formatted="false">"doar citire"</string>
     <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__89c5af9a" formatted="false">"Portofelul „%1$s” va fi scanat din nou de la înălțimea de restaurare. Cheile tranzacțiilor trimise anterior vor fi șterse."</string>
+    <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__28ab8822" formatted="false">"Portofelul „%s” va fi scanat din nou de la înălțimea de restaurare. Cheile tranzacțiilor trimise anterior nu vor mai fi disponibile."</string>
     <plurals name="l10n_s_locations_cdc8a004">
         <item quantity="few">"%1$s locații"</item>
         <item quantity="one">"%1$s locație"</item>

@@ -58,6 +58,7 @@ import one.monero.moneroone.ui.screens.settings.PriceAlertsScreen
 import one.monero.moneroone.ui.screens.settings.SecurityScreen
 import one.monero.moneroone.ui.screens.settings.SyncSettingsScreen
 import one.monero.moneroone.ui.screens.settings.ThemeScreen
+import one.monero.moneroone.ui.screens.settings.WidgetSettingsScreen
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.screens.chart.ChartViewModel
 
@@ -102,6 +103,7 @@ sealed class Screen(val route: String) {
     data object NodeSettings : Screen("node_settings")
     data object Donation : Screen("donation")
     data object PriceAlerts : Screen("price_alerts")
+    data object WidgetSettings : Screen("widget_settings")
     data object AddPriceAlert : Screen("add_price_alert")
 }
 
@@ -506,6 +508,10 @@ fun MoneroOneNavHost(
                     onBack = { navController.popBackStack() },
                     onNodeChanged = { walletViewModel.changeNode() }
                 )
+            }
+
+            composable(Screen.WidgetSettings.route) {
+                WidgetSettingsScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Screen.PriceAlerts.route) {

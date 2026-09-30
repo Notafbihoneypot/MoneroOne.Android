@@ -139,7 +139,6 @@
     <string name="l10n_backup_83855792" formatted="false">"Backup"</string>
     <string name="l10n_backup_seed_b091568a" formatted="false">"Backup della frase seed"</string>
     <string name="l10n_backup_seed_phrase_ffb448a5" formatted="false">"Backup della frase seed"</string>
-    <string name="l10n_balance_transactions_c24c5896" formatted="false">"Saldo e transazioni"</string>
     <string name="l10n_balance_history_b7e0abe9" formatted="false">"Cronologia del saldo"</string>
     <string name="l10n_balance_s_xmr_s_d3a420c7" formatted="false">"Saldo: %1$s XMR%2$s"</string>
     <string name="l10n_balance_s_s_xmr_70285d70" formatted="false">"Saldo: %1$s, %2$s XMR"</string>
@@ -190,7 +189,6 @@
     <string name="l10n_clear_83b12c22" formatted="false">"Elimina"</string>
     <string name="l10n_clear_address_8b6db0f3" formatted="false">"Cancella indirizzo"</string>
     <string name="l10n_clear_address_search_bdfb1064" formatted="false">"Cancella ricerca indirizzi"</string>
-    <string name="l10n_clipboard_will_auto_clear_in_s_seconds_02609557" formatted="false">"Gli appunti verranno cancellati automaticamente tra %s secondi"</string>
     <string name="l10n_close_7d9eb7ac" formatted="false">"Chiudi"</string>
     <string name="l10n_closes_the_wallet_list_9f8cd790" formatted="false">"Chiude l’elenco dei portafogli"</string>
     <string name="l10n_collapsed_b322b652" formatted="false">"Compresso"</string>
@@ -405,8 +403,6 @@
     <string name="l10n_fee_estimation_failed_78e1320b" formatted="false">"Stima della commissione non riuscita"</string>
     <string name="l10n_fee_s_xmr_9efa7208" formatted="false">"Commissione: %1$s XMR"</string>
     <string name="l10n_fetching_price_f74cc78c" formatted="false">"Recupero del prezzo…"</string>
-    <string name="l10n_fiat_mode_28fbc3ad" formatted="false">"Modalità fiat"</string>
-    <string name="l10n_fiat_values_are_fetched_from_coinmarketcap_and_update_e_a3a24fb0" formatted="false">"I valori in valuta fiat provengono da CoinMarketCap e si aggiornano ogni 5 minuti."</string>
     <string name="l10n_filter_transactions_00d87315" formatted="false">"Filtra transazioni"</string>
     <string name="l10n_first_time_sync_can_take_a_few_minutes_2b7fc90b" formatted="false">"La prima sincronizzazione può richiedere alcuni minuti."</string>
     <string name="l10n_forgot_pin_74ad27db" formatted="false">"PIN dimenticato"</string>
@@ -450,7 +446,6 @@
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"Icona, %1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"Inattivo"</string>
     <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"Se questo portafoglio è più vecchio, abbassa l’altezza di ripristino in Impostazioni › Sincronizzazione e reimposta i dati di sincronizzazione."</string>
-    <string name="l10n_if_you_enjoy_monero_one_consider_donating_to_support_co_398cea0e" formatted="false">"Se ti piace Monero One, valuta una donazione per sostenerne lo sviluppo."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"Se perdi la frase seed, perdi i tuoi fondi per sempre. Trascrivila e conservala al sicuro offline."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"Subito"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"Informazioni importanti"</string>
@@ -734,6 +729,7 @@
     <string name="l10n_reset_app_a63cb257" formatted="false">"Reimposta app"</string>
     <string name="l10n_reset_sync_data_c1b021d1" formatted="false">"Reimposta dati di sincronizzazione"</string>
     <string name="l10n_reset_sync_data_01f6fb03" formatted="false">"Reimpostare i dati di sincronizzazione?"</string>
+    <string name="l10n_resetting_sync_data_5a37d4a5" formatted="false">"Reimpostazione dei dati di sincronizzazione in corso"</string>
     <string name="l10n_restore_a76e13b9" formatted="false">"Ripristina"</string>
     <string name="l10n_restore_date_d9ea95dc" formatted="false">"Data di creazione"</string>
     <string name="l10n_restore_failed_4306a0ec" formatted="false">"Ripristino non riuscito"</string>
@@ -748,7 +744,6 @@
     <string name="l10n_restoring_your_wallet_aded4dd9" formatted="false">"Ripristino del portafoglio…"</string>
     <string name="l10n_restoring_fa31c224" formatted="false">"Ripristino del portafoglio…"</string>
     <string name="l10n_restricted_a00571bc" formatted="false">"Limitato"</string>
-    <string name="l10n_resync_wallet_from_scratch_e21de5ed" formatted="false">"Cancella tutto l’avanzamento della sincronizzazione e risincronizza dall’inizio"</string>
     <string name="l10n_retry_942087cc" formatted="false">"Riprova"</string>
     <string name="l10n_retry_transaction_d11152ea" formatted="false">"Riprova la transazione"</string>
     <string name="l10n_return_to_current_balance_and_activity_29fbc524" formatted="false">"Torna a saldo e attività attuali"</string>
@@ -835,11 +830,9 @@
     <string name="l10n_show_recovery_phrase_3744ad12" formatted="false">"Frase seed"</string>
     <string name="l10n_show_seed_phrase_1d0bdfac" formatted="false">"Frase seed"</string>
     <string name="l10n_show_authentication_f918e5e1" formatted="false">"Mostra autenticazione"</string>
-    <string name="l10n_show_fiat_amounts_first_d3adfd9e" formatted="false">"Mostra prima gli importi in valuta fiat"</string>
     <string name="l10n_show_history_7dbece31" formatted="false">"Mostra cronologia"</string>
     <string name="l10n_show_password_6aeaa6a5" formatted="false">"Mostra password"</string>
     <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Mostra chiave di transazione"</string>
-    <string name="l10n_show_wallet_data_on_home_screen_24662779" formatted="false">"Consenti ai widget di mostrare i dati del portafoglio"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Nuovo indirizzo mostrato, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Mostra il codice a schermo intero. Azioni disponibili: salva in Foto o condividi"</string>
     <string name="l10n_shows_transaction_details_f7f06755" formatted="false">"Mostra i dettagli della transazione"</string>
@@ -918,7 +911,6 @@
     <string name="l10n_this_may_take_a_moment_c1049c89" formatted="false">"Potrebbe volerci un momento"</string>
     <string name="l10n_this_node_is_already_in_the_list_0720642a" formatted="false">"Questo nodo è già nell’elenco"</string>
     <string name="l10n_this_protects_you_from_wallet_activity_on_untrusted_net_91dd1d1c" formatted="false">"Ti protegge dall’attività del portafoglio su reti non attendibili, come Wi-Fi pubblici o luoghi sconosciuti."</string>
-    <string name="l10n_this_removes_every_wallet_from_this_device_only_your_wa_77018e53" formatted="false">"Rimuove tutti i portafogli solo da questo dispositivo. I portafogli continuano a esistere sulla blockchain e puoi recuperarli con le frasi seed."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_only_it_still__22761798" formatted="false">"Rimuove il portafoglio da questo dispositivo. Puoi recuperarlo con la frase seed."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_you_can_recove_6b8f3dd7" formatted="false">"Rimuove il portafoglio da questo dispositivo. Puoi recuperarlo con la frase seed."</string>
     <string name="l10n_this_removes_wallet_data_from_this_device_only_your_wal_e09970ba" formatted="false">"Rimuove il portafoglio da questo dispositivo. Puoi recuperarlo con la frase seed."</string>
@@ -927,8 +919,8 @@
     <string name="l10n_this_wallet_is_view_only_and_cannot_send_d1c7e692" formatted="false">"Questo è un portafoglio solo visualizzazione e non può inviare"</string>
     <string name="l10n_this_wallet_is_view_only_and_cannot_send_switch_to_a_wa_90c60f19" formatted="false">"Questo è un portafoglio solo visualizzazione e non può inviare. Passa a un portafoglio che può inviare, poi apri di nuovo il link."</string>
     <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_722eee0c" formatted="false">"Questo portafoglio verrà scansionato di nuovo dalla sua altezza di ripristino. Le chiavi delle transazioni inviate finora verranno eliminate."</string>
+    <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_3a4e903b" formatted="false">"Questo portafoglio verrà scansionato di nuovo dalla sua altezza di ripristino. Le chiavi delle transazioni inviate finora non saranno più disponibili."</string>
     <string name="l10n_this_wallet_was_restored_from_a_private_view_key_so_it__b286becb" formatted="false">"Questo portafoglio è stato ripristinato da una chiave di visualizzazione privata, quindi non può firmare transazioni su questo dispositivo. Per spendere, apri il portafoglio che possiede la chiave di spesa."</string>
-    <string name="l10n_this_will_clear_all_sync_progress_and_re_sync_from_the__6d35e7c6" formatted="false">"Verrà cancellato tutto l’avanzamento della sincronizzazione e il portafoglio si risincronizzerà dall’inizio. Il portafoglio e le chiavi non vengono modificati."</string>
     <string name="l10n_this_will_delete_all_wallet_data_from_this_device_you_c_f5eb4984" formatted="false">"Verranno eliminati tutti i dati del portafoglio da questo dispositivo. Puoi ripristinare il portafoglio con la frase seed.\n\nQuesta azione non può essere annullata."</string>
     <string name="l10n_time_33b93476" formatted="false">"Tempo"</string>
     <string name="l10n_timed_out_waiting_for_device_wallet_to_sync_2dbd6f57" formatted="false">"Tempo scaduto in attesa della sincronizzazione del portafoglio del dispositivo."</string>
@@ -1109,6 +1101,7 @@
     <string name="l10n_up_s_2fa9bc08" formatted="false">"in rialzo del %1$s%%"</string>
     <string name="l10n_view_only_8479be81" formatted="false">"solo visualizzazione"</string>
     <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__89c5af9a" formatted="false">"Il portafoglio “%1$s” verrà scansionato di nuovo dalla sua altezza di ripristino. Le chiavi delle transazioni inviate finora verranno eliminate."</string>
+    <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__28ab8822" formatted="false">"Il portafoglio “%s” verrà scansionato di nuovo dalla sua altezza di ripristino. Le chiavi delle transazioni inviate finora non saranno più disponibili."</string>
     <plurals name="l10n_s_locations_cdc8a004">
         <item quantity="many">"%1$s luoghi"</item>
         <item quantity="one">"%1$s luogo"</item>

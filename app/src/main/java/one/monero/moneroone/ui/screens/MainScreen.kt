@@ -214,11 +214,12 @@ fun MainScreen(
                         onThemeClick = { navController.navigate("theme") },
                         onCurrencyClick = { navController.navigate("currency") },
                         onLanguageClick = { navController.navigate("language") },
+                        onWidgetClick = { navController.navigate("widget_settings") },
                         onPriceAlertsClick = { navController.navigate("price_alerts") },
                         onSyncSettingsClick = { navController.navigate("sync_settings") },
                         onResetSyncClick = {
                             walletViewModel.resetSync()
-                            Toast.makeText(context, "Sync reset initiated", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, tr("Resetting sync data"), Toast.LENGTH_SHORT).show()
                         },
                         onRemoveAllWalletsClick = {
                             // Wipe EVERY wallet (iOS deleteAllWallets); the

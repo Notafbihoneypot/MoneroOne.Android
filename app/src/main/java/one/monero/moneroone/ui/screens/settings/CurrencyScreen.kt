@@ -249,7 +249,7 @@ fun CurrencyScreen(
 
         // Footer
         Text(
-            text = tr("Fiat values are fetched from CoinMarketCap and update every 5 minutes."),
+            text = tr("Prices from CoinMarketCap, updated every 5 minutes."),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier

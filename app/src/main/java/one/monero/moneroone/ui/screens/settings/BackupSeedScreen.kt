@@ -79,6 +79,10 @@ import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MonoFamily
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.MoneroTheme
+import android.icu.text.MeasureFormat
+import android.icu.util.Measure
+import android.icu.util.MeasureUnit
+import java.util.Locale
 
 private const val PIN_LENGTH = 6
 
@@ -536,7 +540,12 @@ fun BackupSeedScreen(
             if (copiedToClipboard) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = tr("Clipboard will auto-clear in %s seconds", SeedClipboard.LIFETIME_SECONDS),
+                    // "45 seconds" in the app language, as iOS formats the Duration.
+                    text = tr(
+                        "The clipboard clears in %s.",
+                        MeasureFormat.getInstance(Locale.getDefault(), MeasureFormat.FormatWidth.WIDE)
+                            .format(Measure(SeedClipboard.LIFETIME_SECONDS, MeasureUnit.SECOND))
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),
