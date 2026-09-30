@@ -180,7 +180,7 @@ internal fun ChartContent(
                 range = range
             )
             GlassSegmentedPicker(
-                options = TimeRange.entries.toList(),
+                options = TimeRange.entries,
                 selectedOption = range,
                 onOptionSelected = onRangeSelected,
                 modifier = Modifier.fillMaxWidth().testTag("chart-range"),

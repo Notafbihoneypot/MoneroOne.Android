@@ -243,7 +243,7 @@ internal fun BalanceHistoryChart(
         }
 
         GlassSegmentedPicker(
-            options = TimeRange.entries.toList(),
+            options = TimeRange.entries,
             selectedOption = range,
             onOptionSelected = { state.selectRange(it) },
             modifier = Modifier.fillMaxWidth().testTag("wallet.historyRange"),
