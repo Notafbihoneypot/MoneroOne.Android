@@ -297,7 +297,7 @@ private fun QrFocusOverlay(item: QrFocusItem, focus: QrFocusState) {
         val target = Rect(Offset(centerX - sidePx / 2f, insetTop + layout.plateCenterY * d - sidePx / 2f),
             androidx.compose.ui.geometry.Size(sidePx, sidePx))
 
-        // The page color, the code and the taps that close it: a tap anywhere, or a swipe down.
+        // The page color and the taps that close it: a tap anywhere, or a swipe down.
         Spacer(
             Modifier
                 .fillMaxSize()
@@ -319,9 +319,39 @@ private fun QrFocusOverlay(item: QrFocusItem, focus: QrFocusState) {
                         if (lifted && (moved.getDistance() < tapSlop || moved.y > swipe)) focus.close()
                     }
                 }
+                .drawBehind { drawRect(page, alpha = focus.progress.value) }
+        )
+
+        // The lockup slides down from the top as the code grows, on the grow's
+        // own curve. It sits under the code, as on iOS: the code passes over
+        // it on the way, and it never shows through the code.
+        Row(
+            Modifier
+                .offset { IntOffset(shiftX, (insetTop + (layout.lockupCenterY - LOCKUP_HEIGHT / 2f) * d).roundToInt()) }
+                .widthIn(max = (safeWidth / d).dp)
+                .height(LOCKUP_HEIGHT.dp)
+                .align(Alignment.TopCenter)
+                .graphicsLayer {
+                    val p = focus.progress.value
+                    alpha = p
+                    translationY = if (grows) -20.dp.toPx() * (1f - p) else 0f
+                }
+                .clearAndSetSemantics { },
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (logo != null) Image(logo.asImageBitmap(), null, Modifier.size(LOCKUP_HEIGHT.dp))
+            Text("Monero One", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+        }
+
+        // The code, over the lockup. It takes no touches, so a tap still
+        // reaches the page color under it.
+        Spacer(
+            Modifier
+                .fillMaxSize()
                 .drawBehind {
                     val p = focus.progress.value
-                    drawRect(page, alpha = p)
                     val from = focus.sourceBounds.translate(-focus.containerOrigin)
                     // Large when open; on top of the code on the screen before it
                     // grows and after it shrinks back. With animations off it stays
@@ -353,27 +383,6 @@ private fun QrFocusOverlay(item: QrFocusItem, focus: QrFocusState) {
                     onClick(label = tr("Close")) { focus.close(); true }
                 }
         )
-
-        // The lockup slides down from the top as the code grows, on the grow's own curve.
-        Row(
-            Modifier
-                .offset { IntOffset(shiftX, (insetTop + (layout.lockupCenterY - LOCKUP_HEIGHT / 2f) * d).roundToInt()) }
-                .widthIn(max = (safeWidth / d).dp)
-                .height(LOCKUP_HEIGHT.dp)
-                .align(Alignment.TopCenter)
-                .graphicsLayer {
-                    val p = focus.progress.value
-                    alpha = p
-                    translationY = if (grows) -20.dp.toPx() * (1f - p) else 0f
-                }
-                .clearAndSetSemantics { },
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (logo != null) Image(logo.asImageBitmap(), null, Modifier.size(LOCKUP_HEIGHT.dp))
-            Text("Monero One", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
-        }
 
         if (amount != null) Box(
             Modifier
