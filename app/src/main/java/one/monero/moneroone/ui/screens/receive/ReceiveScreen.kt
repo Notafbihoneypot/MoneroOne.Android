@@ -83,10 +83,14 @@ import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.truncateMiddle
 import android.view.HapticFeedbackConstants
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import one.monero.moneroone.ui.components.FocusableQrPlate
 import one.monero.moneroone.ui.components.QrFocusContainer
 import one.monero.moneroone.ui.components.QrFocusItem
@@ -94,6 +98,7 @@ import one.monero.moneroone.ui.components.QrRecedeEdge
 import one.monero.moneroone.ui.components.qrFocusRecede
 import one.monero.moneroone.ui.components.rememberSaveQrToPhotos
 import one.monero.moneroone.ui.components.rememberShareQr
+import one.monero.moneroone.ui.theme.WarningYellow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -157,6 +162,7 @@ fun ReceiveScreen(
             else -> "monero:$address"
         }
     }
+    val freshAddress = remember { walletViewModel.freshReceiveAddress }
     val saveQr = rememberSaveQrToPhotos()
     val shareQr = rememberShareQr()
     var qrMenu by remember { mutableStateOf(false) }
@@ -413,10 +419,11 @@ fun ReceiveScreen(
                 }
                 }
             }
-            ReceiveAddressLogic.creationWarning(addressRows)?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp))
-            }
+            ReceiveFooter(
+                mainAddress = (sub?.addressIndex ?: selectedAddressIndex) == 0,
+                freshAddress = freshAddress,
+                limitNote = ReceiveAddressLogic.creationWarning(addressRows)
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -469,6 +476,38 @@ fun ReceiveScreen(
 
 /** Copy and Share while no address can be shown (iOS dims disabled buttons the same way). */
 private const val DISABLED_ALPHA = 0.4f
+
+/** The notes under the address card: what happens next (iOS ReceiveView's footer). */
+@Composable
+private fun ReceiveFooter(mainAddress: Boolean, freshAddress: Boolean, limitNote: String?) {
+    if (!mainAddress && !freshAddress && limitNote == null) return
+    Column(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        if (mainAddress) {
+            val spoken = tr("Privacy warning: Main address links all transactions. Use subaddresses for privacy.")
+            FooterLine(Icons.Default.Warning, WarningYellow,
+                tr("Main address links all transactions. Use subaddresses for privacy."),
+                MaterialTheme.colorScheme.onSurface,
+                Modifier.clearAndSetSemantics { contentDescription = spoken })
+        }
+        if (freshAddress) {
+            val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+            FooterLine(Icons.Default.Sync, secondary, tr("New address after each payment"), secondary)
+        }
+        limitNote?.let { FooterLine(Icons.Default.Warning, WarningYellow, it, MaterialTheme.colorScheme.onSurface) }
+    }
+}
+
+/** A caption with its glyph on the first line. */
+@Composable
+private fun FooterLine(icon: ImageVector, iconTint: Color, text: String, textColor: Color, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.padding(top = 2.dp).size(12.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = textColor)
+    }
+}
 
 /**
  * Shown in place of the QR code when the wallet's keys failed a check (iOS
