@@ -141,22 +141,28 @@ enum class ChartTimeAxis {
 }
 
 /**
- * The system's word for yesterday, and how it joins a day to a time:
- * "Yesterday, 3:05 PM", "Gestern, 15:05", "昨日 15:05". Android's
- * DateUtils.getRelativeDateTimeString builds its text the same way; iOS
- * gets it from a relative DateFormatter.
+ * The word for yesterday, and how a day joins a time, as iOS's relative
+ * DateFormatter (medium date, short time) writes them: "Yesterday at
+ * 3:05 PM", "Gestern, 15:05", "hier à 15:05", "昨日 15:05".
  */
 interface RelativeDayText {
-    /** "Yesterday", capitalized to start a label. */
+    /** "Yesterday", cased the way iOS starts a label with it. */
     val yesterday: String
 
-    /** [day] and [time] in the locale's order and separator. */
+    /** [day] and [time] in the language's order, with its joiner. */
     fun join(day: String, time: String): String
 }
 
-/** [RelativeDayText] from ICU, made on first use, so JVM tests can build [ChartDateFormats]. */
-class IcuRelativeDayText(private val locale: Locale) : RelativeDayText {
-    private val formatter by lazy {
+/**
+ * [RelativeDayText] for the app's languages, as iOS 27 writes them. Android's
+ * ICU joins with the plain date-time glue ("Yesterday, 3:05 PM", "hier,
+ * 15:05") and cases the word its own way, so the app's languages take iOS's
+ * word and joiner from these tables. Other languages fall back to ICU, made
+ * on first use, so JVM tests can build [ChartDateFormats].
+ */
+class IosRelativeDayText(private val locale: Locale) : RelativeDayText {
+    private val language = locale.language
+    private val icu by lazy {
         RelativeDateTimeFormatter.getInstance(
             ULocale.forLocale(locale),
             null,
@@ -166,9 +172,28 @@ class IcuRelativeDayText(private val locale: Locale) : RelativeDayText {
     }
 
     override val yesterday: String
-        get() = formatter.format(RelativeDateTimeFormatter.Direction.LAST, RelativeDateTimeFormatter.AbsoluteUnit.DAY)
+        get() = IOS_YESTERDAY[language]
+            ?: icu.format(RelativeDateTimeFormatter.Direction.LAST, RelativeDateTimeFormatter.AbsoluteUnit.DAY)
 
-    override fun join(day: String, time: String): String = formatter.combineDateAndTime(day, time)
+    override fun join(day: String, time: String): String =
+        IOS_JOINER[language]?.let { "$day$it$time" } ?: icu.combineDateAndTime(day, time)
+
+    private companion object {
+        /** iOS's relative day for yesterday, per app language. */
+        val IOS_YESTERDAY = mapOf(
+            "en" to "Yesterday", "de" to "Gestern", "es" to "ayer", "fr" to "hier", "it" to "ieri",
+            "ja" to "昨日", "ko" to "어제", "nl" to "Gisteren", "pl" to "Wczoraj", "pt" to "Ontem",
+            "ro" to "ieri", "ru" to "Вчера", "tr" to "Dün", "uk" to "Учора", "zh" to "昨天"
+        )
+
+        /** What iOS puts between a medium date and a short time, per app language. */
+        val IOS_JOINER = mapOf(
+            "en" to " at ", "fr" to " à ", "pl" to " o ",
+            "ja" to " ", "ko" to " ", "tr" to " ", "zh" to " ",
+            "de" to ", ", "es" to ", ", "it" to ", ", "nl" to ", ", "pt" to ", ",
+            "ro" to ", ", "ru" to ", ", "uk" to ", "
+        )
+    }
 }
 
 /**
@@ -181,7 +206,7 @@ class ChartDateFormats(
     val locale: Locale,
     val timeZone: TimeZone,
     private val use24Hour: Boolean,
-    private val relativeDays: RelativeDayText = IcuRelativeDayText(locale),
+    private val relativeDays: RelativeDayText = IosRelativeDayText(locale),
     private val bestPattern: (String) -> String
 ) {
     private val formats = HashMap<String, SimpleDateFormat>()
@@ -218,7 +243,7 @@ class ChartDateFormats(
         ChartTimeAxis.YEAR, ChartTimeAxis.ALL -> format("yMMMd", ms)
     }
 
-    /** "Sep 20, 2026, 3:05 PM": the medium date and short time, joined as the locale joins them. */
+    /** "Sep 20, 2026 at 3:05 PM": the medium date and short time, joined as iOS joins them. */
     fun dateTime(ms: Long): String = relativeDays.join(format("yMMMd", ms), time(ms))
 
     /**
