@@ -1,5 +1,7 @@
 package one.monero.moneroone.ui.components
 
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 
@@ -18,4 +20,7 @@ object Motion {
 
     /** Rolling digits and other small value changes. */
     const val DIGIT_MS = 200
+
+    /** iOS `.easeInOut`, the curve of rolling digits. */
+    val EaseInOut: Easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 }
