@@ -71,7 +71,6 @@
     <string name="l10n_active_wallet_is_not_hardware_backed_32bb68cf" formatted="false">"目前的錢包不是硬體錢包。"</string>
     <string name="l10n_add_9fd728c6" formatted="false">"新增"</string>
     <string name="l10n_add_alert_02417a37" formatted="false">"新增提醒"</string>
-    <string name="l10n_add_custom_node_07235ac3" formatted="false">"新增節點"</string>
     <string name="l10n_add_location_140d3619" formatted="false">"新增位置"</string>
     <string name="l10n_add_node_a70aa008" formatted="false">"新增節點"</string>
     <string name="l10n_add_proxy_277a6aa3" formatted="false">"新增代理伺服器"</string>
@@ -128,8 +127,6 @@
     <string name="l10n_auto_02862497" formatted="false">"自動"</string>
     <string name="l10n_auto_select_6cc55210" formatted="false">"自動選擇"</string>
     <string name="l10n_auto_lock_034e3946" formatted="false">"自動鎖定"</string>
-    <string name="l10n_auto_select_2f800f4e" formatted="false">"自動選擇"</string>
-    <string name="l10n_automatically_use_the_fastest_node_16a2e505" formatted="false">"選擇最快且可靠的節點"</string>
     <string name="l10n_available_balance_s_some_funds_locked_until_recent_tran_33a13557" formatted="false">"可用餘額：%1$s。部分資金已鎖定，待最近的交易確認後解鎖。"</string>
     <string name="l10n_available_72074a8a" formatted="false">"可用："</string>
     <string name="l10n_available_s_xmr_fe6c540f" formatted="false">"可用：%1$s XMR"</string>
@@ -340,7 +337,6 @@
     <string name="l10n_double_tap_to_use_a_4_digit_pin_52a1514c" formatted="false">"點兩下來使用 4 位數 PIN 碼"</string>
     <string name="l10n_double_tap_to_use_a_6_digit_pin_e60efb15" formatted="false">"點兩下來使用 6 位數 PIN 碼"</string>
     <string name="l10n_edit_464c4ffd" formatted="false">"編輯"</string>
-    <string name="l10n_edit_custom_node_6f704f0a" formatted="false">"編輯節點"</string>
     <string name="l10n_edit_location_c081701b" formatted="false">"編輯位置"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"編輯節點"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"編輯代理伺服器"</string>
@@ -464,7 +460,6 @@
     <string name="l10n_item_not_found_in_keychain_cc73af45" formatted="false">"在鑰匙圈中找不到項目"</string>
     <string name="l10n_japanese_yen_fa53dbe5" formatted="false">"日圓"</string>
     <string name="l10n_keep_your_seed_safe_cdc03cc8" formatted="false">"保護你的助記詞"</string>
-    <string name="l10n_keep_wallet_synced_when_app_is_backgrounded_57585bea" formatted="false">"應用程式在背景執行時保持錢包同步"</string>
     <string name="l10n_kenyan_shilling_373abf6d" formatted="false">"肯亞先令"</string>
     <string name="l10n_key_image_sync_failed_s_baf913cc" formatted="false">"金鑰映像同步失敗：%1$s"</string>
     <string name="l10n_label_0e66373f" formatted="false">"標籤"</string>
@@ -497,7 +492,6 @@
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"主要位址會連結所有交易。請使用子位址來保護隱私。"</string>
     <string name="l10n_make_sure_the_device_is_unlocked_and_bluetooth_is_on_737758b0" formatted="false">"請確認裝置已解鎖且藍牙已開啟。"</string>
     <string name="l10n_manage_locations_f08057d4" formatted="false">"管理位置"</string>
-    <string name="l10n_manage_remote_nodes_1913dcde" formatted="false">"節點"</string>
     <string name="l10n_match_device_settings_8e46da21" formatted="false">"跟隨系統"</string>
     <string name="l10n_max_a1a5936d" formatted="false">"最大"</string>
     <string name="l10n_memo_64cecb8a" formatted="false">"備註"</string>
@@ -568,9 +562,7 @@
     <string name="l10n_no_wallet_4485d729" formatted="false">"沒有錢包"</string>
     <string name="l10n_no_wallet_to_reset_68bbba80" formatted="false">"沒有可重置的錢包"</string>
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"沒有可切換的錢包"</string>
-    <string name="l10n_node_e9337253" formatted="false">"遠端節點"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"節點詳細資料"</string>
-    <string name="l10n_node_settings_528d7ea4" formatted="false">"節點"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"節點 URI"</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"節點傳回無效的回應。請改用其他節點。"</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"無法使用節點。請改用其他節點。"</string>
@@ -594,7 +586,6 @@
     <string name="l10n_once_a_monero_transaction_is_confirmed_it_cannot_be_rev_74305ca5" formatted="false">"Monero 交易一經確認，就無法撤銷、取消或修改。傳送前請務必核對位址。"</string>
     <string name="l10n_only_finds_transactions_after_this_date_1d9e9bdd" formatted="false">"僅尋找此日期之後的交易。"</string>
     <string name="l10n_only_for_nodes_that_need_a_login_ce0e5d51" formatted="false">"僅適用於需要登入的節點。"</string>
-    <string name="l10n_only_needed_for_nodes_that_require_rpc_credentials_0e684595" formatted="false">"僅在節點需要 RPC 憑證時填寫"</string>
     <string name="l10n_only_sync_when_inside_a_trusted_zone_2a854510" formatted="false">"僅在受信任區域內同步"</string>
     <string name="l10n_open_ed077f3d" formatted="false">"開盤"</string>
     <string name="l10n_open_settings_3f940108" formatted="false">"開啟「設定」"</string>
@@ -731,7 +722,6 @@
     <string name="l10n_reset_sync_data_01f6fb03" formatted="false">"要重置同步資料嗎？"</string>
     <string name="l10n_resetting_sync_data_5a37d4a5" formatted="false">"正在重置同步資料"</string>
     <string name="l10n_restore_a76e13b9" formatted="false">"回復"</string>
-    <string name="l10n_restore_date_d9ea95dc" formatted="false">"建立日期"</string>
     <string name="l10n_restore_failed_4306a0ec" formatted="false">"回復失敗"</string>
     <string name="l10n_restore_from_block_4bd34d5d" formatted="false">"從區塊回復"</string>
     <string name="l10n_restore_height_9c000a65" formatted="false">"回復高度"</string>
@@ -784,7 +774,6 @@
     <string name="l10n_seed_phrase_input_ebada050" formatted="false">"助記詞輸入欄位"</string>
     <string name="l10n_seed_phrase_must_be_24_or_25_words_e4b5b1a2" formatted="false">"助記詞必須包含 24 或 25 個單字"</string>
     <string name="l10n_select_address_790227f7" formatted="false">"選擇位址"</string>
-    <string name="l10n_select_a_remote_node_for_blockchain_sync_0d689364" formatted="false">"遠端節點"</string>
     <string name="l10n_select_date_3b4e173e" formatted="false">"建立日期"</string>
     <string name="l10n_select_date_when_wallet_was_created_112aa73a" formatted="false">"你是什麼時候建立這個錢包的？"</string>
     <string name="l10n_select_your_preferred_display_currency_for_prices_f996ba92" formatted="false">"更改顯示貨幣"</string>

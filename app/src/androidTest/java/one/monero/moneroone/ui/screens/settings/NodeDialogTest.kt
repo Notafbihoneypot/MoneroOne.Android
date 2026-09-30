@@ -21,7 +21,7 @@ class NodeDialogTest {
         var torEnabled by mutableStateOf(false)
         rule.setContent {
             MoneroOneTheme {
-                NodeDialog(tr("Add Custom Node"), tr("Add"), "", null, emptySet(), torEnabled, { _, _ -> }, {})
+                NodeDialog(tr("Add Node"), tr("Add"), "", null, emptySet(), torEnabled, { _, _ -> }, {})
             }
         }
         val uriField = rule.onNode(hasSetTextAction())

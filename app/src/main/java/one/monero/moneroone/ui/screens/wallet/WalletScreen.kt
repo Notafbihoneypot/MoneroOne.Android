@@ -1111,7 +1111,8 @@ private fun TransactionCard(
     }
 }
 
-private fun formatBlockCount(count: Long): String = when {
+/** "1.2K", "3.45M": a block count for a sync caption. */
+internal fun formatBlockCount(count: Long): String = when {
     count >= 1_000_000 -> String.format("%.2fM", count / 1_000_000.0)
     count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
     else -> "$count"

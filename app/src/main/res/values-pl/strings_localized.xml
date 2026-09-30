@@ -71,7 +71,6 @@
     <string name="l10n_active_wallet_is_not_hardware_backed_32bb68cf" formatted="false">"Aktywny portfel nie jest portfelem sprzętowym."</string>
     <string name="l10n_add_9fd728c6" formatted="false">"Dodaj"</string>
     <string name="l10n_add_alert_02417a37" formatted="false">"Dodaj alert"</string>
-    <string name="l10n_add_custom_node_07235ac3" formatted="false">"Dodaj węzeł"</string>
     <string name="l10n_add_location_140d3619" formatted="false">"Dodaj lokalizację"</string>
     <string name="l10n_add_node_a70aa008" formatted="false">"Dodaj węzeł"</string>
     <string name="l10n_add_proxy_277a6aa3" formatted="false">"Dodaj proxy"</string>
@@ -128,8 +127,6 @@
     <string name="l10n_auto_02862497" formatted="false">"Auto"</string>
     <string name="l10n_auto_select_6cc55210" formatted="false">"Wybór automatyczny"</string>
     <string name="l10n_auto_lock_034e3946" formatted="false">"Autoblokada"</string>
-    <string name="l10n_auto_select_2f800f4e" formatted="false">"Wybór automatyczny"</string>
-    <string name="l10n_automatically_use_the_fastest_node_16a2e505" formatted="false">"Wybiera najszybszy niezawodny węzeł"</string>
     <string name="l10n_available_balance_s_some_funds_locked_until_recent_tran_33a13557" formatted="false">"Dostępne saldo: %1$s. Część środków jest zablokowana do potwierdzenia ostatnich transakcji."</string>
     <string name="l10n_available_72074a8a" formatted="false">"Dostępne:"</string>
     <string name="l10n_available_s_xmr_fe6c540f" formatted="false">"Dostępne: %1$s XMR"</string>
@@ -340,7 +337,6 @@
     <string name="l10n_double_tap_to_use_a_4_digit_pin_52a1514c" formatted="false">"Stuknij dwukrotnie, aby użyć 4-cyfrowego kodu PIN"</string>
     <string name="l10n_double_tap_to_use_a_6_digit_pin_e60efb15" formatted="false">"Stuknij dwukrotnie, aby użyć 6-cyfrowego kodu PIN"</string>
     <string name="l10n_edit_464c4ffd" formatted="false">"Edytuj"</string>
-    <string name="l10n_edit_custom_node_6f704f0a" formatted="false">"Edytuj węzeł"</string>
     <string name="l10n_edit_location_c081701b" formatted="false">"Edytuj lokalizację"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"Edytuj węzeł"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"Edytuj proxy"</string>
@@ -464,7 +460,6 @@
     <string name="l10n_item_not_found_in_keychain_cc73af45" formatted="false">"Nie znaleziono elementu w pęku kluczy"</string>
     <string name="l10n_japanese_yen_fa53dbe5" formatted="false">"Jen japoński"</string>
     <string name="l10n_keep_your_seed_safe_cdc03cc8" formatted="false">"Chroń frazę seed"</string>
-    <string name="l10n_keep_wallet_synced_when_app_is_backgrounded_57585bea" formatted="false">"Utrzymuj synchronizację portfela, gdy aplikacja działa w tle"</string>
     <string name="l10n_kenyan_shilling_373abf6d" formatted="false">"Szyling kenijski"</string>
     <string name="l10n_key_image_sync_failed_s_baf913cc" formatted="false">"Synchronizacja obrazów kluczy nie powiodła się: %1$s"</string>
     <string name="l10n_label_0e66373f" formatted="false">"Etykieta"</string>
@@ -497,7 +492,6 @@
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"Adres główny łączy wszystkie transakcje. Dla prywatności używaj podadresów."</string>
     <string name="l10n_make_sure_the_device_is_unlocked_and_bluetooth_is_on_737758b0" formatted="false">"Upewnij się, że urządzenie jest odblokowane, a Bluetooth jest włączony."</string>
     <string name="l10n_manage_locations_f08057d4" formatted="false">"Zarządzaj lokalizacjami"</string>
-    <string name="l10n_manage_remote_nodes_1913dcde" formatted="false">"Węzły"</string>
     <string name="l10n_match_device_settings_8e46da21" formatted="false">"Systemowy"</string>
     <string name="l10n_max_a1a5936d" formatted="false">"Maks."</string>
     <string name="l10n_memo_64cecb8a" formatted="false">"Notatka"</string>
@@ -568,9 +562,7 @@
     <string name="l10n_no_wallet_4485d729" formatted="false">"Brak portfela"</string>
     <string name="l10n_no_wallet_to_reset_68bbba80" formatted="false">"Brak portfela do zresetowania"</string>
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"Brak portfela do przełączenia"</string>
-    <string name="l10n_node_e9337253" formatted="false">"Zdalny węzeł"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Szczegóły węzła"</string>
-    <string name="l10n_node_settings_528d7ea4" formatted="false">"Węzły"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"URI węzła"</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"Węzeł zwrócił nieprawidłową odpowiedź. Wybierz inny węzeł."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Węzeł jest niedostępny. Wybierz inny węzeł."</string>
@@ -594,7 +586,6 @@
     <string name="l10n_once_a_monero_transaction_is_confirmed_it_cannot_be_rev_74305ca5" formatted="false">"Potwierdzonej transakcji Monero nie można cofnąć, anulować ani zmienić. Zawsze sprawdzaj adresy przed wysłaniem."</string>
     <string name="l10n_only_finds_transactions_after_this_date_1d9e9bdd" formatted="false">"Znajduje tylko transakcje po tej dacie."</string>
     <string name="l10n_only_for_nodes_that_need_a_login_ce0e5d51" formatted="false">"Tylko dla węzłów, które wymagają logowania."</string>
-    <string name="l10n_only_needed_for_nodes_that_require_rpc_credentials_0e684595" formatted="false">"Potrzebne tylko, gdy węzeł wymaga danych logowania RPC"</string>
     <string name="l10n_only_sync_when_inside_a_trusted_zone_2a854510" formatted="false">"Synchronizuj tylko w zaufanej strefie"</string>
     <string name="l10n_open_ed077f3d" formatted="false">"Otwarcie"</string>
     <string name="l10n_open_settings_3f940108" formatted="false">"Otwórz Ustawienia"</string>
@@ -731,7 +722,6 @@
     <string name="l10n_reset_sync_data_01f6fb03" formatted="false">"Zresetować dane synchronizacji?"</string>
     <string name="l10n_resetting_sync_data_5a37d4a5" formatted="false">"Resetowanie danych synchronizacji"</string>
     <string name="l10n_restore_a76e13b9" formatted="false">"Przywróć"</string>
-    <string name="l10n_restore_date_d9ea95dc" formatted="false">"Data utworzenia"</string>
     <string name="l10n_restore_failed_4306a0ec" formatted="false">"Przywracanie nie powiodło się"</string>
     <string name="l10n_restore_from_block_4bd34d5d" formatted="false">"Przywróć od bloku"</string>
     <string name="l10n_restore_height_9c000a65" formatted="false">"Wysokość przywracania"</string>
@@ -784,7 +774,6 @@
     <string name="l10n_seed_phrase_input_ebada050" formatted="false">"Pole frazy seed"</string>
     <string name="l10n_seed_phrase_must_be_24_or_25_words_e4b5b1a2" formatted="false">"Fraza seed musi zawierać 24 lub 25 słów"</string>
     <string name="l10n_select_address_790227f7" formatted="false">"Wybierz adres"</string>
-    <string name="l10n_select_a_remote_node_for_blockchain_sync_0d689364" formatted="false">"Zdalny węzeł"</string>
     <string name="l10n_select_date_3b4e173e" formatted="false">"Data utworzenia"</string>
     <string name="l10n_select_date_when_wallet_was_created_112aa73a" formatted="false">"Kiedy utworzono ten portfel?"</string>
     <string name="l10n_select_your_preferred_display_currency_for_prices_f996ba92" formatted="false">"Zmień walutę wyświetlania"</string>

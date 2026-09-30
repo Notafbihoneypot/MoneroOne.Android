@@ -356,23 +356,6 @@
     "zh-Hans": "在后台同步",
     "zh-Hant": "在背景同步"
   },
-  "Keep wallet synced when app is backgrounded": {
-    "de": "Wallet synchron halten, wenn die App im Hintergrund ist",
-    "es": "Mantener la cartera sincronizada cuando la app está en segundo plano",
-    "fr": "Garder le portefeuille synchronisé lorsque l’application est en arrière-plan",
-    "it": "Mantieni il portafoglio sincronizzato quando l’app è in background",
-    "ja": "アプリがバックグラウンドでもウォレットを同期",
-    "ko": "앱이 백그라운드에 있을 때 지갑 동기화 유지",
-    "nl": "Houd de wallet gesynchroniseerd als de app op de achtergrond staat",
-    "pl": "Utrzymuj synchronizację portfela, gdy aplikacja działa w tle",
-    "pt-BR": "Manter a carteira sincronizada quando o app estiver em segundo plano",
-    "ro": "Menține portofelul sincronizat când aplicația este în fundal",
-    "ru": "Синхронизировать кошелёк, когда приложение в фоне",
-    "tr": "Uygulama arka plandayken cüzdanı eşitlenmiş tut",
-    "uk": "Синхронізувати гаманець, коли застосунок у фоні",
-    "zh-Hans": "应用在后台时保持钱包同步",
-    "zh-Hant": "應用程式在背景執行時保持錢包同步"
-  },
   "Use fingerprint or face to unlock": {
     "de": "Mit Fingerabdruck oder Gesicht entsperren",
     "es": "Usar huella o rostro para desbloquear",
@@ -1087,23 +1070,6 @@
     "zh-Hans": "钱包同步、节点检查和价格查询均使用此代理。代理不可用时，连接将保持离线。",
     "zh-Hant": "錢包同步、節點檢查和價格查詢均使用此代理。代理無法使用時，連線將保持離線。"
   },
-  "Automatically use the fastest node": {
-    "de": "Wählt den schnellsten zuverlässigen Node",
-    "es": "Elige el nodo confiable más rápido",
-    "fr": "Choisit le nœud fiable le plus rapide",
-    "it": "Sceglie il nodo affidabile più veloce",
-    "ja": "最速で信頼性の高いノードを選択します",
-    "ko": "가장 빠르고 안정적인 노드를 선택합니다",
-    "nl": "Kiest de snelste betrouwbare node",
-    "pl": "Wybiera najszybszy niezawodny węzeł",
-    "pt-BR": "Escolhe o nó confiável mais rápido",
-    "ro": "Alege cel mai rapid nod fiabil",
-    "ru": "Выбирает самый быстрый надёжный узел",
-    "tr": "En hızlı güvenilir düğümü seçer",
-    "uk": "Вибирає найшвидший надійний вузол",
-    "zh-Hans": "选择最快且可靠的节点",
-    "zh-Hant": "選擇最快且可靠的節點"
-  },
   "Tap + to create your first alert": {
     "de": "Füge deinen ersten Alarm hinzu, um benachrichtigt zu werden, wenn XMR eine Preisschwelle überschreitet",
     "es": "Agrega tu primera alerta para recibir un aviso cuando XMR cruce un umbral de precio",
@@ -1120,23 +1086,6 @@
     "uk": "Додайте перше сповіщення, щоб дізнатися, коли ціна XMR перетне заданий поріг",
     "zh-Hans": "添加你的第一个提醒，在 XMR 突破价格阈值时收到通知",
     "zh-Hant": "新增你的第一個提醒，在 XMR 突破價格門檻時收到通知"
-  },
-  "Only needed for nodes that require RPC credentials": {
-    "de": "Nur für Nodes nötig, die RPC-Zugangsdaten verlangen",
-    "es": "Solo es necesario para nodos que requieren credenciales RPC",
-    "fr": "Uniquement pour les nœuds qui exigent des identifiants RPC",
-    "it": "Serve solo per i nodi che richiedono credenziali RPC",
-    "ja": "RPC認証情報が必要なノードでのみ必要です",
-    "ko": "RPC 자격 증명이 필요한 노드에만 필요합니다",
-    "nl": "Alleen nodig voor nodes die RPC-inloggegevens vereisen",
-    "pl": "Potrzebne tylko, gdy węzeł wymaga danych logowania RPC",
-    "pt-BR": "Necessário apenas para nós que exigem credenciais RPC",
-    "ro": "Necesar doar pentru nodurile care cer date de autentificare RPC",
-    "ru": "Нужно только для узлов, требующих учётные данные RPC",
-    "tr": "Yalnızca RPC kimlik bilgisi gerektiren düğümler için gereklidir",
-    "uk": "Потрібно лише для вузлів, які вимагають облікових даних RPC",
-    "zh-Hans": "仅在节点需要 RPC 凭据时填写",
-    "zh-Hant": "僅在節點需要 RPC 憑證時填寫"
   },
   "Route traffic through SOCKS5 proxy": {
     "de": "Datenverkehr über SOCKS5-Proxy leiten",

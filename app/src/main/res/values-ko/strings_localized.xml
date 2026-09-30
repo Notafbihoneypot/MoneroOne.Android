@@ -71,7 +71,6 @@
     <string name="l10n_active_wallet_is_not_hardware_backed_32bb68cf" formatted="false">"활성 지갑이 하드웨어 지갑 기반이 아닙니다."</string>
     <string name="l10n_add_9fd728c6" formatted="false">"추가"</string>
     <string name="l10n_add_alert_02417a37" formatted="false">"알림 추가"</string>
-    <string name="l10n_add_custom_node_07235ac3" formatted="false">"노드 추가"</string>
     <string name="l10n_add_location_140d3619" formatted="false">"위치 추가"</string>
     <string name="l10n_add_node_a70aa008" formatted="false">"노드 추가"</string>
     <string name="l10n_add_proxy_277a6aa3" formatted="false">"프록시 추가"</string>
@@ -128,8 +127,6 @@
     <string name="l10n_auto_02862497" formatted="false">"자동"</string>
     <string name="l10n_auto_select_6cc55210" formatted="false">"자동 선택"</string>
     <string name="l10n_auto_lock_034e3946" formatted="false">"자동 잠금"</string>
-    <string name="l10n_auto_select_2f800f4e" formatted="false">"자동 선택"</string>
-    <string name="l10n_automatically_use_the_fastest_node_16a2e505" formatted="false">"가장 빠르고 안정적인 노드를 선택합니다"</string>
     <string name="l10n_available_balance_s_some_funds_locked_until_recent_tran_33a13557" formatted="false">"사용 가능 잔액: %1$s. 최근 거래가 확인될 때까지 일부 자금이 잠겨 있습니다."</string>
     <string name="l10n_available_72074a8a" formatted="false">"사용 가능:"</string>
     <string name="l10n_available_s_xmr_fe6c540f" formatted="false">"사용 가능: %1$s XMR"</string>
@@ -340,7 +337,6 @@
     <string name="l10n_double_tap_to_use_a_4_digit_pin_52a1514c" formatted="false">"4자리 PIN을 사용하려면 두 번 탭하십시오"</string>
     <string name="l10n_double_tap_to_use_a_6_digit_pin_e60efb15" formatted="false">"6자리 PIN을 사용하려면 두 번 탭하십시오"</string>
     <string name="l10n_edit_464c4ffd" formatted="false">"편집"</string>
-    <string name="l10n_edit_custom_node_6f704f0a" formatted="false">"노드 편집"</string>
     <string name="l10n_edit_location_c081701b" formatted="false">"위치 편집"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"노드 편집"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"프록시 편집"</string>
@@ -464,7 +460,6 @@
     <string name="l10n_item_not_found_in_keychain_cc73af45" formatted="false">"키체인에서 항목을 찾을 수 없음"</string>
     <string name="l10n_japanese_yen_fa53dbe5" formatted="false">"일본 엔화"</string>
     <string name="l10n_keep_your_seed_safe_cdc03cc8" formatted="false">"시드 문구를 보호하세요"</string>
-    <string name="l10n_keep_wallet_synced_when_app_is_backgrounded_57585bea" formatted="false">"앱이 백그라운드에 있을 때 지갑 동기화 유지"</string>
     <string name="l10n_kenyan_shilling_373abf6d" formatted="false">"케냐 실링"</string>
     <string name="l10n_key_image_sync_failed_s_baf913cc" formatted="false">"키 이미지 동기화 실패: %1$s"</string>
     <string name="l10n_label_0e66373f" formatted="false">"레이블"</string>
@@ -497,7 +492,6 @@
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"기본 주소는 모든 거래를 연결합니다. 개인정보 보호를 위해 하위 주소를 사용하세요."</string>
     <string name="l10n_make_sure_the_device_is_unlocked_and_bluetooth_is_on_737758b0" formatted="false">"기기의 잠금이 해제되어 있고 Bluetooth가 켜져 있는지 확인하세요."</string>
     <string name="l10n_manage_locations_f08057d4" formatted="false">"위치 관리"</string>
-    <string name="l10n_manage_remote_nodes_1913dcde" formatted="false">"노드"</string>
     <string name="l10n_match_device_settings_8e46da21" formatted="false">"시스템"</string>
     <string name="l10n_max_a1a5936d" formatted="false">"최대"</string>
     <string name="l10n_memo_64cecb8a" formatted="false">"메모"</string>
@@ -568,9 +562,7 @@
     <string name="l10n_no_wallet_4485d729" formatted="false">"지갑 없음"</string>
     <string name="l10n_no_wallet_to_reset_68bbba80" formatted="false">"재설정할 지갑 없음"</string>
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"전환할 지갑 없음"</string>
-    <string name="l10n_node_e9337253" formatted="false">"원격 노드"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"노드 세부사항"</string>
-    <string name="l10n_node_settings_528d7ea4" formatted="false">"노드"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"노드 URI"</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"노드가 유효하지 않은 응답을 반환했습니다. 다른 노드를 사용해 보세요."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"노드를 사용할 수 없습니다. 다른 노드를 사용해 보세요."</string>
@@ -594,7 +586,6 @@
     <string name="l10n_once_a_monero_transaction_is_confirmed_it_cannot_be_rev_74305ca5" formatted="false">"Monero 거래는 확인되면 되돌리거나 취소하거나 수정할 수 없습니다. 보내기 전에 항상 주소를 확인하세요."</string>
     <string name="l10n_only_finds_transactions_after_this_date_1d9e9bdd" formatted="false">"이 날짜 이후의 거래만 찾습니다."</string>
     <string name="l10n_only_for_nodes_that_need_a_login_ce0e5d51" formatted="false">"로그인이 필요한 노드에만 사용합니다."</string>
-    <string name="l10n_only_needed_for_nodes_that_require_rpc_credentials_0e684595" formatted="false">"RPC 자격 증명이 필요한 노드에만 필요합니다"</string>
     <string name="l10n_only_sync_when_inside_a_trusted_zone_2a854510" formatted="false">"신뢰 구역 안에 있을 때만 동기화"</string>
     <string name="l10n_open_ed077f3d" formatted="false">"시가"</string>
     <string name="l10n_open_settings_3f940108" formatted="false">"설정 열기"</string>
@@ -731,7 +722,6 @@
     <string name="l10n_reset_sync_data_01f6fb03" formatted="false">"동기화 데이터를 재설정하시겠습니까?"</string>
     <string name="l10n_resetting_sync_data_5a37d4a5" formatted="false">"동기화 데이터를 재설정하는 중"</string>
     <string name="l10n_restore_a76e13b9" formatted="false">"복원"</string>
-    <string name="l10n_restore_date_d9ea95dc" formatted="false">"생성 날짜"</string>
     <string name="l10n_restore_failed_4306a0ec" formatted="false">"복원 실패"</string>
     <string name="l10n_restore_from_block_4bd34d5d" formatted="false">"복원 시작 블록"</string>
     <string name="l10n_restore_height_9c000a65" formatted="false">"복원 높이"</string>
@@ -784,7 +774,6 @@
     <string name="l10n_seed_phrase_input_ebada050" formatted="false">"시드 문구 입력"</string>
     <string name="l10n_seed_phrase_must_be_24_or_25_words_e4b5b1a2" formatted="false">"시드 문구는 24개 또는 25개 단어여야 합니다"</string>
     <string name="l10n_select_address_790227f7" formatted="false">"주소 선택"</string>
-    <string name="l10n_select_a_remote_node_for_blockchain_sync_0d689364" formatted="false">"원격 노드"</string>
     <string name="l10n_select_date_3b4e173e" formatted="false">"생성 날짜"</string>
     <string name="l10n_select_date_when_wallet_was_created_112aa73a" formatted="false">"이 지갑을 언제 만드셨나요?"</string>
     <string name="l10n_select_your_preferred_display_currency_for_prices_f996ba92" formatted="false">"표시 통화 변경"</string>

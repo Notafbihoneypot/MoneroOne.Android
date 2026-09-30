@@ -209,18 +209,9 @@ fun NodeSettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = tr("Select a remote node for blockchain sync."),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Auto-Select Toggle
+        // Auto Select toggle, with no caption (iOS NodeSettingsView)
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
             Row(
                 modifier = Modifier
@@ -228,19 +219,12 @@ fun NodeSettingsScreen(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tr("Auto-Select"),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = tr("Automatically use the fastest node"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = tr("Auto Select"),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
                 MoneroSwitch(
                     checked = autoSelectEnabled,
                     onCheckedChange = { enabled ->
@@ -397,7 +381,7 @@ fun NodeSettingsScreen(
     // Add Node Dialog
     if (showAddNodeDialog) {
         NodeDialog(
-            title = tr("Add Custom Node"),
+            title = tr("Add Node"),
             confirmLabel = tr("Add"),
             initialUri = "",
             initialCredentials = null,
@@ -418,7 +402,7 @@ fun NodeSettingsScreen(
     editingNode?.let { node ->
         val previous = remember(node.uri) { credentialStore.load(node.uri) }
         NodeDialog(
-            title = tr("Edit Custom Node"),
+            title = tr("Edit Node"),
             confirmLabel = tr("Save"),
             initialUri = node.uri,
             initialCredentials = previous,
@@ -728,7 +712,7 @@ internal fun NodeDialog(
                             username = it
                             credentialError = null
                         },
-                        label = { Text("Username") },
+                        label = { Text(tr("Username")) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
                         colors = fieldColors,
@@ -742,7 +726,7 @@ internal fun NodeDialog(
                             password = it
                             credentialError = null
                         },
-                        label = { Text("Password") },
+                        label = { Text(tr("Password")) },
                         singleLine = true,
                         isError = credentialError != null,
                         supportingText = credentialError?.let { { Text(it, color = ErrorRed) } },
@@ -761,7 +745,7 @@ internal fun NodeDialog(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = tr("Only needed for nodes that require RPC credentials"),
+                        text = tr("Only for nodes that need a login."),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

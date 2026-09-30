@@ -59,6 +59,7 @@ import one.monero.moneroone.ui.theme.SystemFill
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.formatHeight
+import one.monero.moneroone.ui.screens.wallet.formatBlockCount
 import io.horizontalsystems.monerokit.util.RestoreHeight
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -120,8 +121,8 @@ fun SyncSettingsScreen(
             )
         }
 
-        // Sync Status Section
-        SettingsSectionHeader(tr("Status"))
+        // Sync Status section: a Status row with the state, as on iOS
+        SettingsSectionHeader(tr("Sync Status"))
 
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, shadow = false) {
             Column(
@@ -140,7 +141,7 @@ fun SyncSettingsScreen(
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = tr("Sync Status"),
+                            text = tr("Status"),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Medium
                         )
@@ -166,11 +167,22 @@ fun SyncSettingsScreen(
                         trackColor = SystemFill
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = tr("%s%% synced", progressPct),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // iOS: "42% complete" on the left, "1.2K blocks remaining" on the right
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = tr("%s%% complete", progressPct),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        syncState.remainingBlocks?.let { blocks ->
+                            Text(
+                                text = tr("%s blocks remaining", formatBlockCount(blocks)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -192,19 +204,12 @@ fun SyncSettingsScreen(
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tr("Sync in Background"),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = tr("Keep wallet synced when app is backgrounded"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = tr("Sync in Background"),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 MoneroSwitch(
                     checked = backgroundSyncEnabled,
@@ -224,8 +229,8 @@ fun SyncSettingsScreen(
             }
         }
 
-        // Restore Height Section
-        SettingsSectionHeader(tr("Wallet Birthday"))
+        // Scan Range section: the Restore Height row, as on iOS
+        SettingsSectionHeader(tr("Scan Range"))
 
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
@@ -248,7 +253,7 @@ fun SyncSettingsScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = tr("Restore Date"),
+                        text = tr("Restore Height"),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
@@ -276,8 +281,8 @@ fun SyncSettingsScreen(
             }
         }
 
-        // Node Settings Section
-        SettingsSectionHeader(tr("Node"))
+        // Connection section: the Remote Node row, as on iOS
+        SettingsSectionHeader(tr("Connection"))
 
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
@@ -298,19 +303,12 @@ fun SyncSettingsScreen(
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tr("Node Settings"),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = tr("Manage remote nodes"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = tr("Remote Node"),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
@@ -393,7 +391,7 @@ fun SyncSettingsScreen(
 private fun getSyncStatusText(syncState: SyncState): String {
     return when (syncState) {
         is SyncState.Synced -> tr("Synced")
-        is SyncState.Syncing -> tr("%s%% synced", ((syncState.progress ?: 0.0) * 100).toInt())
+        is SyncState.Syncing -> tr("Scanning %s%%", ((syncState.progress ?: 0.0) * 100).toInt())
         is SyncState.NotSynced -> tr("Not synced")
         else -> tr("Connecting...")
     }

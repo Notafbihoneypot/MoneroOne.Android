@@ -71,7 +71,6 @@
     <string name="l10n_active_wallet_is_not_hardware_backed_32bb68cf" formatted="false">"Die aktive Wallet ist keine Hardware-Wallet."</string>
     <string name="l10n_add_9fd728c6" formatted="false">"Hinzufügen"</string>
     <string name="l10n_add_alert_02417a37" formatted="false">"Alarm hinzufügen"</string>
-    <string name="l10n_add_custom_node_07235ac3" formatted="false">"Node hinzufügen"</string>
     <string name="l10n_add_location_140d3619" formatted="false">"Ort hinzufügen"</string>
     <string name="l10n_add_node_a70aa008" formatted="false">"Node hinzufügen"</string>
     <string name="l10n_add_proxy_277a6aa3" formatted="false">"Proxy hinzufügen"</string>
@@ -128,8 +127,6 @@
     <string name="l10n_auto_02862497" formatted="false">"Auto"</string>
     <string name="l10n_auto_select_6cc55210" formatted="false">"Automatisch wählen"</string>
     <string name="l10n_auto_lock_034e3946" formatted="false">"Automatische Sperre"</string>
-    <string name="l10n_auto_select_2f800f4e" formatted="false">"Automatisch wählen"</string>
-    <string name="l10n_automatically_use_the_fastest_node_16a2e505" formatted="false">"Wählt den schnellsten zuverlässigen Node"</string>
     <string name="l10n_available_balance_s_some_funds_locked_until_recent_tran_33a13557" formatted="false">"Verfügbares Guthaben: %1$s. Ein Teil ist gesperrt, bis neue Transaktionen bestätigt sind."</string>
     <string name="l10n_available_72074a8a" formatted="false">"Verfügbar:"</string>
     <string name="l10n_available_s_xmr_fe6c540f" formatted="false">"Verfügbar: %1$s XMR"</string>
@@ -340,7 +337,6 @@
     <string name="l10n_double_tap_to_use_a_4_digit_pin_52a1514c" formatted="false">"Doppeltippen, um eine 4-stellige PIN zu verwenden"</string>
     <string name="l10n_double_tap_to_use_a_6_digit_pin_e60efb15" formatted="false">"Doppeltippen, um eine 6-stellige PIN zu verwenden"</string>
     <string name="l10n_edit_464c4ffd" formatted="false">"Bearbeiten"</string>
-    <string name="l10n_edit_custom_node_6f704f0a" formatted="false">"Node bearbeiten"</string>
     <string name="l10n_edit_location_c081701b" formatted="false">"Ort bearbeiten"</string>
     <string name="l10n_edit_node_ce03c641" formatted="false">"Node bearbeiten"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"Proxy bearbeiten"</string>
@@ -464,7 +460,6 @@
     <string name="l10n_item_not_found_in_keychain_cc73af45" formatted="false">"Eintrag nicht im Schlüsselbund gefunden"</string>
     <string name="l10n_japanese_yen_fa53dbe5" formatted="false">"Japanischer Yen"</string>
     <string name="l10n_keep_your_seed_safe_cdc03cc8" formatted="false">"Schütze deine Seed-Phrase"</string>
-    <string name="l10n_keep_wallet_synced_when_app_is_backgrounded_57585bea" formatted="false">"Wallet synchron halten, wenn die App im Hintergrund ist"</string>
     <string name="l10n_kenyan_shilling_373abf6d" formatted="false">"Kenia-Schilling"</string>
     <string name="l10n_key_image_sync_failed_s_baf913cc" formatted="false">"Key-Image-Sync fehlgeschlagen: %1$s"</string>
     <string name="l10n_label_0e66373f" formatted="false">"Bezeichnung"</string>
@@ -497,7 +492,6 @@
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"Die Hauptadresse verknüpft alle Transaktionen. Nutze Subadressen für mehr Privatsphäre."</string>
     <string name="l10n_make_sure_the_device_is_unlocked_and_bluetooth_is_on_737758b0" formatted="false">"Stelle sicher, dass das Gerät entsperrt und Bluetooth eingeschaltet ist."</string>
     <string name="l10n_manage_locations_f08057d4" formatted="false">"Orte verwalten"</string>
-    <string name="l10n_manage_remote_nodes_1913dcde" formatted="false">"Nodes"</string>
     <string name="l10n_match_device_settings_8e46da21" formatted="false">"System"</string>
     <string name="l10n_max_a1a5936d" formatted="false">"Max."</string>
     <string name="l10n_memo_64cecb8a" formatted="false">"Notiz"</string>
@@ -568,9 +562,7 @@
     <string name="l10n_no_wallet_4485d729" formatted="false">"Keine Wallet"</string>
     <string name="l10n_no_wallet_to_reset_68bbba80" formatted="false">"Keine Wallet zum Zurücksetzen"</string>
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"Keine Wallet zum Wechseln"</string>
-    <string name="l10n_node_e9337253" formatted="false">"Remote-Node"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Node-Details"</string>
-    <string name="l10n_node_settings_528d7ea4" formatted="false">"Nodes"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"Knoten-URI"</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"Der Node hat ungültig geantwortet. Versuche einen anderen Node."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Node nicht erreichbar. Versuche einen anderen Node."</string>
@@ -594,7 +586,6 @@
     <string name="l10n_once_a_monero_transaction_is_confirmed_it_cannot_be_rev_74305ca5" formatted="false">"Eine bestätigte Monero-Transaktion lässt sich nicht rückgängig machen, stornieren oder ändern. Prüfe Adressen immer vor dem Senden."</string>
     <string name="l10n_only_finds_transactions_after_this_date_1d9e9bdd" formatted="false">"Findet nur Transaktionen nach diesem Datum."</string>
     <string name="l10n_only_for_nodes_that_need_a_login_ce0e5d51" formatted="false">"Nur für Nodes, die eine Anmeldung verlangen."</string>
-    <string name="l10n_only_needed_for_nodes_that_require_rpc_credentials_0e684595" formatted="false">"Nur für Nodes nötig, die RPC-Zugangsdaten verlangen"</string>
     <string name="l10n_only_sync_when_inside_a_trusted_zone_2a854510" formatted="false">"Nur innerhalb einer vertrauenswürdigen Zone synchronisieren"</string>
     <string name="l10n_open_ed077f3d" formatted="false">"Eröffnung"</string>
     <string name="l10n_open_settings_3f940108" formatted="false">"Einstellungen öffnen"</string>
@@ -731,7 +722,6 @@
     <string name="l10n_reset_sync_data_01f6fb03" formatted="false">"Sync-Daten zurücksetzen?"</string>
     <string name="l10n_resetting_sync_data_5a37d4a5" formatted="false">"Sync-Daten werden zurückgesetzt"</string>
     <string name="l10n_restore_a76e13b9" formatted="false">"Wiederherstellen"</string>
-    <string name="l10n_restore_date_d9ea95dc" formatted="false">"Erstelldatum"</string>
     <string name="l10n_restore_failed_4306a0ec" formatted="false">"Wiederherstellung fehlgeschlagen"</string>
     <string name="l10n_restore_from_block_4bd34d5d" formatted="false">"Ab Block wiederherstellen"</string>
     <string name="l10n_restore_height_9c000a65" formatted="false">"Wiederherstellungshöhe"</string>
@@ -784,7 +774,6 @@
     <string name="l10n_seed_phrase_input_ebada050" formatted="false">"Eingabe der Seed-Phrase"</string>
     <string name="l10n_seed_phrase_must_be_24_or_25_words_e4b5b1a2" formatted="false">"Die Seed-Phrase muss 24 oder 25 Wörter enthalten"</string>
     <string name="l10n_select_address_790227f7" formatted="false">"Adresse wählen"</string>
-    <string name="l10n_select_a_remote_node_for_blockchain_sync_0d689364" formatted="false">"Remote-Node"</string>
     <string name="l10n_select_date_3b4e173e" formatted="false">"Erstelldatum"</string>
     <string name="l10n_select_date_when_wallet_was_created_112aa73a" formatted="false">"Wann hast du diese Wallet erstellt?"</string>
     <string name="l10n_select_your_preferred_display_currency_for_prices_f996ba92" formatted="false">"Anzeigewährung ändern"</string>
