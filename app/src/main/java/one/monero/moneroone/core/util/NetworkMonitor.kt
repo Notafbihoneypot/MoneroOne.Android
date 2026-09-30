@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Build
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,37 +24,57 @@ object NetworkMonitor {
     /** Emits when the default network is replaced by another one (Wi-Fi <-> cellular, a new Wi-Fi). */
     val networkChanges: SharedFlow<Unit> = _networkChanges.asSharedFlow()
 
-    private var defaultNetwork: Network? = null
+    private val _networkReturns = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /**
+     * Emits when the app can use the network again: the phone is back online, or the system stopped
+     * blocking the app (Doze, the background restrictions).
+     */
+    val networkReturns: SharedFlow<Unit> = _networkReturns.asSharedFlow()
+
+    private lateinit var state: DefaultNetworkState<Network>
 
     fun init(context: Context) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
         // Set initial state
         val activeNetwork = cm.activeNetwork
-        defaultNetwork = activeNetwork
         val capabilities = activeNetwork?.let { cm.getNetworkCapabilities(it) }
-        _isConnected.value = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        state = DefaultNetworkState(
+            activeNetwork,
+            connected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
+            blockedStatusFollows = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        )
+        _isConnected.value = state.connected
 
         cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 Timber.d("Network available")
-                _isConnected.value = true
-                val previous = defaultNetwork
-                defaultNetwork = network
-                if (previous != null && previous != network) _networkChanges.tryEmit(Unit)
+                publish(state.onAvailable(network))
             }
 
             override fun onLost(network: Network) {
                 Timber.d("Network lost")
-                _isConnected.value = false
+                publish(state.onLost())
             }
 
             override fun onCapabilitiesChanged(
                 network: Network,
                 capabilities: NetworkCapabilities
             ) {
-                _isConnected.value = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                publish(state.onCapabilitiesChanged(capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)))
+            }
+
+            override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
+                Timber.d("Network blocked: $blocked")
+                publish(state.onBlockedStatusChanged(blocked))
             }
         })
+    }
+
+    private fun publish(change: DefaultNetworkState.Change) {
+        _isConnected.value = state.connected
+        if (change.switched) _networkChanges.tryEmit(Unit)
+        if (change.returned) _networkReturns.tryEmit(Unit)
     }
 }

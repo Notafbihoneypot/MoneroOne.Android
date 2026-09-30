@@ -42,6 +42,7 @@ import one.monero.moneroone.widget.PriceWidget
 import one.monero.moneroone.widget.WalletWidget
 import one.monero.moneroone.widget.WidgetDataStore
 import one.monero.moneroone.core.node.NodeCredentialStore
+import one.monero.moneroone.core.util.NetworkMonitor
 import timber.log.Timber
 import java.io.File
 import java.math.BigDecimal
@@ -280,6 +281,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             fetchPrice()
         }
         checkAndApplyAutoLock()
+        // The kit does not try again after a start or a refresh that had no network (SyncRecovery).
+        viewModelScope.launch { NetworkMonitor.networkReturns.collect { startWallet() } }
     }
 
     // =========================================================================
@@ -2172,7 +2175,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Restart the active wallet's kit if its sync dropped (the app resumed).
+     * Restart the active wallet's kit if its sync dropped (the app resumed, or
+     * the network came back).
      * Only that wallet's own kit, and never while a lifecycle transition owns
      * the kit: its teardown and reopen start the right one. A resume during a
      * switch or an add used to restart the kit being released.
