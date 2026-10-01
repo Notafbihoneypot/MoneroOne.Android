@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -68,6 +69,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import one.monero.moneroone.data.util.MoneyFormat
 import one.monero.moneroone.data.util.nearestIndexByTimestamp
 import one.monero.moneroone.ui.screens.chart.ChartDateFormats
@@ -129,10 +131,12 @@ fun SampledLineChart(
      */
     axisLabelWidth: Dp? = null,
     /**
-     * Keeps the line far enough inside the plot's edges that a selected
-     * marker on the first or last sample, or at the top or bottom, is
-     * whole. Set it in every range of a chart that can show markers, so the
-     * plot does not shift when a range has none.
+     * Keeps the line far enough inside the plot's top and bottom edges, and
+     * the amount labels far enough right of the plot, that a selected marker
+     * at the top or bottom or on the last sample is whole and clear of the
+     * labels. The line still runs the plot's full width. Set it in every
+     * range of a chart that can show markers, so the plot does not shift
+     * when a range has none.
      */
     insetsForMarkers: Boolean = false,
     persistsSelection: Boolean = false,
@@ -150,8 +154,10 @@ fun SampledLineChart(
     )
     val labelWidth = with(density) { axisLabelWidth?.toPx()?.times(fontScale) }
     val inset = with(density) { if (insetsForMarkers) MARKER_PLOT_INSET.toPx() else 0f }
-    val layout = remember(points, domain, axes, markers, labelStyle, textMeasurer, density, labelWidth, inset) {
-        ChartLayout.of(points, domain, axes, markers, textMeasurer, labelStyle, with(density) { LABEL_GAP.toPx() }, labelWidth, inset)
+    // A marker on the last sample stands past the plot's right edge; the labels start beyond it.
+    val amountLabelGap = with(density) { (if (insetsForMarkers) MARKER_PLOT_INSET else LABEL_GAP).toPx() }
+    val layout = remember(points, domain, axes, markers, labelStyle, textMeasurer, density, labelWidth, inset, amountLabelGap) {
+        ChartLayout.of(points, domain, axes, markers, textMeasurer, labelStyle, with(density) { LABEL_GAP.toPx() }, amountLabelGap, labelWidth, inset)
     }
 
     val gridColor = MoneroTheme.colors.separator
@@ -241,6 +247,10 @@ fun SampledLineChart(
     // chart's own pixels, so the chart draws in a layer of its own and the
     // card behind it is never cut.
     val composited = persistsSelection || markers.isNotEmpty()
+    // That layer reaches past the chart on every side, so a marker at the
+    // plot's left edge, a selected marker's halo and an amount label above
+    // the plot are whole: only the card may clip them, as on iOS.
+    val bleed = if (composited) with(density) { LAYER_BLEED.roundToPx() } else 0
 
     Box(
         modifier = modifier
@@ -270,7 +280,7 @@ fun SampledLineChart(
                 val tapSlop = TAP_SLOP.toPx()
                 val markerReach = MARKER_HIT_RADIUS.toPx()
 
-                fun plot() = layout.plot(size.width.toFloat(), size.height.toFloat())
+                fun plot() = layout.plot(Rect(Offset.Zero, size.toSize()))
                 fun select(x: Float) = update(layout.indexAt(x, plot()))
 
                 /**
@@ -329,6 +339,7 @@ fun SampledLineChart(
         Box(
             modifier = Modifier
                 .matchParentSize()
+                .bleed(bleed)
                 .graphicsLayer { if (composited) compositingStrategy = CompositingStrategy.Offscreen }
         ) {
             Spacer(
@@ -336,7 +347,8 @@ fun SampledLineChart(
                     .matchParentSize()
                     .graphicsLayer()
                     .drawWithCache {
-                        val plot = layout.plot(size.width, size.height)
+                        val chart = chartBounds(size, bleed)
+                        val plot = layout.plot(chart)
                         val line = Path()
                         val area = Path()
                         val floor = layout.yOf(domain.start, plot)
@@ -360,13 +372,12 @@ fun SampledLineChart(
                             endY = plot.bottom
                         )
                         val stroke = Stroke(width = LINE_WIDTH.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                        val gap = LABEL_GAP.toPx()
 
                         onDrawBehind {
                             layout.drawGrid(this, plot, gridColor)
                             drawPath(area, fill)
                             drawPath(line, orange, style = stroke)
-                            layout.drawLabels(this, plot, gap)
+                            layout.drawLabels(this, plot, chart)
                         }
                     }
             )
@@ -377,7 +388,7 @@ fun SampledLineChart(
                     .matchParentSize()
                     .graphicsLayer()
                     .drawBehind {
-                        val plot = layout.plot(size.width, size.height)
+                        val plot = layout.plot(chartBounds(size, bleed))
                         val index = if (persistsSelection && !scrub.touching) {
                             parentTimestamp?.let { time -> layout.points.indexOfFirst { it.timestamp == time } } ?: -1
                         } else {
@@ -423,6 +434,21 @@ fun SampledLineChart(
         }
     }
 }
+
+/**
+ * Lays the content out [px] past this element's bounds on every side, so a
+ * layer on it keeps what draws just outside them. The chart's own bounds
+ * start at ([px], [px]) in it: see [chartBounds].
+ */
+private fun Modifier.bleed(px: Int): Modifier =
+    if (px == 0) this else layout { measurable, constraints ->
+        val placeable = measurable.measure(Constraints.fixed(constraints.maxWidth + 2 * px, constraints.maxHeight + 2 * px))
+        layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-px, -px) }
+    }
+
+/** The chart's own bounds in a drawing of [size] that reaches [bleed] past them on every side. */
+private fun chartBounds(size: Size, bleed: Int): Rect =
+    Rect(bleed.toFloat(), bleed.toFloat(), size.width - bleed, size.height - bleed)
 
 /** How a touch on a chart turned out before its readout starts. */
 private sealed interface ReadoutStart {
@@ -535,7 +561,7 @@ private fun DrawScope.drawBadge(center: Offset, style: ChartMarker.Style, art: B
 /**
  * Everything about the chart that depends on its data and not on the
  * finger: tick values, measured labels and the time span. Positions come
- * from the plot rectangle, the size less the label gutters.
+ * from the plot rectangle, the chart less the label gutters.
  */
 private class ChartLayout(
     val points: List<ChartPoint>,
@@ -545,8 +571,11 @@ private class ChartLayout(
     private val yLabels: List<TextLayoutResult>,
     private val xTicks: List<Long>,
     private val xLabels: List<TextLayoutResult>,
+    /** Space between the plot and the time labels below it. */
     private val labelGap: Float,
-    /** Space between the plot's edges and the line (iOS plotDimension padding). */
+    /** Space between the plot and the amount labels right of it. */
+    private val amountLabelGap: Float = labelGap,
+    /** Space between the plot's top and bottom edges and the line (iOS plotDimension padding). */
     private val inset: Float = 0f
 ) {
     private val t0 = points.firstOrNull()?.timestamp ?: 0L
@@ -557,16 +586,16 @@ private class ChartLayout(
     private val markerByTimestamp = markers.associateBy { it.timestamp }
 
     /** Labels sit right of the plot and below it; without axes the plot fills the chart. */
-    fun plot(width: Float, height: Float): Rect {
-        val right = if (yLabels.isEmpty()) width else width - yLabelWidth - labelGap
-        val bottom = if (xLabels.isEmpty()) height else height - xLabelHeight - labelGap
-        return Rect(0f, 0f, max(right, 0f), max(bottom, 0f))
+    fun plot(chart: Rect): Rect {
+        val right = if (yLabels.isEmpty()) chart.right else chart.right - yLabelWidth - amountLabelGap
+        val bottom = if (xLabels.isEmpty()) chart.bottom else chart.bottom - xLabelHeight - labelGap
+        return Rect(chart.left, chart.top, max(right, chart.left), max(bottom, chart.top))
     }
 
-    /** Where the line runs: the plot less the inset. */
+    /** Where the line runs: the plot's full width, less the inset at the top and bottom. */
     private fun line(plot: Rect): Rect = Rect(
-        plot.left + inset, plot.top + inset,
-        max(plot.right - inset, plot.left + inset), max(plot.bottom - inset, plot.top + inset)
+        plot.left, plot.top + inset,
+        plot.right, max(plot.bottom - inset, plot.top + inset)
     )
 
     /** A single sample sits in the middle. */
@@ -617,22 +646,22 @@ private class ChartLayout(
     /**
      * Y labels right of the plot, centered on their lines, as Swift Charts
      * places them: one on a line at the plot's top edge stands half above
-     * the chart. X labels start at their line; one that would run into the
-     * label before it is left out.
+     * the chart. X labels start at their line and stay inside the [chart];
+     * one that would run into the label before it is left out.
      */
-    fun drawLabels(scope: DrawScope, plot: Rect, gap: Float) = with(scope) {
+    fun drawLabels(scope: DrawScope, plot: Rect, chart: Rect) = with(scope) {
         for ((i, value) in yTicks.withIndex()) {
             val label = yLabels[i]
             val top = yOf(value, plot) - label.size.height / 2f
-            drawText(label, topLeft = Offset(plot.right + gap, top))
+            drawText(label, topLeft = Offset(plot.right + amountLabelGap, top))
         }
         var lastEnd = Float.NEGATIVE_INFINITY
         for ((i, tick) in xTicks.withIndex()) {
             val label = xLabels[i]
             val left = (xOf(tick, plot) + X_LABEL_INSET.toPx())
-                .coerceIn(0f, max(size.width - label.size.width, 0f))
-            if (left < lastEnd + gap) continue
-            drawText(label, topLeft = Offset(left, plot.bottom + gap))
+                .coerceIn(chart.left, max(chart.right - label.size.width, chart.left))
+            if (left < lastEnd + labelGap) continue
+            drawText(label, topLeft = Offset(left, plot.bottom + labelGap))
             lastEnd = left + label.size.width
         }
     }
@@ -646,11 +675,12 @@ private class ChartLayout(
             measurer: TextMeasurer,
             style: TextStyle,
             labelGap: Float,
+            amountLabelGap: Float,
             labelWidth: Float?,
             inset: Float = 0f
         ): ChartLayout {
             if (axes == null || points.isEmpty()) {
-                return ChartLayout(points, domain, markers, emptyList(), emptyList(), emptyList(), emptyList(), labelGap, inset)
+                return ChartLayout(points, domain, markers, emptyList(), emptyList(), emptyList(), emptyList(), labelGap, amountLabelGap, inset)
             }
             val span = domain.endInclusive - domain.start
             // As many decimals as the span needs: none for a $400 span, two
@@ -677,7 +707,7 @@ private class ChartLayout(
             val formats = axes.formats
             val xTicks = axes.time.ticks(points.first().timestamp, points.last().timestamp, formats.timeZone, formats.locale)
             val xLabels = xTicks.map { measurer.measure(formats.tickLabel(axes.time, it), style) }
-            return ChartLayout(points, domain, markers, yTicks, yLabels, xTicks, xLabels, labelGap, inset)
+            return ChartLayout(points, domain, markers, yTicks, yLabels, xTicks, xLabels, labelGap, amountLabelGap, inset)
         }
 
         /**
@@ -725,11 +755,20 @@ private const val SELECTED_BADGE_SCALE = 1.25f
 private const val FADED_OPACITY = 0.35f
 
 /**
- * How far inside the plot's edges the line stays with [SampledLineChart]'s
- * insetsForMarkers, so a selected badge on the first or last sample, or at
- * the top, is whole: half a selected badge and its ring, rounded up (iOS 14 pt).
+ * How far inside the plot's top and bottom edges the line stays with
+ * [SampledLineChart]'s insetsForMarkers, and how far right of the plot the
+ * amount labels start, so a selected badge at the top or on the last sample
+ * is whole and clear of the labels: half a selected badge and its ring,
+ * rounded up (iOS 14 pt).
  */
 private val MARKER_PLOT_INSET = ceil(BADGE_RING_RADIUS.value * SELECTED_BADGE_SCALE).dp
+
+/**
+ * How far a composited chart's layer reaches past the chart on every side:
+ * a selected marker's halo at the plot's edge, which also covers half an
+ * amount label at the largest text.
+ */
+private val LAYER_BLEED = SELECTED_HALO_RADIUS
 
 /** How long a still finger rests before the readout starts (iOS ChartTouch.holdDelay). */
 private const val HOLD_DELAY_MS = 250L
