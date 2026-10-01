@@ -1,0 +1,9 @@
+- Balance history in the wallet card: tap the card to see how your balance changed.
+- Tor proxy settings, with onion nodes as an option.
+- Tap the receive QR code to enlarge, save or share it.
+- More languages, payment links, and fiat values on transactions.
+- Settings regrouped, with each row's current value.
+- Sending is blocked while offline.
+- Smoother charts with rolling digits.
+- Reconnects on its own when the network returns.
+- General stability improvements and bug fixes.
