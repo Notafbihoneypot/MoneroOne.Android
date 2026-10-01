@@ -122,6 +122,11 @@ fun SampledLineChart(
     onSelect: (Int?) -> Unit,
     modifier: Modifier = Modifier,
     markers: List<ChartMarker> = emptyList(),
+    /**
+     * The widest an amount label may be before it shrinks, scaled with the
+     * text. The labels' column is only as wide as its widest label, and the
+     * plot takes the rest. Null leaves every label its own width.
+     */
     axisLabelWidth: Dp? = null,
     /**
      * Keeps the line far enough inside the plot's edges that a selected
@@ -541,13 +546,13 @@ private class ChartLayout(
     private val xTicks: List<Long>,
     private val xLabels: List<TextLayoutResult>,
     private val labelGap: Float,
-    fixedLabelWidth: Float? = null,
     /** Space between the plot's edges and the line (iOS plotDimension padding). */
     private val inset: Float = 0f
 ) {
     private val t0 = points.firstOrNull()?.timestamp ?: 0L
     private val t1 = points.lastOrNull()?.timestamp ?: 0L
-    private val yLabelWidth = fixedLabelWidth ?: (yLabels.maxOfOrNull { it.size.width }?.toFloat() ?: 0f)
+    /** As wide as the widest amount label, each one already fitted to the width it may have. */
+    private val yLabelWidth = yLabels.maxOfOrNull { it.size.width }?.toFloat() ?: 0f
     private val xLabelHeight = xLabels.maxOfOrNull { it.size.height }?.toFloat() ?: 0f
     private val markerByTimestamp = markers.associateBy { it.timestamp }
 
@@ -645,7 +650,7 @@ private class ChartLayout(
             inset: Float = 0f
         ): ChartLayout {
             if (axes == null || points.isEmpty()) {
-                return ChartLayout(points, domain, markers, emptyList(), emptyList(), emptyList(), emptyList(), labelGap, inset = inset)
+                return ChartLayout(points, domain, markers, emptyList(), emptyList(), emptyList(), emptyList(), labelGap, inset)
             }
             val span = domain.endInclusive - domain.start
             // As many decimals as the span needs: none for a $400 span, two
@@ -672,7 +677,7 @@ private class ChartLayout(
             val formats = axes.formats
             val xTicks = axes.time.ticks(points.first().timestamp, points.last().timestamp, formats.timeZone, formats.locale)
             val xLabels = xTicks.map { measurer.measure(formats.tickLabel(axes.time, it), style) }
-            return ChartLayout(points, domain, markers, yTicks, yLabels, xTicks, xLabels, labelGap, labelWidth, inset)
+            return ChartLayout(points, domain, markers, yTicks, yLabels, xTicks, xLabels, labelGap, inset)
         }
 
         /**
