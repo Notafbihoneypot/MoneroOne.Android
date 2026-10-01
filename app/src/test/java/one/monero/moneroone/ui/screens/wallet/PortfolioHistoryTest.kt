@@ -2,6 +2,7 @@ package one.monero.moneroone.ui.screens.wallet
 
 import one.monero.moneroone.data.model.PriceDataPoint
 import one.monero.moneroone.ui.components.ChartMarker
+import one.monero.moneroone.ui.screens.chart.TimeRange
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -103,6 +104,24 @@ class PortfolioHistoryTest {
         // A wallet that never held anything keeps the whole range.
         val empty = PortfolioHistory.points(prices(1_000, 2_000), rate = 1.0, ledger = BalanceLedger(0, emptyList()), startAtFirstHolding = true)
         assertEquals(2, empty.size)
+    }
+
+    @Test
+    fun `a range that starts before All shows what All shows`() {
+        val hourly = prices(*LongArray(13) { 1_000L * (it + 1) })
+        val allPrices = hourly.filterIndexed { i, _ -> i % 3 == 0 }
+        val ledger = BalanceLedger(xmr, listOf(received(8_100, xmr)))
+        val all = PortfolioHistory.points(TimeRange.ALL, allPrices, allPrices, rate = 1.0, ledger = ledger)
+        // All starts one sample before the first holding.
+        assertEquals(7_000L, all.first().timestamp)
+        // Its window, samples and markers.
+        assertEquals(all, PortfolioHistory.points(TimeRange.YEAR, hourly, allPrices, rate = 1.0, ledger = ledger))
+        // A range that starts after All keeps its own samples.
+        val later = hourly.drop(8)
+        assertEquals(
+            PortfolioHistory.points(later, rate = 1.0, ledger = ledger),
+            PortfolioHistory.points(TimeRange.MONTH, later, allPrices, rate = 1.0, ledger = ledger)
+        )
     }
 
     @Test

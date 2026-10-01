@@ -34,11 +34,17 @@ class BalanceHistoryModelTest {
     private fun daily(count: Int, from: Long = start, price: Double = 100.0) =
         List(count) { PriceDataPoint(from + it * day, price) }
 
-    private fun series(range: TimeRange, ledger: BalanceLedger, prices: List<PriceDataPoint>) =
+    private fun series(
+        range: TimeRange,
+        ledger: BalanceLedger,
+        prices: List<PriceDataPoint>,
+        allPrices: List<PriceDataPoint> = emptyList()
+    ) =
         BalanceHistoryModel.makeSeries(
             BalanceHistoryModel.Inputs(
                 range = range,
                 prices = prices,
+                allPrices = allPrices,
                 rate = 2.0,
                 currency = Currency.USD,
                 ledger = ledger,

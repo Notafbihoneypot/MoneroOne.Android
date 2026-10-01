@@ -143,13 +143,18 @@ internal fun BalanceHistoryChart(
     val currentFetch by rememberUpdatedState(onFetchRange)
 
     LaunchedEffect(isActive, range) {
-        if (isActive) currentFetch(range)
+        if (isActive) {
+            currentFetch(range)
+            // A range that starts before All draws All's samples, so All loads too.
+            if (range != TimeRange.ALL) currentFetch(TimeRange.ALL)
+        }
     }
     val inputs = remember(prices, range, ledger, locale, use24Hour, timeZoneId) {
-        if (!prices.isLoaded(range)) null
+        if (!prices.isLoaded(range) || !prices.isLoaded(TimeRange.ALL)) null
         else BalanceHistoryModel.Inputs(
             range = range,
             prices = prices.series(range),
+            allPrices = prices.series(TimeRange.ALL),
             rate = prices.rate ?: 1.0,
             currency = prices.currency,
             ledger = ledger,

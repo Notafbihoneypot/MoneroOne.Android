@@ -5,6 +5,7 @@ import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.data.model.PriceDataPoint
 import one.monero.moneroone.data.util.XmrFormat
 import one.monero.moneroone.ui.components.ChartMarker
+import one.monero.moneroone.ui.screens.chart.TimeRange
 
 /** A transaction as it moved the balance. Amounts are atomic units. */
 data class BalanceChange(
@@ -125,6 +126,27 @@ object PortfolioHistory {
                 changes = changes[i].asReversed().toList()
             )
         }
+    }
+
+    /**
+     * The points [range] draws. A range that starts before All does would
+     * only add empty time before the wallet first held anything, so it
+     * shows exactly what All shows: All's window, drawn from All's samples
+     * ([allPrices]). A range that starts later keeps its own.
+     */
+    fun points(
+        range: TimeRange,
+        prices: List<PriceDataPoint>,
+        allPrices: List<PriceDataPoint>,
+        rate: Double,
+        ledger: BalanceLedger
+    ): List<PortfolioPoint> {
+        if (range == TimeRange.ALL) return points(prices, rate, ledger, startAtFirstHolding = true)
+        val own = points(prices, rate, ledger)
+        val all = points(allPrices, rate, ledger, startAtFirstHolding = true)
+        val start = own.firstOrNull()?.timestamp
+        val allStart = all.firstOrNull()?.timestamp
+        return if (start != null && allStart != null && start < allStart) all else own
     }
 
     /**

@@ -53,6 +53,8 @@ class BalanceHistoryModel : ViewModel() {
         val range: TimeRange,
         /** USD samples, oldest first, the live price last. */
         val prices: List<PriceDataPoint>,
+        /** All's samples, which a range that starts before All draws. */
+        val allPrices: List<PriceDataPoint>,
         /** USD to [currency]. */
         val rate: Double,
         val currency: Currency,
@@ -74,7 +76,7 @@ class BalanceHistoryModel : ViewModel() {
     /**
      * Shows [range]: its kept series when no input changed, else a new one
      * built off the main thread. Until then the current series stays up.
-     * Null [inputs] means the prices are still loading. A new [session] (a
+     * Null [inputs] means the range's or All's prices are still loading. A new [session] (a
      * wallet switch) drops everything kept, which belonged to the old wallet.
      */
     fun show(session: Long, range: TimeRange, inputs: Inputs?) {
@@ -111,10 +113,11 @@ class BalanceHistoryModel : ViewModel() {
             bestPattern: (Locale, String) -> String = { locale, skeleton -> DateFormat.getBestDateTimePattern(locale, skeleton) }
         ): Series {
             val points = PortfolioHistory.points(
+                range = inputs.range,
                 prices = inputs.prices,
+                allPrices = inputs.allPrices,
                 rate = inputs.rate,
-                ledger = inputs.ledger,
-                startAtFirstHolding = inputs.range == TimeRange.ALL
+                ledger = inputs.ledger
             )
             val dates = ChartDateFormats(inputs.locale, inputs.timeZone, inputs.use24Hour) { bestPattern(inputs.locale, it) }
             val markers = PortfolioHistory.markers(
