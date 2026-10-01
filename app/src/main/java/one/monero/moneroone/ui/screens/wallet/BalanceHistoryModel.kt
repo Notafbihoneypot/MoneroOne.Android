@@ -53,7 +53,7 @@ class BalanceHistoryModel : ViewModel() {
         val range: TimeRange,
         /** USD samples, oldest first, the live price last. */
         val prices: List<PriceDataPoint>,
-        /** All's samples, which a range that starts before All draws. */
+        /** All's samples when the range can show All's window, else empty. */
         val allPrices: List<PriceDataPoint>,
         /** USD to [currency]. */
         val rate: Double,
@@ -76,8 +76,9 @@ class BalanceHistoryModel : ViewModel() {
     /**
      * Shows [range]: its kept series when no input changed, else a new one
      * built off the main thread. Until then the current series stays up.
-     * Null [inputs] means the range's or All's prices are still loading. A new [session] (a
-     * wallet switch) drops everything kept, which belonged to the old wallet.
+     * Null [inputs] means the range's prices are still loading, or All's for
+     * a range that can show All's window. A new [session] (a wallet switch)
+     * drops everything kept, which belonged to the old wallet.
      */
     fun show(session: Long, range: TimeRange, inputs: Inputs?) {
         if (this.session != session) {

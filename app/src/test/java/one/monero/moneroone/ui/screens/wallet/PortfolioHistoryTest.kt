@@ -4,6 +4,7 @@ import one.monero.moneroone.data.model.PriceDataPoint
 import one.monero.moneroone.ui.components.ChartMarker
 import one.monero.moneroone.ui.screens.chart.TimeRange
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -122,6 +123,27 @@ class PortfolioHistoryTest {
             PortfolioHistory.points(later, rate = 1.0, ledger = ledger),
             PortfolioHistory.points(TimeRange.MONTH, later, allPrices, rate = 1.0, ledger = ledger)
         )
+    }
+
+    @Test
+    fun `an old wallet's week does not wait for All`() {
+        val week = prices(*LongArray(168) { 1_000L * (it + 1) })
+        val old = BalanceLedger(xmr, listOf(received(500, xmr)))
+        assertFalse(PortfolioHistory.needsAll(TimeRange.WEEK, week, old))
+        // Its own samples, with nothing from All.
+        assertEquals(
+            PortfolioHistory.points(week, rate = 1.0, ledger = old),
+            PortfolioHistory.points(TimeRange.WEEK, week, emptyList(), rate = 1.0, ledger = old)
+        )
+        // A week that starts before the first receive waits; All never does.
+        val young = BalanceLedger(xmr, listOf(received(100_500, xmr)))
+        assertTrue(PortfolioHistory.needsAll(TimeRange.WEEK, week, young))
+        assertFalse(PortfolioHistory.needsAll(TimeRange.ALL, week, young))
+        // A wallet that never held anything.
+        assertFalse(PortfolioHistory.needsAll(TimeRange.WEEK, week, BalanceLedger(0, emptyList())))
+        // Emptied and filled again: from the refill.
+        val refilled = BalanceLedger(xmr, listOf(received(10_000, xmr), sent(20_000, xmr), received(150_000, xmr)))
+        assertEquals(150_000L, PortfolioHistory.holdingStartMs(refilled))
     }
 
     @Test

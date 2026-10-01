@@ -129,10 +129,11 @@ object PortfolioHistory {
     }
 
     /**
-     * The points [range] draws. A range that starts before All does would
-     * only add empty time before the wallet first held anything, so it
-     * shows exactly what All shows: All's window, drawn from All's samples
-     * ([allPrices]). A range that starts later keeps its own.
+     * The points [range] draws. A range that starts before the wallet first
+     * held anything would only add empty time, so when it also starts before
+     * All does, it shows exactly what All shows: All's window, drawn from
+     * All's samples ([allPrices]). Any other range keeps its own and needs
+     * nothing from All.
      */
     fun points(
         range: TimeRange,
@@ -143,10 +144,42 @@ object PortfolioHistory {
     ): List<PortfolioPoint> {
         if (range == TimeRange.ALL) return points(prices, rate, ledger, startAtFirstHolding = true)
         val own = points(prices, rate, ledger)
+        if (!needsAll(range, prices, ledger)) return own
         val all = points(allPrices, rate, ledger, startAtFirstHolding = true)
         val start = own.firstOrNull()?.timestamp
         val allStart = all.firstOrNull()?.timestamp
         return if (start != null && allStart != null && start < allStart) all else own
+    }
+
+    /**
+     * Whether [range] can show All's window, and so must wait for All's
+     * samples: it starts before the wallet began to hold what it holds. All
+     * starts one sample before that moment at the latest, so a range that
+     * starts later keeps its own samples. A wallet that never held anything
+     * keeps every range's own.
+     */
+    fun needsAll(range: TimeRange, prices: List<PriceDataPoint>, ledger: BalanceLedger): Boolean {
+        if (range == TimeRange.ALL) return false
+        val start = prices.firstOrNull()?.timestamp ?: return false
+        val holding = holdingStartMs(ledger) ?: return false
+        return start < holding
+    }
+
+    /**
+     * When the balance last rose from nothing: the first receive, unless the
+     * wallet was emptied and filled again since. [BalanceLedger.knownSinceMs],
+     * or the distant past, when it held something before its first known
+     * change; null when it never held anything.
+     */
+    fun holdingStartMs(ledger: BalanceLedger): Long? {
+        var after = ledger.balance
+        for (change in ledger.changes.asReversed()) {
+            val before = after - change.delta
+            if (before <= 0 && after > 0) return change.timestampMs
+            after = before
+        }
+        if (after <= 0) return null
+        return ledger.knownSinceMs ?: Long.MIN_VALUE
     }
 
     /**

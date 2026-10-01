@@ -126,10 +126,9 @@ class BalanceHistoryCardTest {
 
     @Test
     fun loadingAndEmptyRangesKeepTheHeight() {
-        // Every range waits for All, which a range that starts before it draws.
         val prices = loaded.copy(
-            cache = loaded.cache - TimeRange.YEAR - TimeRange.MONTH,
-            fetched = setOf(TimeRange.DAY, TimeRange.WEEK, TimeRange.YEAR, TimeRange.ALL)
+            cache = loaded.cache - TimeRange.YEAR - TimeRange.ALL,
+            fetched = setOf(TimeRange.DAY, TimeRange.WEEK, TimeRange.MONTH, TimeRange.YEAR)
         )
         showCard(prices)
         open()
@@ -141,13 +140,12 @@ class BalanceHistoryCardTest {
         assertEquals(expected, cardHeight())
 
         // Still loading: the last line stays up under a spinner.
-        rule.onNodeWithText(tr(TimeRange.MONTH.label)).performClick()
+        rule.onNodeWithText(tr(TimeRange.ALL.label)).performClick()
         rule.waitForIdle()
         assertEquals(TimeRange.YEAR, model.shown?.range)
         rule.onNodeWithContentDescription(tr("Loading balance history…")).assertExists()
         assertEquals(expected, cardHeight())
-        assertTrue(TimeRange.MONTH in fetches)
-        assertTrue("All loads with every range", TimeRange.ALL in fetches)
+        assertTrue(TimeRange.ALL in fetches)
     }
 
     @Test

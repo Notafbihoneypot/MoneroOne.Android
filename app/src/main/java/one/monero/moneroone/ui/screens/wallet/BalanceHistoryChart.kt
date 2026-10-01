@@ -145,16 +145,19 @@ internal fun BalanceHistoryChart(
     LaunchedEffect(isActive, range) {
         if (isActive) {
             currentFetch(range)
-            // A range that starts before All draws All's samples, so All loads too.
+            // All loads alongside, for a range that starts before the wallet
+            // first held XMR; the range's own samples never wait for it.
             if (range != TimeRange.ALL) currentFetch(TimeRange.ALL)
         }
     }
     val inputs = remember(prices, range, ledger, locale, use24Hour, timeZoneId) {
-        if (!prices.isLoaded(range) || !prices.isLoaded(TimeRange.ALL)) null
+        val own = prices.series(range)
+        val needsAll = PortfolioHistory.needsAll(range, own, ledger)
+        if (!prices.isLoaded(range) || (needsAll && !prices.isLoaded(TimeRange.ALL))) null
         else BalanceHistoryModel.Inputs(
             range = range,
-            prices = prices.series(range),
-            allPrices = prices.series(TimeRange.ALL),
+            prices = own,
+            allPrices = if (needsAll) prices.series(TimeRange.ALL) else emptyList(),
             rate = prices.rate ?: 1.0,
             currency = prices.currency,
             ledger = ledger,
