@@ -1,6 +1,7 @@
 package one.monero.moneroone.ui.screens.chart
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -303,19 +304,23 @@ private fun ChartValueCard(
             ) {
                 if (change != null) {
                     val color = if (change >= 0) SuccessGreen else ErrorRed
-                    Text(
-                        text = "${if (change >= 0) "+" else ""}${String.format(Locale.getDefault(), "%.2f", change)}%",
-                        style = detailStyle,
-                        fontWeight = FontWeight.SemiBold,
-                        color = color,
-                        maxLines = 1,
-                        modifier = Modifier
-                            .background(color.copy(alpha = 0.15f), CapsuleShape)
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                            .clearAndSetSemantics {
-                                contentDescription = tr("Change, %s", tr(range.axis.spokenSpan)) + ", " + ChartSpeech.spokenChange(change)
-                            }
-                    )
+                    // iOS fades the change badge out while a finger scrubs, as the scrub label fades in.
+                    val fade = tween<Float>(SCRUB_LABEL_FADE_MS, easing = Motion.EaseInOut)
+                    AnimatedVisibility(visible = scrubLabel == null, enter = fadeIn(fade), exit = fadeOut(fade)) {
+                        Text(
+                            text = "${if (change >= 0) "+" else ""}${String.format(Locale.getDefault(), "%.2f", change)}%",
+                            style = detailStyle,
+                            fontWeight = FontWeight.SemiBold,
+                            color = color,
+                            maxLines = 1,
+                            modifier = Modifier
+                                .background(color.copy(alpha = 0.15f), CapsuleShape)
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                .clearAndSetSemantics {
+                                    contentDescription = tr("Change, %s", tr(range.axis.spokenSpan)) + ", " + ChartSpeech.spokenChange(change)
+                                }
+                        )
+                    }
                 }
             }
         }
