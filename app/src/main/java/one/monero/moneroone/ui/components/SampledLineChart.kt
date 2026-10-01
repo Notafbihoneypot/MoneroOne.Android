@@ -610,15 +610,15 @@ private class ChartLayout(
     }
 
     /**
-     * Y labels right of the plot, centered on their lines. X labels start
-     * at their line, as Swift Charts places them; one that would run into
-     * the label before it is left out.
+     * Y labels right of the plot, centered on their lines, as Swift Charts
+     * places them: one on a line at the plot's top edge stands half above
+     * the chart. X labels start at their line; one that would run into the
+     * label before it is left out.
      */
     fun drawLabels(scope: DrawScope, plot: Rect, gap: Float) = with(scope) {
         for ((i, value) in yTicks.withIndex()) {
             val label = yLabels[i]
-            val top = (yOf(value, plot) - label.size.height / 2f)
-                .coerceIn(0f, max(size.height - label.size.height, 0f))
+            val top = yOf(value, plot) - label.size.height / 2f
             drawText(label, topLeft = Offset(plot.right + gap, top))
         }
         var lastEnd = Float.NEGATIVE_INFINITY
