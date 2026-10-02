@@ -38,10 +38,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -1062,213 +1064,222 @@ private fun ReviewPhase(
             .padding(horizontal = 24.dp)
             .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() }
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // QR warning
-        if (amountPrefilledFromQR && !isSweepAll) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 8.dp)
-            ) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(14.dp))
-                Text(tr("Amount pre-filled from QR code"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        // Transaction card: iOS review table (radius 16, fill, no shadow)
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 16.dp,
-            shadow = false,
-            color = MaterialTheme.colorScheme.surfaceVariant
+        // The details scroll and the Send button stays below them, as iOS
+        // puts them in a ScrollView: a long name or description, or a large
+        // text size, never pushes the button off the screen.
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Spacer(modifier = Modifier.height(16.dp))
 
-                // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph).
-                // A name shows its picture, the name, the OpenAlias name and
-                // every character of the address.
+            // QR warning
+            if (amountPrefilledFromQR && !isSweepAll) {
                 Row(
-                    verticalAlignment = if (openAliasSummary == null) Alignment.CenterVertically else Alignment.Top,
-                    modifier = openAliasRecipientSemantics(openAliasSummary, address)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 ) {
-                    if (openAliasSummary != null) {
-                        RecipientAvatar(openAliasSummary, diameter = 40.dp)
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MoneroOrange.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(14.dp))
+                    Text(tr("Amount pre-filled from QR code"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            // Transaction card: iOS review table (radius 16, fill, no shadow)
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 16.dp,
+                shadow = false,
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+
+                    // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph).
+                    // A name shows its picture, the name, the OpenAlias name and
+                    // every character of the address.
+                    Row(
+                        verticalAlignment = if (openAliasSummary == null) Alignment.CenterVertically else Alignment.Top,
+                        modifier = openAliasRecipientSemantics(openAliasSummary, address)
+                    ) {
+                        if (openAliasSummary != null) {
+                            RecipientAvatar(openAliasSummary, diameter = 40.dp)
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MoneroOrange.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(verticalArrangement = if (openAliasSummary != null) Arrangement.spacedBy(2.dp) else Arrangement.Top) {
+                            Text(tr("Recipient"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (openAliasSummary != null) {
+                                OpenAliasReviewNames(openAliasSummary)
+                            } else {
+                                Text(
+                                    text = truncateMiddle(address),
+                                    style = MonoCaption,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(verticalArrangement = if (openAliasSummary != null) Arrangement.spacedBy(2.dp) else Arrangement.Top) {
-                        Text(tr("Recipient"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (openAliasSummary != null) {
-                            OpenAliasReviewNames(openAliasSummary)
+                    // The notes start at the text column: the 40 dp disc plus the 12 dp gap.
+                    openAliasSummary?.let { OpenAliasReviewNotes(it, modifier = Modifier.padding(start = 52.dp)) }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Amount (centered)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (isSweepAll) {
+                            Text(tr("All Funds"), style = MaterialTheme.typography.headlineMedium)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (feeReady) {
+                                val sendAmount = (unlockedBalance - estimatedFee).coerceAtLeast(0)
+                                Text(
+                                    "${formatXmr(sendAmount)} XMR",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                xmrPrice?.let { price ->
+                                    val fiat = atomicToXmr(sendAmount) * price
+                                    Text(
+                                        "≈ ${currencySymbol}${"%.2f".format(fiat)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            } else if (feeLoading) {
+                                CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
                         } else {
                             Text(
-                                text = truncateMiddle(address),
-                                style = MonoCaption,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                "${formatXmr(parsedAmount)} XMR",
+                                style = MaterialTheme.typography.headlineMedium
                             )
+                            xmrPrice?.let { price ->
+                                val fiat = atomicToXmr(parsedAmount) * price
+                                Text(
+                                    "≈ ${currencySymbol}${"%.2f".format(fiat)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
-                }
-                // The notes start at the text column: the 40 dp disc plus the 12 dp gap.
-                openAliasSummary?.let { OpenAliasReviewNotes(it, modifier = Modifier.padding(start = 52.dp)) }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                // Amount (centered)
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (isSweepAll) {
-                        Text(tr("All Funds"), style = MaterialTheme.typography.headlineMedium)
-                        Spacer(modifier = Modifier.height(4.dp))
+                    // Fee row
+                    ReviewDetailRow(
+                        label = { Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    ) {
+                        when {
+                            feeLoading -> CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            feeError != null -> Text(tr("Error"), style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
+                            else -> Column(horizontalAlignment = Alignment.End) {
+                                Text("${formatXmr(estimatedFee)} XMR", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                xmrPrice?.let { price ->
+                                    val fiat = atomicToXmr(estimatedFee) * price
+                                    Text(
+                                        "≈ ${currencySymbol}${"%.2f".format(fiat)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Total row
+                    ReviewDetailRow(
+                        label = { Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
+                    ) {
                         if (feeReady) {
-                            val sendAmount = (unlockedBalance - estimatedFee).coerceAtLeast(0)
-                            Text(
-                                "${formatXmr(sendAmount)} XMR",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            xmrPrice?.let { price ->
-                                val fiat = atomicToXmr(sendAmount) * price
+                            val total = if (isSweepAll) unlockedBalance else parsedAmount + estimatedFee
+                            Column(horizontalAlignment = Alignment.End) {
                                 Text(
-                                    "≈ ${currencySymbol}${"%.2f".format(fiat)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    "${formatXmr(total)} XMR",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MoneroOrange
                                 )
-                            }
-                        } else if (feeLoading) {
-                            CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                        }
-                    } else {
-                        Text(
-                            "${formatXmr(parsedAmount)} XMR",
-                            style = MaterialTheme.typography.headlineMedium
-                        )
-                        xmrPrice?.let { price ->
-                            val fiat = atomicToXmr(parsedAmount) * price
-                            Text(
-                                "≈ ${currencySymbol}${"%.2f".format(fiat)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Fee row
-                ReviewDetailRow(
-                    label = { Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                ) {
-                    when {
-                        feeLoading -> CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        feeError != null -> Text(tr("Error"), style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
-                        else -> Column(horizontalAlignment = Alignment.End) {
-                            Text("${formatXmr(estimatedFee)} XMR", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            xmrPrice?.let { price ->
-                                val fiat = atomicToXmr(estimatedFee) * price
-                                Text(
-                                    "≈ ${currencySymbol}${"%.2f".format(fiat)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                xmrPrice?.let { price ->
+                                    val fiat = atomicToXmr(total) * price
+                                    Text(
+                                        "≈ ${currencySymbol}${"%.2f".format(fiat)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Total row
-                ReviewDetailRow(
-                    label = { Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
-                ) {
-                    if (feeReady) {
-                        val total = if (isSweepAll) unlockedBalance else parsedAmount + estimatedFee
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                "${formatXmr(total)} XMR",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MoneroOrange
-                            )
-                            xmrPrice?.let { price ->
-                                val fiat = atomicToXmr(total) * price
-                                Text(
-                                    "≈ ${currencySymbol}${"%.2f".format(fiat)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                    // The description in the OpenAlias record.
+                    openAliasSummary?.txDescription?.let { description ->
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OpenAliasDescriptionRow(description)
                     }
-                }
 
-                // The description in the OpenAlias record.
-                openAliasSummary?.txDescription?.let { description ->
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OpenAliasDescriptionRow(description)
-                }
-
-                // Memo: the last row, as on iOS, when the user wrote one.
-                if (memo.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ReviewMemoRow(memo)
-                }
-            }
-        }
-
-        // Pre-filled amount + fee no longer fits the balance
-        if (needsSweepAllChoice) {
-            Spacer(modifier = Modifier.height(12.dp))
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(18.dp))
-                        Text(
-                            tr("Amount plus network fee exceeds your available balance"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    TextButton(
-                        onClick = onUpgradeToSweepAll,
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text(tr("Send all funds instead"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
+                    // Memo: the last row, as on iOS, when the user wrote one.
+                    if (memo.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        ReviewMemoRow(memo)
                     }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.weight(1f))
+            // Pre-filled amount + fee no longer fits the balance
+            if (needsSweepAllChoice) {
+                Spacer(modifier = Modifier.height(12.dp))
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(18.dp))
+                            Text(
+                                tr("Amount plus network fee exceeds your available balance"),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TextButton(
+                            onClick = onUpgradeToSweepAll,
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text(tr("Send all funds instead"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // Send button
         @OptIn(ExperimentalComposeUiApi::class)
