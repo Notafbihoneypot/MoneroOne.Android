@@ -67,13 +67,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -113,6 +114,7 @@ import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.MoneroTextField
+import one.monero.moneroone.ui.components.OnNavEntryEnd
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ShrinkToFitText
 import one.monero.moneroone.ui.theme.ErrorRed
@@ -140,6 +142,12 @@ class OpenSendLink(val address: String, val amount: String?)
 internal fun acceptsPaymentLink(phase: SendPhase, confirmed: Boolean): Boolean =
     !confirmed && phase in listOf(SendPhase.ADDRESS, SendPhase.AMOUNT, SendPhase.REVIEW)
 
+/** Keeps a Send's identity in saved state, so a recreated screen still gets its own send result. */
+private val SendFlowSaver = listSaver<SendFlow, String?>(
+    save = { listOf(it.walletId, it.id) },
+    restore = { SendFlow(walletId = it[0], id = requireNotNull(it[1])) }
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendScreen(
@@ -154,7 +162,7 @@ fun SendScreen(
     onSent: () -> Unit
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
-    val flow = remember { SendFlow(walletViewModel.activeWallet.value?.id) }
+    val flow = rememberSaveable(saver = SendFlowSaver) { SendFlow(walletViewModel.activeWallet.value?.id) }
     val sharedSendState by walletViewModel.sendState.collectAsState()
     val sendState = sharedSendState.takeIf { it.flow == flow } ?: SendState.Idle
 
@@ -184,20 +192,24 @@ fun SendScreen(
         else -> SendPhase.ADDRESS
     }
 
-    var phase by remember { mutableStateOf(startPhase) }
+    // Saved state keeps the step and what the user entered through a
+    // rotation, a dark mode switch or a font size change.
+    var phase by rememberSaveable { mutableStateOf(startPhase) }
     var navigatingForward by remember { mutableStateOf(true) }
 
     // Send flow state
-    var address by remember { mutableStateOf(prefilledAddress ?: "") }
-    var amount by remember { mutableStateOf(prefilledAmount ?: "") }
-    var isSweepAll by remember { mutableStateOf(false) }
-    var memo by remember { mutableStateOf("") }
+    var address by rememberSaveable { mutableStateOf(prefilledAddress ?: "") }
+    var amount by rememberSaveable { mutableStateOf(prefilledAmount ?: "") }
+    var isSweepAll by rememberSaveable { mutableStateOf(false) }
+    var memo by rememberSaveable { mutableStateOf("") }
+    // The confirmation stays in memory only: after a recreation, Review
+    // shows again and Send asks for a new confirmation.
     var sendInProgress by remember { mutableStateOf(false) }
     // Re-authentication is required between confirming and broadcasting: an
     // unlocked, unattended phone must not be able to drain the wallet.
     var showAuthGate by remember { mutableStateOf(false) }
-    var amountPrefilledFromQR by remember { mutableStateOf(prefilledAmount != null) }
-    var amountSource by remember { mutableStateOf(prefillSource) }
+    var amountPrefilledFromQR by rememberSaveable { mutableStateOf(prefilledAmount != null) }
+    var amountSource by rememberSaveable { mutableStateOf(prefillSource) }
 
     // Fee state (estimated on REVIEW phase)
     var estimatedFee by remember { mutableLongStateOf(0L) }
@@ -210,13 +222,16 @@ fun SendScreen(
             is SendState.Sending -> phase = SendPhase.SENDING
             is SendState.Success -> { phase = SendPhase.SUCCESS; sendInProgress = false }
             is SendState.Error -> { phase = SendPhase.ERROR; sendInProgress = false }
-            else -> {}
+            // Sending, restored with no send in progress: the process stopped
+            // during the send, so its result is lost. Leave Send. The wallet
+            // shows the payment if it went out.
+            else -> if (phase == SendPhase.SENDING) onBack()
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose { walletViewModel.resetSendState(flow) }
-    }
+    // Send clears its result when it leaves the back stack. A recreation also
+    // disposes the screen, but the recreated screen still needs the result.
+    OnNavEntryEnd("send-flow") { walletViewModel.resetSendState(flow) }
 
     fun goForward(to: SendPhase) {
         navigatingForward = true
@@ -594,10 +609,10 @@ private fun AmountPhase(
     val canContinue = parsedAmount > 0 && parsedAmount <= unlockedBalance
     val clipboardManager = LocalClipboardManager.current
 
-    // Fiat mode toggle
-    var isFiatMode by remember { mutableStateOf(false) }
-    var fiatString by remember { mutableStateOf("") }
-    var showMemo by remember { mutableStateOf(memo.isNotEmpty()) }
+    // Fiat mode toggle. Saved, as the amount is, through a recreation.
+    var isFiatMode by rememberSaveable { mutableStateOf(false) }
+    var fiatString by rememberSaveable { mutableStateOf("") }
+    var showMemo by rememberSaveable { mutableStateOf(memo.isNotEmpty()) }
 
     // Sync fiat ↔ XMR when toggling or typing
     fun syncFiatFromXmr() {
