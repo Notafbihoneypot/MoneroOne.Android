@@ -752,10 +752,15 @@ private fun AmountPhase(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Available balance + Paste/Max buttons
+        // Available balance + Paste/Max buttons. The buttons keep their size
+        // and the balance wraps in the width that is left, as on iOS.
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Available: %s XMR", availableBalance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                tr("Available: %s XMR", availableBalance),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
+            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
