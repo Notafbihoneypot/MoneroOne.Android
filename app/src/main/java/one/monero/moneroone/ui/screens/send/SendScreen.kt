@@ -6,9 +6,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -88,6 +90,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -104,6 +108,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.MoneroKit
@@ -112,6 +117,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.R
 import one.monero.moneroone.core.openalias.OpenAlias
+import one.monero.moneroone.core.openalias.OpenAliasName
 import one.monero.moneroone.core.openalias.OpenAliasSummary
 import one.monero.moneroone.core.openalias.RecipientInput
 import one.monero.moneroone.core.util.NetworkMonitor
@@ -122,6 +128,7 @@ import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
+import one.monero.moneroone.ui.components.FieldShape
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.MoneroTextField
@@ -501,6 +508,11 @@ private fun AddressPhase(
     val kind = remember(input) { OpenAlias.classify(input) }
     val status = lookup.status
     val resolved = (status as? LookupStatus.Resolved)?.takeIf { kind is RecipientInput.Name }
+    val resolvedSummary = resolved?.summary()
+    val lookingUp = (status as? LookupStatus.Running)?.name?.takeIf { kind is RecipientInput.Name }
+    val fieldFocus = remember { FocusRequester() }
+    // Set by the card's clear button: the field that comes back gets the cursor.
+    var focusFieldOnShow by remember { mutableStateOf(false) }
     val isValid = when (kind) {
         // Continue follows the text at once; the row under the field waits for the typing delay.
         is RecipientInput.Address -> isValidMoneroAddress(kind.text)
@@ -570,33 +582,63 @@ private fun AddressPhase(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Addresses and names are mono caption, as on iOS. TalkBack reads the
-        // typed text, then this label (checked with TalkBack 14.2).
-        val fieldLabel = stringResource(R.string.send_recipient_field_a11y)
-        MoneroTextField(
-            value = input,
-            onValueChange = { onInputChange(it, false) },
+        // Address field. A resolved name turns it into the recipient card,
+        // inside the same rounded field, with the iOS step-forward spring.
+        AnimatedContent(
+            targetState = resolvedSummary,
+            contentKey = { it != null },
+            transitionSpec = {
+                fadeIn(openAliasCardSpring()) togetherWith fadeOut(openAliasCardSpring()) using
+                    SizeTransform(clip = false) { _, _ -> openAliasCardSpring(IntSize.VisibilityThreshold) }
+            },
+            contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics { contentDescription = fieldLabel },
-            placeholder = { Text(stringResource(R.string.send_recipient_placeholder), style = MonoCaption) },
-            textStyle = MonoCaption,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Done,
-                autoCorrectEnabled = false
-            ),
-            keyboardActions = KeyboardActions(onDone = {
-                onInputChange(input, true)
-                defaultKeyboardAction(ImeAction.Done)
-            }),
-            trailingIcon = if (input.isNotEmpty()) {
-                { OpenAliasClearButton(onClear = { onInputChange("", true) }) }
+                .background(MaterialTheme.colorScheme.surfaceVariant, FieldShape),
+            label = "recipientField"
+        ) { summary ->
+            if (summary != null) {
+                OpenAliasRecipientCard(summary, onClear = {
+                    focusFieldOnShow = true
+                    onInputChange("", true)
+                })
             } else {
-                null
-            },
-            singleLine = true
-        )
+                // Addresses and names are mono caption, as on iOS. TalkBack reads the
+                // typed text, then this label (checked with TalkBack 14.2).
+                val fieldLabel = stringResource(R.string.send_recipient_field_a11y)
+                MoneroTextField(
+                    value = input,
+                    onValueChange = { onInputChange(it, false) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(fieldFocus)
+                        .semantics { contentDescription = fieldLabel },
+                    placeholder = { Text(stringResource(R.string.send_recipient_placeholder), style = MonoCaption) },
+                    textStyle = MonoCaption,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Done,
+                        autoCorrectEnabled = false
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        onInputChange(input, true)
+                        defaultKeyboardAction(ImeAction.Done)
+                    }),
+                    trailingIcon = if (input.isNotEmpty()) {
+                        { RecipientFieldTrailing(lookingUp, onClear = { onInputChange("", true) }) }
+                    } else {
+                        null
+                    },
+                    singleLine = true
+                )
+                LaunchedEffect(Unit) {
+                    if (focusFieldOnShow) {
+                        focusFieldOnShow = false
+                        fieldFocus.requestFocus()
+                    }
+                }
+            }
+        }
 
         // Inline validation indicator (addresses). On the name path the
         // OpenAlias row takes its place, in a slot one row high while the
@@ -606,9 +648,9 @@ private fun AddressPhase(
                 AddressCheckRow(valid = false, modifier = Modifier.alpha(0f).clearAndSetSemantics { })
                 AddressCheckSlot(status)
                 OpenAliasStatusRow(status = status, onRetry = lookup::retry)
+                OpenAliasResolvedLines(resolvedSummary)
             }
         }
-        OpenAliasResultBlock(status = if (kind is RecipientInput.Name) status else LookupStatus.Idle)
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1043,30 +1085,39 @@ private fun ReviewPhase(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
 
-                // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph)
+                // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph).
+                // A name shows its monogram, the name, the OpenAlias name and
+                // every character of the address.
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = if (openAliasSummary == null) Alignment.CenterVertically else Alignment.Top,
                     modifier = openAliasRecipientSemantics(openAliasSummary, address)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MoneroOrange.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
+                    if (openAliasSummary != null) {
+                        RecipientMonogram(openAliasSummary.initials, diameter = 40.dp)
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MoneroOrange.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Person, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
+                        }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Column(verticalArrangement = if (openAliasSummary != null) Arrangement.spacedBy(2.dp) else Arrangement.Top) {
                         Text(tr("Recipient"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        openAliasSummary?.let { OpenAliasReviewName(it) }
-                        Text(
-                            text = truncateMiddle(address),
-                            style = MonoCaption,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        if (openAliasSummary != null) {
+                            OpenAliasReviewNames(openAliasSummary)
+                        } else {
+                            Text(
+                                text = truncateMiddle(address),
+                                style = MonoCaption,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
                 // The notes start at the text column: the 40 dp disc plus the 12 dp gap.
@@ -1170,6 +1221,14 @@ private fun ReviewPhase(
                             }
                         }
                     }
+                }
+
+                // The description in the OpenAlias record.
+                openAliasSummary?.txDescription?.let { description ->
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OpenAliasDescriptionRow(description)
                 }
 
                 // Memo: the last row, as on iOS, when the user wrote one.
@@ -1642,6 +1701,24 @@ private fun GradientSpinner() {
 
 private fun atomicToXmr(atomic: Long): Double {
     return atomic.toDouble() / 1_000_000_000_000.0
+}
+
+/** The end of the recipient field: the spinner while a name lookup runs, then the clear button. */
+@Composable
+private fun RecipientFieldTrailing(lookingUp: OpenAliasName?, onClear: () -> Unit) {
+    // The last name stays on the spinner while it fades out.
+    val last = remember { arrayOfNulls<OpenAliasName>(1) }
+    if (lookingUp != null) last[0] = lookingUp
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        AnimatedVisibility(
+            visible = lookingUp != null,
+            enter = fadeIn(openAliasFadeSpec),
+            exit = fadeOut(openAliasFadeSpec)
+        ) {
+            last[0]?.let { OpenAliasLookupSpinner(it) }
+        }
+        OpenAliasClearButton(onClear = onClear)
+    }
 }
 
 /** The "Valid address" / "Invalid address" row under the recipient field. */

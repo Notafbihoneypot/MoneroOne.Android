@@ -301,6 +301,7 @@
     <string name="l10n_delete_wallet_279d5ef5" formatted="false">"Видалити гаманець?"</string>
     <string name="l10n_delete_wallet_65684f30" formatted="false">"Видалити"</string>
     <string name="l10n_denied_da404deb" formatted="false">"Заборонено"</string>
+    <string name="l10n_description_526e0087" formatted="false">"Опис"</string>
     <string name="l10n_details_45989de4" formatted="false">"Подробиці"</string>
     <string name="l10n_device_paired_af592192" formatted="false">"Пару створено"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"Помилка пристрою: %1$s"</string>
@@ -894,6 +895,7 @@
     <string name="l10n_testnet_mode_active_059a369d" formatted="false">"Режим тестової мережі ввімкнено"</string>
     <string name="l10n_testnet_mode_active_test_xmr_only_889d3d8a" formatted="false">"Режим тестової мережі ввімкнено, лише тестові XMR"</string>
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"Віджет «Ціна» працює без цього параметра."</string>
+    <string name="l10n_the_address_for_s_s_is_different_from_the_address_you_p_3cdf352c" formatted="false">"Адреса для %1$s (%2$s) відрізняється від адреси, на яку ви платили %3$s. Звірте нову адресу з одержувачем."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Сума в цьому посиланні не є дійсною сумою XMR."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Буфер обміну буде очищено через %1$s."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"Джерело цін не має котирування %1$s."</string>

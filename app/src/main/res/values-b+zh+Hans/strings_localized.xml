@@ -301,6 +301,7 @@
     <string name="l10n_delete_wallet_279d5ef5" formatted="false">"要删除钱包吗？"</string>
     <string name="l10n_delete_wallet_65684f30" formatted="false">"删除"</string>
     <string name="l10n_denied_da404deb" formatted="false">"已拒绝"</string>
+    <string name="l10n_description_526e0087" formatted="false">"说明"</string>
     <string name="l10n_details_45989de4" formatted="false">"详细信息"</string>
     <string name="l10n_device_paired_af592192" formatted="false">"设备已配对"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"设备错误：%1$s"</string>
@@ -894,6 +895,7 @@
     <string name="l10n_testnet_mode_active_059a369d" formatted="false">"测试网模式已开启"</string>
     <string name="l10n_testnet_mode_active_test_xmr_only_889d3d8a" formatted="false">"测试网模式已开启，仅限测试 XMR"</string>
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"“价格”小组件无需此设置即可使用。"</string>
+    <string name="l10n_the_address_for_s_s_is_different_from_the_address_you_p_3cdf352c" formatted="false">"%1$s（%2$s）的地址与你在 %3$s 付款时的地址不同。请与收款人核对新地址。"</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"此链接中的金额不是有效的 XMR 金额。"</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"剪贴板将在 %1$s后清除。"</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"价格源没有 %1$s 报价。"</string>

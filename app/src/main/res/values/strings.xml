@@ -69,7 +69,6 @@
     <string name="openalias_looking_up">Looking up %1$s…</string>
     <string name="openalias_dnssec_valid">DNSSEC valid</string>
     <string name="openalias_dnssec_off">DNSSEC off</string>
-    <string name="openalias_address_label">Address</string>
     <string name="openalias_pin_same">Same address as your last payment</string>
     <string name="openalias_pin_changed">Address changed since your last payment</string>
     <string name="openalias_first_payment">First payment to this name. Check the address with the recipient.</string>

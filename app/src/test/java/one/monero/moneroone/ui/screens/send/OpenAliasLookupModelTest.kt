@@ -10,6 +10,7 @@ import one.monero.moneroone.core.openalias.OpenAliasFailure
 import one.monero.moneroone.core.openalias.OpenAliasName
 import one.monero.moneroone.core.openalias.OpenAliasOutcome
 import one.monero.moneroone.core.openalias.OpenAliasResult
+import one.monero.moneroone.core.openalias.PinState
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -51,6 +52,8 @@ class OpenAliasLookupModelTest {
         OpenAliasOutcome.Resolved(OpenAliasResult(validAddress, null, DnssecStatus.VALID))
     private var lookupGate: CompletableDeferred<Unit>? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    private var haptics = 0
+    private val announced = mutableListOf<LookupStatus>()
 
     private val model = OpenAliasLookupModel(
         scope = scope,
@@ -62,6 +65,8 @@ class OpenAliasLookupModelTest {
         pins = null,
         isValidAddress = { it == validAddress },
         typingPause = { pauses.pause() },
+        resolvedFeedback = { haptics++ },
+        announce = { announced += it },
     )
 
     @After
@@ -232,6 +237,44 @@ class OpenAliasLookupModelTest {
         assertEquals(LookupStatus.Idle, model.status)
         lookupGate?.complete(Unit)
         assertEquals(LookupStatus.Idle, model.status)
+    }
+
+    @Test
+    fun aResolveFiresOneHaptic() {
+        lookupGate = CompletableDeferred()
+        model.onInputChanged("donate@getmonero.org", immediate = true)
+        assertEquals(0, haptics)
+        lookupGate?.complete(Unit)
+        assertTrue(model.status is LookupStatus.Resolved)
+        assertEquals(1, haptics)
+
+        // A failed lookup plays none.
+        outcome = OpenAliasOutcome.Failed(OpenAliasFailure.NO_RECORD)
+        model.onInputChanged("donate@example.org", immediate = true)
+        assertTrue(model.status is LookupStatus.Failed)
+        assertEquals(1, haptics)
+    }
+
+    @Test
+    fun theEndOfALookupIsAnnouncedOnce() {
+        val record = OpenAliasResult(validAddress, "Monero Development", DnssecStatus.VALID, "Coffee")
+        outcome = OpenAliasOutcome.Resolved(record)
+        model.onInputChanged("donate@getmonero.org", immediate = true)
+        val name = OpenAliasName(display = "donate@getmonero.org", query = "donate.getmonero.org")
+        assertEquals(listOf<LookupStatus>(LookupStatus.Resolved(name, record, PinState.None)), announced)
+        // The summary carries the record name and the description.
+        val summary = (model.status as LookupStatus.Resolved).summary()
+        assertEquals("Monero Development", summary.recipientName)
+        assertEquals("Coffee", summary.txDescription)
+
+        // The same name with other case keeps the result, with no second announcement.
+        model.onInputChanged("Donate@GetMonero.org", immediate = true)
+        assertEquals(1, announced.size)
+
+        outcome = OpenAliasOutcome.Failed(OpenAliasFailure.TIMEOUT)
+        model.onInputChanged("donate@example.org", immediate = true)
+        assertEquals(LookupStatus.Failed(OpenAliasName("donate@example.org", "donate.example.org"), OpenAliasFailure.TIMEOUT), announced.last())
+        assertEquals(2, announced.size)
     }
 
     @Test

@@ -78,8 +78,10 @@ class OpenAliasTest {
         return """{"status":"ok","rcode":$rcode,"havedata":$havedata,"nxdomain":$nxdomain,"secure":$secure,"bogus":$bogus,"why_bogus":"","records":[$list]}"""
     }
 
-    private fun resolved(address: String, name: String?, dnssec: DnssecStatus) =
-        OpenAliasOutcome.Resolved(OpenAliasResult(address, name, dnssec))
+    private fun resolved(address: String, name: String?, dnssec: DnssecStatus, description: String? = null) =
+        OpenAliasOutcome.Resolved(OpenAliasResult(address, name, dnssec, description))
+
+    private val donation = "Donation to Monero Core Team"
 
     private fun failed(failure: OpenAliasFailure) = OpenAliasOutcome.Failed(failure)
 
@@ -189,12 +191,15 @@ class OpenAliasTest {
 
     @Test
     fun getmoneroFixture() {
-        assertEquals(resolved(getmoneroXmr, "Monero Development", DnssecStatus.VALID), select(getmoneroRecords))
+        assertEquals(resolved(getmoneroXmr, "Monero Development", DnssecStatus.VALID, donation), select(getmoneroRecords))
     }
 
     @Test
     fun openaliasFixture() {
-        assertEquals(resolved(openaliasXmr, "Monero Development", DnssecStatus.OFF), select(openaliasRecords, DnssecStatus.OFF))
+        assertEquals(
+            resolved(openaliasXmr, "Monero Development", DnssecStatus.OFF, donation),
+            select(openaliasRecords, DnssecStatus.OFF)
+        )
     }
 
     @Test
@@ -215,6 +220,33 @@ class OpenAliasTest {
     }
 
     @Test
+    fun txDescription() {
+        val first = "oa1:xmr recipient_address=$getmoneroXmr; tx_description=Coffee; tx_description=Tea;"
+        assertEquals("Coffee", OpenAlias.parseOa1(first)?.txDescription)
+        assertEquals(resolved(getmoneroXmr, null, DnssecStatus.VALID, "Coffee"), select(listOf(first)))
+
+        // Sanitized like the name.
+        val hidden = "oa1:xmr recipient_address=$getmoneroXmr; tx_description=Cof\u202Efee\n for  you;"
+        assertEquals(resolved(getmoneroXmr, null, DnssecStatus.VALID, "Coffee for you"), select(listOf(hidden)))
+
+        // Records that disagree give no description; a record without one does not count.
+        val second = "oa1:xmr recipient_address=$getmoneroXmr; tx_description=Lunch;"
+        val none = "oa1:xmr recipient_address=$getmoneroXmr;"
+        assertEquals(resolved(getmoneroXmr, null, DnssecStatus.VALID), select(listOf(first, second)))
+        assertEquals(resolved(getmoneroXmr, null, DnssecStatus.VALID, "Coffee"), select(listOf(first, none)))
+        assertEquals(resolved(getmoneroXmr, null, DnssecStatus.VALID), select(listOf(none)))
+    }
+
+    @Test
+    fun aNameThatSanitizesToNothingDoesNotCount() {
+        val records = listOf(
+            "oa1:xmr recipient_address=$getmoneroXmr; recipient_name=Joe;",
+            "oa1:xmr recipient_address=$getmoneroXmr; recipient_name=\u200B;",
+        )
+        assertEquals(resolved(getmoneroXmr, "Joe", DnssecStatus.VALID), select(records))
+    }
+
+    @Test
     fun missingClosingQuoteSkipsTheRecord() {
         val text = "oa1:xmr recipient_address=$getmoneroXmr; recipient_name=\"Joe;"
         assertNull(OpenAlias.parseOa1(text))
@@ -227,7 +259,7 @@ class OpenAliasTest {
             "oa1:xmr recipient_address=$getmoneroXmr;",
             "oa1:xmr recipient_address=$getmoneroXmr; tx_description=again;",
         )
-        assertEquals(resolved(getmoneroXmr, null, DnssecStatus.VALID), select(records))
+        assertEquals(resolved(getmoneroXmr, null, DnssecStatus.VALID, "again"), select(records))
     }
 
     @Test
@@ -301,9 +333,80 @@ class OpenAliasTest {
     }
 
     @Test
-    fun sanitizeCapsAtFortyCharacters() {
-        val sixty = "abcdefghij".repeat(6)
-        assertEquals("abcdefghij".repeat(4) + "…", OpenAlias.sanitizeName(sixty))
+    fun sanitizeCapsAtSixtyFourCharacters() {
+        val seventy = "abcdefghij".repeat(7)
+        assertEquals(seventy.take(64) + "…", OpenAlias.sanitizeName(seventy))
+    }
+
+    @Test
+    fun sanitizeRemovesInvisibleCharacters() {
+        // Bidi override and isolate, zero-width space and joiner, BOM, soft hyphen.
+        assertEquals("Monero Dev", OpenAlias.sanitizeName("\u202EMon\u2066ero\u200B\u200D De\uFEFFv\u00AD"))
+        // The Hangul filler is a letter, but it draws nothing.
+        assertEquals("MoneroOne", OpenAlias.sanitizeName("Monero\u3164One"))
+        assertNull(OpenAlias.sanitizeName("\u3164\u200B \uFEFF"))
+        // Line and paragraph separators are whitespace: one space.
+        assertEquals("Monero One", OpenAlias.sanitizeName("Monero\u2028\u2029One"))
+        // Accents and other scripts stay.
+        assertEquals("Cafe\u0301 Mon\u00E9ro", OpenAlias.sanitizeName("Cafe\u0301 Mon\u00E9ro"))
+        assertEquals("モネロ 開発", OpenAlias.sanitizeName("モネロ 開発"))
+    }
+
+    @Test
+    fun sanitizeCaps() {
+        val sixtyFour = "a".repeat(64)
+        assertEquals(sixtyFour, OpenAlias.sanitizeName(sixtyFour))
+        // No space before the "…".
+        assertEquals("a".repeat(63) + "…", OpenAlias.sanitizeName("a".repeat(63) + " bbbbbb"))
+        // The cap counts characters, not code points.
+        val accents = "e\u0301".repeat(64)
+        assertEquals(accents, OpenAlias.sanitizeName(accents))
+        assertEquals("e\u0301".repeat(64) + "…", OpenAlias.sanitizeName(accents + "e\u0301"))
+        // Descriptions cap at 100.
+        val long = "abcdefghij".repeat(11)
+        assertEquals(long.take(100) + "…", OpenAlias.sanitizeDescription(long))
+        assertEquals(long.take(100), OpenAlias.sanitizeDescription(long.take(100)))
+    }
+
+    // ---------- Monogram ----------
+
+    @Test
+    fun initials() {
+        val display = "donate@getmonero.org"
+        assertEquals("MD", OpenAlias.initials("Monero Development", display))
+        assertEquals("MC", OpenAlias.initials("monero  core team", display))
+        assertEquals("M", OpenAlias.initials("Monero", display))
+        assertEquals("PF", OpenAlias.initials("\uD83C\uDF89 Party Fund", display))
+        assertEquals("MD", OpenAlias.initials("(Monero) 42 dev", display))
+        assertEquals("\u00C9V", OpenAlias.initials("\u00E9lan vital", display))
+        // A letter with a two-letter capital stays as it is.
+        assertEquals("\u00DF", OpenAlias.initials("\u00DFar", display))
+        // No Turkish dotted capital, whatever the phone's language.
+        assertEquals("I", OpenAlias.initials("istanbul", display))
+    }
+
+    @Test
+    fun initialsFromTheName() {
+        assertEquals("D", OpenAlias.initials(null, "donate@getmonero.org"))
+        assertEquals("D", OpenAlias.initials("1234 !!", "donate@getmonero.org"))
+        assertEquals("G", OpenAlias.initials(null, "getmonero.org"))
+        assertEquals("P", OpenAlias.initials(null, "_pay.example.com"))
+        assertNull(OpenAlias.initials(null, "1234@example.com"))
+        assertNull(OpenAlias.initials("42", "42.example.com"))
+    }
+
+    // ---------- Recipient card ----------
+
+    @Test
+    fun summaryText() {
+        val name = OpenAliasName(display = "donate@getmonero.org", query = "donate.getmonero.org")
+        val named = OpenAliasSummary(name, getmoneroXmr, DnssecStatus.VALID, PinState.None, recipientName = "Monero Development")
+        assertEquals("Monero Development, donate@getmonero.org", named.spokenName)
+        assertEquals("MD", named.initials)
+
+        val bare = OpenAliasSummary(name, getmoneroXmr, DnssecStatus.OFF, PinState.Same(1_700_000_000L))
+        assertEquals("donate@getmonero.org", bare.spokenName)
+        assertEquals("D", bare.initials)
     }
 
     @Test
@@ -349,7 +452,7 @@ class OpenAliasTest {
     @Test
     fun rule4SynthesizedWithGoodSecureAnswerStands() {
         assertEquals(
-            resolved(getmoneroXmr, "Monero Development", DnssecStatus.VALID),
+            resolved(getmoneroXmr, "Monero Development", DnssecStatus.VALID, donation),
             map(okJson(getmoneroHex, secure = true), synthesized = 1)
         )
     }
@@ -379,13 +482,16 @@ class OpenAliasTest {
 
     @Test
     fun rule9SecureGivesDnssecValid() {
-        assertEquals(resolved(getmoneroXmr, "Monero Development", DnssecStatus.VALID), map(okJson(getmoneroHex, secure = true)))
+        assertEquals(
+            resolved(getmoneroXmr, "Monero Development", DnssecStatus.VALID, donation),
+            map(okJson(getmoneroHex, secure = true))
+        )
     }
 
     @Test
     fun rule9InsecureGivesDnssecOff() {
         val hex = openaliasRecords.map(::record)
-        assertEquals(resolved(openaliasXmr, "Monero Development", DnssecStatus.OFF), map(okJson(hex, secure = false)))
+        assertEquals(resolved(openaliasXmr, "Monero Development", DnssecStatus.OFF, donation), map(okJson(hex, secure = false)))
     }
 
     @Test

@@ -12,6 +12,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
+import java.text.BreakIterator
 import java.util.Locale
 
 /** Tunables of the OpenAlias send flow, kept in one place (spec section 3.6). */
@@ -23,7 +24,8 @@ object OpenAliasConfig {
     const val QUERY_CAP = 64
     const val TYPING_DELAY_MS = 800L
     const val PIN_CAP = 500
-    const val NAME_DISPLAY_CAP = 40
+    const val NAME_DISPLAY_CAP = 64
+    const val DESCRIPTION_DISPLAY_CAP = 100
     const val FADE_MS = 200
 
     /** DoH servers in order: the next one is used after a transport failure (decision D3). */
@@ -57,8 +59,17 @@ enum class OpenAliasFailure {
     val canRetry: Boolean get() = this == TIMEOUT || this == NETWORK || this == TOR
 }
 
-/** [recipientName] is parsed and sanitized, and the app shows it nowhere (decision D11). */
-data class OpenAliasResult(val address: String, val recipientName: String?, val dnssec: DnssecStatus)
+/**
+ * [recipientName]: the sanitized `recipient_name`, the title of the recipient
+ * card and the review step (founder, 2026-10-01). `monero:` links still drop it.
+ * [txDescription]: the sanitized `tx_description`, a row on the review step.
+ */
+data class OpenAliasResult(
+    val address: String,
+    val recipientName: String?,
+    val dnssec: DnssecStatus,
+    val txDescription: String? = null,
+)
 
 /** [pinnedAt] is in Unix seconds. */
 sealed class PinState {
@@ -78,10 +89,25 @@ data class OpenAliasSummary(
     val address: String,
     val dnssec: DnssecStatus,
     val pin: PinState,
-)
+    /** The sanitized `recipient_name` of the record. */
+    val recipientName: String? = null,
+    /** The sanitized `tx_description` of the record. */
+    val txDescription: String? = null,
+) {
+    /** The monogram on the recipient card and the review step. */
+    val initials: String? get() = OpenAlias.initials(recipientName, name.display)
+
+    /** TalkBack: the record name and the OpenAlias name. */
+    val spokenName: String get() = recipientName?.let { "$it, ${name.display}" } ?: name.display
+}
 
 /** One parsed `oa1:xmr` record. [addresses] keeps every `recipient_address` value. */
-data class Oa1Record(val addresses: List<String>, val recipientName: String?, val paymentId: String?)
+data class Oa1Record(
+    val addresses: List<String>,
+    val recipientName: String?,
+    val paymentId: String?,
+    val txDescription: String? = null,
+)
 
 /** OpenAlias input and record rules (spec section 4). Pure: no I/O. */
 object OpenAlias {
@@ -174,6 +200,7 @@ object OpenAlias {
         }
         val addresses = mutableListOf<String>()
         var recipientName: String? = null
+        var txDescription: String? = null
         var paymentId: String? = null
         val n = text.length
         var i = 8
@@ -243,10 +270,11 @@ object OpenAlias {
             when (key) {
                 "recipient_address" -> addresses += v
                 "recipient_name" -> if (recipientName == null) recipientName = v
+                "tx_description" -> if (txDescription == null) txDescription = v
                 "tx_payment_id" -> if (paymentId == null) paymentId = v
             }
         }
-        return Oa1Record(addresses, recipientName, paymentId)
+        return Oa1Record(addresses, recipientName, paymentId, txDescription)
     }
 
     /** Selects the one address across the decoded records of an answer (spec section 4.4). */
@@ -264,25 +292,42 @@ object OpenAlias {
             AddressCheck.INVALID -> return OpenAliasOutcome.Failed(OpenAliasFailure.INVALID_ADDRESS)
         }
 
-        val names = records.mapNotNull { it.recipientName?.takeIf(String::isNotEmpty) }.map(::sanitizeName)
-        val name = if (names.toSet().size == 1) names.first() else null
-        return OpenAliasOutcome.Resolved(OpenAliasResult(address, name, dnssec))
+        // Records that disagree give no name or description. A record without one does not count.
+        val names = records.mapNotNull { it.recipientName?.let(::sanitizeName) }.toSet()
+        val descriptions = records.mapNotNull { it.txDescription?.let(::sanitizeDescription) }.toSet()
+        return OpenAliasOutcome.Resolved(
+            OpenAliasResult(
+                address = address,
+                recipientName = names.singleOrNull(),
+                dnssec = dnssec,
+                txDescription = descriptions.singleOrNull(),
+            )
+        )
     }
 
+    /** The record name as the app shows it. See [sanitize]. */
+    fun sanitizeName(raw: String): String? = sanitize(raw, OpenAliasConfig.NAME_DISPLAY_CAP)
+
+    /** The record description as the app shows it. See [sanitize]. */
+    fun sanitizeDescription(raw: String): String? = sanitize(raw, OpenAliasConfig.DESCRIPTION_DISPLAY_CAP)
+
     /**
-     * Sanitizes a `recipient_name` (spec section 4.5). Whitespace (line breaks
-     * included) becomes a space first, then Cc, Cf, Zl and Zp characters go,
-     * then runs of spaces collapse. Caps at 40 code points plus "…". Returns
-     * null when nothing is left.
+     * Sanitizes record text for display (spec section 4.5). Removes control
+     * (Cc) and format (Cf) characters, which include the bidi overrides and
+     * the zero-width characters, and the other invisible (default-ignorable)
+     * characters, such as the Hangul filler. Turns each run of whitespace into
+     * one space, trims, and caps the length at [cap] characters (grapheme
+     * clusters, as iOS counts them) plus "…". Returns null when nothing is left.
      */
-    fun sanitizeName(raw: String): String? {
-        val mapped = StringBuilder(raw.length)
+    private fun sanitize(raw: String, cap: Int): String? {
+        val out = StringBuilder(raw.length)
+        var pendingSpace = false
         var i = 0
         while (i < raw.length) {
             val cp = raw.codePointAt(i)
             i += Character.charCount(cp)
             if (isWhitespace(cp)) {
-                mapped.append(' ')
+                pendingSpace = true
                 continue
             }
             when (Character.getType(cp)) {
@@ -291,21 +336,103 @@ object OpenAlias {
                 Character.LINE_SEPARATOR.toInt(),
                 Character.PARAGRAPH_SEPARATOR.toInt() -> continue
             }
-            mapped.appendCodePoint(cp)
+            if (isDefaultIgnorable(cp)) continue
+            if (pendingSpace && out.isNotEmpty()) out.append(' ')
+            pendingSpace = false
+            out.appendCodePoint(cp)
         }
-        val collapsed = mapped.split(' ').filter { it.isNotEmpty() }.joinToString(" ")
-        if (collapsed.isEmpty()) return null
-        val cap = OpenAliasConfig.NAME_DISPLAY_CAP
-        if (collapsed.codePointCount(0, collapsed.length) <= cap) return collapsed
-        return collapsed.substring(0, collapsed.offsetByCodePoints(0, cap)) + "…"
+        val text = out.toString()
+        if (text.isEmpty()) return null
+        val ends = graphemeEnds(text)
+        if (ends.size <= cap) return text
+        return text.substring(0, ends[cap - 1]).trimEnd(' ') + "…"
     }
 
+    /** Unicode White_Space. */
     private fun isWhitespace(cp: Int): Boolean {
         if (cp in 0x09..0x0D || cp == 0x85) return true
         val type = Character.getType(cp)
         return type == Character.SPACE_SEPARATOR.toInt() ||
             type == Character.LINE_SEPARATOR.toInt() ||
             type == Character.PARAGRAPH_SEPARATOR.toInt()
+    }
+
+    /**
+     * Unicode Default_Ignorable_Code_Point (DerivedCoreProperties.txt, Unicode
+     * 15). Java has no API for it. Most of these are Cf already; the others
+     * draw nothing too, such as the Hangul fillers and the variation selectors.
+     */
+    private fun isDefaultIgnorable(cp: Int): Boolean =
+        cp == 0x00AD || cp == 0x034F || cp == 0x061C ||
+            cp in 0x115F..0x1160 || cp in 0x17B4..0x17B5 || cp in 0x180B..0x180F ||
+            cp in 0x200B..0x200F || cp in 0x202A..0x202E || cp in 0x2060..0x206F ||
+            cp == 0x3164 || cp in 0xFE00..0xFE0F || cp == 0xFEFF || cp == 0xFFA0 ||
+            cp in 0xFFF0..0xFFF8 || cp in 0x1BCA0..0x1BCA3 || cp in 0x1D173..0x1D17A ||
+            cp in 0xE0000..0xE0FFF
+
+    /** The end offset of each character (extended grapheme cluster) of [text]. */
+    private fun graphemeEnds(text: String): List<Int> {
+        val iterator = BreakIterator.getCharacterInstance(Locale.ROOT)
+        iterator.setText(text)
+        val ends = mutableListOf<Int>()
+        var end = iterator.next()
+        while (end != BreakIterator.DONE) {
+            ends += end
+            end = iterator.next()
+        }
+        return ends
+    }
+
+    /** The characters (extended grapheme clusters) of [text]. */
+    private fun graphemes(text: String): List<String> {
+        var start = 0
+        return graphemeEnds(text).map { end -> text.substring(start, end).also { start = end } }
+    }
+
+    // ---------- Monogram ----------
+
+    /**
+     * The initials on the recipient card: the first letter of each of the
+     * first two words of the record name that hold a letter, in capitals
+     * ("Monero Development" gives "MD"). Without such a word, the first letter
+     * of the local part of the name: "D" for donate@getmonero.org, "G" for
+     * getmonero.org. Null when neither has a letter.
+     */
+    fun initials(recipientName: String?, display: String): String? {
+        if (recipientName != null) {
+            val letters = words(recipientName).mapNotNull(::firstLetter).take(2)
+            if (letters.isNotEmpty()) return letters.joinToString("") { capital(it) }
+        }
+        val local = if ('@' in display) display.substringBefore('@') else display.substringBefore('.')
+        return firstLetter(local)?.let(::capital)
+    }
+
+    private fun words(text: String): List<String> {
+        val words = mutableListOf<String>()
+        val word = StringBuilder()
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            i += Character.charCount(cp)
+            if (isWhitespace(cp)) {
+                if (word.isNotEmpty()) words += word.toString()
+                word.setLength(0)
+            } else {
+                word.appendCodePoint(cp)
+            }
+        }
+        if (word.isNotEmpty()) words += word.toString()
+        return words
+    }
+
+    /** The first character whose first code point is alphabetic, as Swift's `Character.isLetter`. */
+    private fun firstLetter(text: String): String? =
+        graphemes(text).firstOrNull { Character.isAlphabetic(it.codePointAt(0)) }
+
+    /** One capital letter. A letter whose capital is two letters ("ß") stays as it is. */
+    private fun capital(letter: String): String {
+        val upper = letter.uppercase(Locale.ROOT)
+        return if (graphemeEnds(upper).size == 1) upper else letter
     }
 
     /**

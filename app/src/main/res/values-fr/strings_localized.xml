@@ -301,6 +301,7 @@
     <string name="l10n_delete_wallet_279d5ef5" formatted="false">"Supprimer le portefeuille ?"</string>
     <string name="l10n_delete_wallet_65684f30" formatted="false">"Supprimer"</string>
     <string name="l10n_denied_da404deb" formatted="false">"Refusée"</string>
+    <string name="l10n_description_526e0087" formatted="false">"Description"</string>
     <string name="l10n_details_45989de4" formatted="false">"Détails"</string>
     <string name="l10n_device_paired_af592192" formatted="false">"Appareil jumelé"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"Erreur de l’appareil : %1$s"</string>
@@ -894,6 +895,7 @@
     <string name="l10n_testnet_mode_active_059a369d" formatted="false">"Mode Testnet actif"</string>
     <string name="l10n_testnet_mode_active_test_xmr_only_889d3d8a" formatted="false">"Mode Testnet actif, XMR de test uniquement"</string>
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"Le widget de prix fonctionne sans ce réglage."</string>
+    <string name="l10n_the_address_for_s_s_is_different_from_the_address_you_p_3cdf352c" formatted="false">"L’adresse de %1$s (%2$s) est différente de celle que vous avez payée le %3$s. Vérifiez la nouvelle adresse avec le destinataire."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Le montant de ce lien n’est pas un montant XMR valide."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Le presse-papiers sera vidé dans %1$s."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"Le flux de prix ne fournit pas de cours en %1$s."</string>
