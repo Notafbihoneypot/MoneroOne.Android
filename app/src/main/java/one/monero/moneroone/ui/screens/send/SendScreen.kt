@@ -90,6 +90,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -1023,9 +1024,9 @@ private fun ReviewPhase(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Fee row
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.weight(1f))
+                ReviewDetailRow(
+                    label = { Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                ) {
                     when {
                         feeLoading -> CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         feeError != null -> Text(tr("Error"), style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
@@ -1048,9 +1049,9 @@ private fun ReviewPhase(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Total row
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.weight(1f))
+                ReviewDetailRow(
+                    label = { Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
+                ) {
                     if (feeReady) {
                         val total = if (isSweepAll) unlockedBalance else parsedAmount + estimatedFee
                         Column(horizontalAlignment = Alignment.End) {
@@ -1119,6 +1120,58 @@ private fun ReviewPhase(
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+/** The least room between a Review row's label and its value on one line. */
+private val ReviewRowGap = 16.dp
+
+/** The space between the label and the value when the value goes under the label. */
+private val ReviewRowStackGap = 2.dp
+
+/**
+ * A Review card row: the label at the start and the value at the end.
+ * When the two do not fit on one line with [ReviewRowGap] between them, as
+ * at large font sizes, the value goes under the label at the end. iOS does
+ * the same with ViewThatFits. Each part can still wrap in its own width.
+ */
+@Composable
+private fun ReviewDetailRow(
+    label: @Composable () -> Unit,
+    value: @Composable () -> Unit
+) {
+    Layout(
+        content = {
+            Box { label() }
+            Column(horizontalAlignment = Alignment.End) { value() }
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) { measurables, constraints ->
+        val labelMeasurable = measurables[0]
+        val valueMeasurable = measurables[1]
+        val width = constraints.maxWidth
+        val gap = ReviewRowGap.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val oneLine = labelMeasurable.maxIntrinsicWidth(constraints.maxHeight) + gap +
+            valueMeasurable.maxIntrinsicWidth(constraints.maxHeight) <= width
+        if (oneLine) {
+            val valuePlaceable = valueMeasurable.measure(loose)
+            val labelPlaceable = labelMeasurable.measure(
+                loose.copy(maxWidth = (width - gap - valuePlaceable.width).coerceAtLeast(0))
+            )
+            layout(width, maxOf(labelPlaceable.height, valuePlaceable.height)) {
+                labelPlaceable.placeRelative(0, 0)
+                valuePlaceable.placeRelative(width - valuePlaceable.width, 0)
+            }
+        } else {
+            val labelPlaceable = labelMeasurable.measure(loose)
+            val valuePlaceable = valueMeasurable.measure(loose)
+            val valueTop = labelPlaceable.height + ReviewRowStackGap.roundToPx()
+            layout(width, valueTop + valuePlaceable.height) {
+                labelPlaceable.placeRelative(0, 0)
+                valuePlaceable.placeRelative(width - valuePlaceable.width, valueTop)
+            }
+        }
     }
 }
 
