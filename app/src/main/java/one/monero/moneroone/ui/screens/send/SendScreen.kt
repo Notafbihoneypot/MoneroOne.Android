@@ -82,6 +82,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -108,6 +109,7 @@ import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.util.NetworkMonitor
 import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.SendFlow
+import one.monero.moneroone.core.wallet.SendRequest
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.CapsuleShape
@@ -371,6 +373,7 @@ fun SendScreen(
                     ReviewPhase(
                         address = address,
                         amount = amount,
+                        memo = memo,
                         isSweepAll = isSweepAll,
                         amountPrefilledFromQR = amountPrefilledFromQR,
                         onUpgradeToSweepAll = { isSweepAll = true },
@@ -424,9 +427,7 @@ fun SendScreen(
                 showAuthGate = false
                 walletViewModel.send(
                     flow,
-                    address,
-                    walletViewModel.parseXmr(amount),
-                    isSweepAll = isSweepAll
+                    SendRequest.of(address, walletViewModel.parseXmr(amount), memo, isSweepAll)
                 )
             },
             onCancel = {
@@ -878,6 +879,7 @@ private fun AmountPhase(
 private fun ReviewPhase(
     address: String,
     amount: String,
+    memo: String,
     isSweepAll: Boolean,
     amountPrefilledFromQR: Boolean,
     onUpgradeToSweepAll: () -> Unit,
@@ -1077,6 +1079,14 @@ private fun ReviewPhase(
                         }
                     }
                 }
+
+                // Memo: the last row, as on iOS, when the user wrote one.
+                if (memo.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ReviewMemoRow(memo)
+                }
             }
         }
 
@@ -1125,6 +1135,27 @@ private fun ReviewPhase(
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+/**
+ * The memo row of the Review card, as on iOS: the note icon and the memo.
+ * TalkBack reads "Memo" and the memo in one stop.
+ */
+@Composable
+private fun ReviewMemoRow(memo: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Default.Description,
+            contentDescription = tr("Memo"),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(memo, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

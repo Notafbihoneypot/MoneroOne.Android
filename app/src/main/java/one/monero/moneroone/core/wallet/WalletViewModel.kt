@@ -2216,8 +2216,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun send(flow: SendFlow, address: String, amount: Long, memo: String? = null, isSweepAll: Boolean = false) {
-        val operation = sendCoordinator.begin(flow, _activeWallet.value?.id, isSweepAll || amount > 0L)
+    fun send(flow: SendFlow, request: SendRequest) {
+        val operation = sendCoordinator.begin(flow, _activeWallet.value?.id, request.sweepAll || request.amount > 0L)
             ?: return
         viewModelScope.launch {
             var error: String? = null
@@ -2234,7 +2234,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     return@launch
                 }
                 withContext(Dispatchers.IO) {
-                    kit.send(amount, address, memo, sweepAll = isSweepAll)
+                    // The kit saves the memo as a local note, as iOS does.
+                    request.sendWith(kit::send)
                 }
                 one.monero.moneroone.core.util.SoundFeedback.sendComplete(context)
                 // MoneroKit.send() doesn't return txHash, we'll show success without it
