@@ -652,7 +652,8 @@ private fun AddressPhase(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // The gap above the buttons, and where TalkBack hears a lookup end.
+        OpenAliasAnnouncement(lookup, Modifier.fillMaxWidth().height(16.dp))
 
         // Scan QR + Paste buttons
         Row(

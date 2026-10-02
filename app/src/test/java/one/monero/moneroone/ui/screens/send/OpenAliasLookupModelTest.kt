@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import one.monero.moneroone.core.openalias.DnssecStatus
 import one.monero.moneroone.core.openalias.OpenAliasFailure
 import one.monero.moneroone.core.openalias.OpenAliasName
@@ -66,8 +67,11 @@ class OpenAliasLookupModelTest {
         isValidAddress = { it == validAddress },
         typingPause = { pauses.pause() },
         resolvedFeedback = { haptics++ },
-        announce = { announced += it },
     )
+
+    init {
+        scope.launch { model.announcements.collect { announced += it } }
+    }
 
     @After
     fun tearDown() = scope.cancel()

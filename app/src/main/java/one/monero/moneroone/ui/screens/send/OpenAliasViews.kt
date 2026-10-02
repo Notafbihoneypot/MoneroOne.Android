@@ -1,6 +1,5 @@
 package one.monero.moneroone.ui.screens.send
 
-import android.view.View
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseOut
@@ -35,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,12 +51,13 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
@@ -72,7 +73,12 @@ import io.horizontalsystems.monerokit.model.Wallet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.openalias.AddressCheck
@@ -146,11 +152,22 @@ internal class OpenAliasLookupModel(
     private val typingPause: suspend () -> Unit = { delay(OpenAliasConfig.TYPING_DELAY_MS) },
     /** Plays when a lookup resolves: one light haptic, as on iOS. */
     private val resolvedFeedback: () -> Unit = {},
-    /** Speaks the end of a lookup (resolved or failed) to TalkBack, as iOS posts an announcement. */
-    private val announce: (LookupStatus) -> Unit = {},
 ) {
     var status: LookupStatus by mutableStateOf(LookupStatus.Idle)
         private set
+
+    private val endings = MutableSharedFlow<LookupStatus>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * The end of each lookup (resolved or failed), for TalkBack, as iOS posts
+     * an announcement. [OpenAliasAnnouncement] reads it out on the address
+     * step. An end while nothing collects goes unheard, so a step back to the
+     * address step never reads an old lookup again.
+     */
+    val announcements: SharedFlow<LookupStatus> = endings.asSharedFlow()
 
     private var generation = 0
     private var job: Job? = null
@@ -286,7 +303,7 @@ internal class OpenAliasLookupModel(
             }
             status = finished
             if (finished is LookupStatus.Resolved) resolvedFeedback()
-            announce(finished)
+            endings.tryEmit(finished)
         }
     }
 
@@ -301,7 +318,6 @@ internal class OpenAliasLookupModel(
 @Composable
 internal fun rememberOpenAliasLookup(): OpenAliasLookupModel {
     val context = LocalContext.current
-    val view = LocalView.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     return remember {
@@ -312,22 +328,54 @@ internal fun rememberOpenAliasLookup(): OpenAliasLookupModel {
             pins = OpenAliasPinStore.create(context.applicationContext),
             isValidAddress = ::isValidMoneroAddress,
             // The keypad tick of the app, as iOS plays its soft tick.
-            resolvedFeedback = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
-            announce = { status -> lookupAnnouncement(status)?.let { announce(view, it) } }
+            resolvedFeedback = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
         )
     }
 }
 
 /** What TalkBack hears when a lookup ends, as on iOS. */
-private fun lookupAnnouncement(status: LookupStatus): String? = when (status) {
+internal fun lookupAnnouncement(status: LookupStatus): String? = when (status) {
     is LookupStatus.Resolved -> tr("Address found for %s", status.name.display) + ". " + dnssecWord(status.result.dnssec)
     is LookupStatus.Failed -> failureText(status.failure)
     else -> null
 }
 
-/** A spoken note for TalkBack, as iOS posts a VoiceOver announcement. */
-@Suppress("DEPRECATION")
-private fun announce(view: View, text: String) = view.announceForAccessibility(text)
+/**
+ * Reads the end of a lookup to TalkBack in the words iOS announces: a polite
+ * live region, in place of View.announceForAccessibility (deprecated in
+ * Android 16). The region is empty until a lookup ends. It then holds the
+ * words for [ANNOUNCEMENT_HOLD_MS], long enough for TalkBack to take them,
+ * and is empty again, so TalkBack does not stop on it later. Give it a size
+ * that no other element covers: TalkBack skips a node with no area.
+ */
+@Composable
+internal fun OpenAliasAnnouncement(lookup: OpenAliasLookupModel, modifier: Modifier = Modifier) {
+    var words by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(lookup) {
+        lookup.announcements.collectLatest { ended ->
+            if (words != null) {
+                // Empty first, so that the same words twice are read twice.
+                words = null
+                delay(ANNOUNCEMENT_GAP_MS)
+            }
+            words = lookupAnnouncement(ended)
+            delay(ANNOUNCEMENT_HOLD_MS)
+            words = null
+        }
+    }
+    Box(
+        modifier = modifier.semantics {
+            liveRegion = LiveRegionMode.Polite
+            words?.let { contentDescription = it }
+        }
+    )
+}
+
+/** How long the live region holds the words of a lookup end. */
+private const val ANNOUNCEMENT_HOLD_MS = 3_000L
+
+/** Longer than the 100 ms between the accessibility updates of Compose, so TalkBack sees the empty region. */
+private const val ANNOUNCEMENT_GAP_MS = 250L
 
 /** Mainnet wallet: valid here, or valid on testnet (the other network). */
 internal fun openAliasAddressCheck(address: String): AddressCheck = when {
