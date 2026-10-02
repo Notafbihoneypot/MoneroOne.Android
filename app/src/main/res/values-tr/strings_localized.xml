@@ -11,6 +11,7 @@
     <string name="l10n_s_change_s_s_c4a2b000" formatted="false">"%1$s değişimi, %3$s %2$s"</string>
     <string name="l10n_s_chart_s_ef051333" formatted="false">"%1$s grafiği, %2$s"</string>
     <string name="l10n_s_copied_c1726808" formatted="false">"%1$s kopyalandı"</string>
+    <string name="l10n_s_has_no_dnssec_signature_a_dns_server_between_you_and__2e948776" formatted="false">"%1$s için DNSSEC imzası yok. Sizinle adın sahibi arasındaki bir DNS sunucusu bu yanıtı değiştirebilir. Göndermeden önce adresi alıcıyla doğrulayın."</string>
     <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s güncel"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s km"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"%1$s km yarıçap"</string>
@@ -90,9 +91,12 @@
     <string name="l10n_add_your_home_office_or_other_safe_locations_if_your_wa_43d93c16" formatted="false">"Ev, ofis veya diğer güvenli konumlarınızı ekleyin. Cüzdanınız bu bölgelerin dışında etkinlik algılarsa bildirim alırsınız."</string>
     <string name="l10n_address_56ef8f20" formatted="false">"Adres"</string>
     <string name="l10n_address_private_view_key_75968792" formatted="false">"Adres + özel görüntüleme anahtarı"</string>
+    <string name="l10n_address_changed_40e750ca" formatted="false">"Adres değişti"</string>
+    <string name="l10n_address_changed_since_your_last_payment_f5526df0" formatted="false">"Adres son ödemenizden bu yana değişti"</string>
     <string name="l10n_address_copied_a2617581" formatted="false">"Adres kopyalandı"</string>
     <string name="l10n_address_doesn_t_look_valid_for_mainnet_027a2baf" formatted="false">"Adres ana ağ için geçerli görünmüyor."</string>
     <string name="l10n_address_doesn_t_look_valid_for_testnet_e4c3a7a2" formatted="false">"Adres test ağı için geçerli görünmüyor."</string>
+    <string name="l10n_address_found_for_s_0af31ca9" formatted="false">"%1$s için adres bulundu"</string>
     <string name="l10n_address_fa0882e2" formatted="false">"Adres:"</string>
     <string name="l10n_adjust_to_explore_the_balance_and_activity_at_each_time_fc6ccd58" formatted="false">"Her andaki bakiyeyi ve etkinliği görmek için ayarlayın. Güncel cüzdanı göstermek için “Şimdi”ye dönün."</string>
     <string name="l10n_after_a_payment_arrives_receive_shows_a_new_address_old_579be71c" formatted="false">"Bir ödeme geldikten sonra Al ekranı yeni bir adres gösterir. Eski adresler çalışmaya devam eder."</string>
@@ -169,6 +173,8 @@
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"Kamera girişi desteklenmiyor"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"Kampüs"</string>
     <string name="l10n_can_t_open_payment_link_b51de8b1" formatted="false">"Ödeme Bağlantısı Açılamıyor"</string>
+    <string name="l10n_can_t_reach_the_name_service_c67b5871" formatted="false">"Ad hizmetine ulaşılamıyor"</string>
+    <string name="l10n_can_t_reach_the_name_service_through_tor_0ed93028" formatted="false">"Ad hizmetine Tor üzerinden ulaşılamıyor"</string>
     <string name="l10n_canadian_dollar_a190607f" formatted="false">"Kanada Doları"</string>
     <string name="l10n_cancel_19766ed6" formatted="false">"Vazgeç"</string>
     <string name="l10n_change_pin_77374b2e" formatted="false">"PIN\'i Değiştir"</string>
@@ -227,6 +233,7 @@
     <string name="l10n_connects_your_hardware_wallet_briefly_to_update_the_lis_65893ea3" formatted="false">"Giden işlemler listesini güncellemek için donanım cüzdanınıza kısa süreliğine bağlanır."</string>
     <string name="l10n_contact_support_f8d47b82" formatted="false">"Destek ile iletişime geç"</string>
     <string name="l10n_continue_31fbef16" formatted="false">"Devam"</string>
+    <string name="l10n_continue_anyway_911beb63" formatted="false">"Yine de devam et"</string>
     <string name="l10n_copied_8d525e5f" formatted="false">"Kopyalandı"</string>
     <string name="l10n_copied_to_clipboard_d37078fe" formatted="false">"Kopyalandı"</string>
     <string name="l10n_copied_ea61bc15" formatted="false">"Kopyalandı!"</string>
@@ -286,6 +293,9 @@
     <string name="l10n_custom_494ca78f" formatted="false">"Özel"</string>
     <string name="l10n_custom_node_cceacba3" formatted="false">"Uzak Düğüm"</string>
     <string name="l10n_custom_nodes_f6cf1837" formatted="false">"Özel düğümler"</string>
+    <string name="l10n_dnssec_check_failed_someone_may_have_changed_this_answe_577e9bb5" formatted="false">"DNSSEC denetimi başarısız oldu. Bu yanıtı biri değiştirmiş olabilir."</string>
+    <string name="l10n_dnssec_off_990dc782" formatted="false">"DNSSEC kapalı"</string>
+    <string name="l10n_dnssec_valid_29c0c46e" formatted="false">"DNSSEC geçerli"</string>
     <string name="l10n_danger_zone_3c1c01b4" formatted="false">"Tehlikeli bölge"</string>
     <string name="l10n_danish_krone_cc73f0b4" formatted="false">"Danimarka Kronu"</string>
     <string name="l10n_dark_60acc53f" formatted="false">"Koyu"</string>
@@ -365,6 +375,7 @@
     <string name="l10n_enter_pin_to_view_seed_phrase_2ed78176" formatted="false">"Kurtarma ifadesini görmek için PIN\'i girin"</string>
     <string name="l10n_enter_pairing_code_1396fcff" formatted="false">"Eşleme Kodunu Girin"</string>
     <string name="l10n_enter_xmr_address_eb12312f" formatted="false">"XMR adresi girin"</string>
+    <string name="l10n_enter_xmr_address_or_openalias_4a5954fa" formatted="false">"XMR adresi veya OpenAlias girin"</string>
     <string name="l10n_enter_a_valid_address_first_68b6e98a" formatted="false">"Önce geçerli bir adres girin"</string>
     <string name="l10n_enter_a_valid_amount_first_d298322a" formatted="false">"Önce geçerli bir miktar girin"</string>
     <string name="l10n_enter_a_valid_seed_phrase_to_continue_d20106e0" formatted="false">"Devam etmek için geçerli bir kurtarma ifadesi girin"</string>
@@ -406,6 +417,7 @@
     <string name="l10n_fee_s_xmr_9efa7208" formatted="false">"Ücret: %1$s XMR"</string>
     <string name="l10n_fetching_price_f74cc78c" formatted="false">"Fiyat alınıyor…"</string>
     <string name="l10n_filter_transactions_00d87315" formatted="false">"İşlemleri filtrele"</string>
+    <string name="l10n_first_payment_to_this_name_check_the_address_with_the_r_5e52f2f6" formatted="false">"Bu isme ilk ödeme. Adresi alıcıyla doğrulayın."</string>
     <string name="l10n_first_time_sync_can_take_a_few_minutes_2b7fc90b" formatted="false">"İlk eşzamanlama birkaç dakika sürebilir."</string>
     <string name="l10n_forgot_pin_74ad27db" formatted="false">"PIN\'i Unuttum"</string>
     <string name="l10n_forgot_pin_9c7eb279" formatted="false">"PIN\'i mi unuttunuz?"</string>
@@ -460,6 +472,7 @@
     <string name="l10n_invalid_address_4c9bb549" formatted="false">"Geçersiz adres"</string>
     <string name="l10n_invalid_amount_f7cda366" formatted="false">"Geçersiz miktar"</string>
     <string name="l10n_invalid_input_c9bbbe83" formatted="false">"Hata"</string>
+    <string name="l10n_invalid_name_f04d8455" formatted="false">"Geçersiz ad"</string>
     <string name="l10n_invalid_response_from_trezor_68112748" formatted="false">"Trezor\'dan geçersiz yanıt"</string>
     <string name="l10n_invalid_seed_phrase_3a8da7cf" formatted="false">"Geçersiz kurtarma ifadesi"</string>
     <string name="l10n_invalid_seed_phrase_please_check_your_words_and_try_aga_48aabf18" formatted="false">"Geçersiz kurtarma ifadesi. Kelimelerinizi kontrol edip yeniden deneyin."</string>
@@ -494,6 +507,8 @@
     <string name="l10n_locked_a424e33d" formatted="false">"Kilitli"</string>
     <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"Kilitli (%s/10 onay)"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"Son işlemler onaylanana kadar kilitli"</string>
+    <string name="l10n_look_up_the_name_again_43d80731" formatted="false">"Adı yeniden ara"</string>
+    <string name="l10n_looking_up_s_580f0cb6" formatted="false">"%1$s aranıyor…"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"Ana Adres"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"Ana adres tüm işlemleri birbirine bağlar. Gizlilik için alt adresler kullanın."</string>
     <string name="l10n_make_sure_the_device_is_unlocked_and_bluetooth_is_on_737758b0" formatted="false">"Aygıtın kilidinin açık ve Bluetooth\'un açık olduğundan emin olun."</string>
@@ -508,6 +523,7 @@
     <string name="l10n_monero_one_has_no_built_in_tor_without_orbot_or_another_f79ac3c0" formatted="false">"Monero One\'da yerleşik Tor yoktur. Orbot veya başka bir Tor uygulaması çalışmıyorsa hiçbir düğüm bağlanmaz."</string>
     <string name="l10n_monero_one_is_a_self_custody_wallet_your_seed_phrase_is_3a95ff43" formatted="false">"Monero One, anahtarların yalnızca sizde olduğu bir cüzdandır (self-custody). Fonlarınıza erişmenin tek yolu kurtarma ifadenizdir. Onu sizin için kurtaramayız."</string>
     <string name="l10n_monero_one_is_open_source_you_can_verify_exactly_how_lo_4560ff4d" formatted="false">"Monero One açık kaynaktır. Konumun nasıl kullanıldığını kodda tam olarak doğrulayabilirsiniz."</string>
+    <string name="l10n_monero_one_names_come_in_a_later_update_f8c2a952" formatted="false">"Monero One adları sonraki bir güncellemeyle gelecek"</string>
     <string name="l10n_monero_one_switches_language_the_next_time_it_opens_907ff7de" formatted="false">"Monero One bir sonraki açılışta dili değiştirir."</string>
     <string name="l10n_monero_price_38751a53" formatted="false">"Monero Fiyatı"</string>
     <string name="l10n_monero_view_only_wallet_27bc3604" formatted="false">"Monero Yalnızca Görüntüleme Cüzdanı"</string>
@@ -524,6 +540,7 @@
     <string name="l10n_moved_up_dbbbde2a" formatted="false">"Yukarı taşındı"</string>
     <string name="l10n_moves_between_transactions_426445ed" formatted="false">"İşlemler arasında geçiş yapar"</string>
     <string name="l10n_name_dcd1d522" formatted="false">"Ad"</string>
+    <string name="l10n_name_not_signed_a4712126" formatted="false">"Ad imzalı değil"</string>
     <string name="l10n_name_your_wallet_31b56e34" formatted="false">"Cüzdan Adı"</string>
     <string name="l10n_name_number_or_address_04f4c03c" formatted="false">"Ad, numara veya adres"</string>
     <string name="l10n_needs_always_90893ff3" formatted="false">"“Her Zaman” Gerekli"</string>
@@ -543,6 +560,7 @@
     <string name="l10n_new_price_alert_70e1b4c1" formatted="false">"Yeni Uyarı"</string>
     <string name="l10n_new_address_after_each_payment_d82479d9" formatted="false">"Her ödemeden sonra yeni adres"</string>
     <string name="l10n_next_transaction_37f49104" formatted="false">"Sonraki işlem"</string>
+    <string name="l10n_no_monero_address_for_this_name_79d0651c" formatted="false">"Bu ad için Monero adresi yok"</string>
     <string name="l10n_no_price_alerts_cfb97a21" formatted="false">"Fiyat Uyarısı Yok"</string>
     <string name="l10n_no_trusted_locations_008f580f" formatted="false">"Güvenilir Konum Yok"</string>
     <string name="l10n_no_warranty_420d720d" formatted="false">"Garanti Yok"</string>
@@ -698,8 +716,10 @@
     <string name="l10n_recipient_51fac985" formatted="false">"Alıcı"</string>
     <string name="l10n_recipient_address_f6f6311d" formatted="false">"Alıcı Adresi"</string>
     <string name="l10n_recipient_address_454d0391" formatted="false">"Alıcı adresi"</string>
+    <string name="l10n_recipient_address_or_openalias_name_05d761e3" formatted="false">"Alıcı adresi veya OpenAlias adı"</string>
     <string name="l10n_recipient_not_available_for_transactions_sent_before_th_bcca6091" formatted="false">"Bu cüzdan geri yüklenmeden önce gönderilen işlemlerde alıcı bilgisi yok"</string>
     <string name="l10n_recipient_s_4d3d8df1" formatted="false">"Alıcı: %1$s"</string>
+    <string name="l10n_recipient_s_address_s_b4e456fc" formatted="false">"Alıcı: %1$s, adres %2$s"</string>
     <string name="l10n_recommended_d70604e8" formatted="false">"Önerilen"</string>
     <string name="l10n_recovery_phrase_68fbadc6" formatted="false">"Kurtarma İfadesi"</string>
     <string name="l10n_remote_node_0ea0c139" formatted="false">"Uzak Düğüm"</string>
@@ -747,6 +767,7 @@
     <string name="l10n_romanian_leu_b988a3b0" formatted="false">"Romanya Leyi"</string>
     <string name="l10n_route_traffic_through_socks5_proxy_9704e8d1" formatted="false">"Trafiği SOCKS5 proxy üzerinden yönlendir"</string>
     <string name="l10n_russian_ruble_e43aeba8" formatted="false">"Rus Rublesi"</string>
+    <string name="l10n_same_address_as_your_last_payment_0c07a4bf" formatted="false">"Son ödemenizdeki adresle aynı"</string>
     <string name="l10n_save_1509f561" formatted="false">"Kaydet"</string>
     <string name="l10n_save_alert_c04ad8f9" formatted="false">"Uyarıyı Kaydet"</string>
     <string name="l10n_save_to_photos_50eaa390" formatted="false">"Fotoğraflar\'a Kaydet"</string>
@@ -896,9 +917,13 @@
     <string name="l10n_testnet_mode_active_test_xmr_only_889d3d8a" formatted="false">"Testnet modu etkin, yalnızca test XMR"</string>
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"Fiyat widget\'ı bu ayar olmadan da çalışır."</string>
     <string name="l10n_the_address_for_s_s_is_different_from_the_address_you_p_3cdf352c" formatted="false">"%1$s (%2$s) için adres, %3$s tarihinde ödeme yaptığınız adresten farklı. Yeni adresi alıcıyla doğrulayın."</string>
+    <string name="l10n_the_address_for_s_is_different_from_the_address_you_pai_b51afe25" formatted="false">"%1$s için adres, %2$s tarihinde ödeme yaptığınız adresten farklı. Yeni adresi alıcıyla doğrulayın."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Bu bağlantıdaki miktar geçerli bir XMR miktarı değil."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Pano %1$s içinde temizlenir."</string>
+    <string name="l10n_the_lookup_took_too_long_bae6d149" formatted="false">"Arama çok uzun sürdü"</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"Fiyat kaynağında %1$s kuru yok."</string>
+    <string name="l10n_the_record_holds_an_address_for_another_network_31f49873" formatted="false">"Kayıt başka bir ağa ait bir adres içeriyor"</string>
+    <string name="l10n_the_record_holds_an_invalid_monero_address_18a56b6b" formatted="false">"Kayıt geçersiz bir Monero adresi içeriyor"</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"Monero\'nun değeri önemli ölçüde dalgalanabilir. Yalnızca kaybetmeyi göze alabileceğiniz fonları kullanın."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"Cüzdan anahtarlarını yükleyemediği için alma adresi gösterilemiyor. Sorun çözülene kadar bu uygulamadaki hiçbir adrese fon göndermeyin. Uygulamayı zorla kapatıp yeniden açın; sorun sürerse cüzdanı kurtarma ifadesinden geri yükleyin."</string>
     <string name="l10n_the_wallet_stays_unlocked_until_the_app_is_force_closed_eb3ed2b1" formatted="false">"Uygulama zorla kapatılana kadar cüzdanın kilidi açık kalır"</string>
@@ -909,6 +934,8 @@
     <string name="l10n_this_link_has_no_valid_monero_address_a9f74722" formatted="false">"Bu bağlantıda geçerli bir Monero adresi yok."</string>
     <string name="l10n_this_link_uses_a_payment_id_which_monero_no_longer_supp_10f3384a" formatted="false">"Bu bağlantı, Monero\'nun artık desteklemediği bir ödeme ID\'si kullanıyor. Alıcıdan bir alt adres veya entegre adres isteyin."</string>
     <string name="l10n_this_may_take_a_moment_c1049c89" formatted="false">"Bu işlem biraz sürebilir"</string>
+    <string name="l10n_this_name_lists_more_than_one_monero_address_a3832633" formatted="false">"Bu ad birden fazla Monero adresi listeliyor"</string>
+    <string name="l10n_this_name_uses_a_payment_id_which_monero_no_longer_supp_ca5f6521" formatted="false">"Bu ad, Monero\'nun artık desteklemediği bir ödeme ID\'si kullanıyor. Alıcıdan bir alt adres veya entegre adres isteyin."</string>
     <string name="l10n_this_node_is_already_in_the_list_0720642a" formatted="false">"Bu düğüm zaten listede"</string>
     <string name="l10n_this_protects_you_from_wallet_activity_on_untrusted_net_91dd1d1c" formatted="false">"Bu özellik, sizi herkese açık Wi-Fi veya bilinmeyen konumlar gibi güvenilir olmayan ağlardaki cüzdan etkinliğine karşı korur."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_only_it_still__22761798" formatted="false">"Bu işlem cüzdanı bu aygıttan kaldırır. Cüzdanı kurtarma ifadesiyle geri yükleyebilirsiniz."</string>
@@ -998,6 +1025,7 @@
     <string name="l10n_update_your_wallet_pin_384f8403" formatted="false">"PIN\'i Değiştir"</string>
     <string name="l10n_use_s_04064ec0" formatted="false">"%1$s Kullan"</string>
     <string name="l10n_use_biometrics_11377f11" formatted="false">"Biyometri"</string>
+    <string name="l10n_use_new_address_4d01a4ee" formatted="false">"Yeni adresi kullan"</string>
     <string name="l10n_use_pin_3e03ee29" formatted="false">"PIN Kullan"</string>
     <string name="l10n_use_tor_proxy_89445203" formatted="false">"Tor Proxy\'si Kullan"</string>
     <string name="l10n_use_an_ip_address_and_port_for_example_127_0_0_1_9050_2e0d26ba" formatted="false">"Bir IP adresi ve bağlantı noktası kullanın, örneğin 127.0.0.1:9050."</string>
@@ -1029,6 +1057,7 @@
     <string name="l10n_view_only_wallet_30e66632" formatted="false">"Yalnızca görüntüleme cüzdanı"</string>
     <string name="l10n_view_only_wallets_cannot_send_transactions_4a11f950" formatted="false">"Yalnızca görüntüleme cüzdanları işlem gönderemez"</string>
     <string name="l10n_visit_monero_one_2ba11ca1" formatted="false">"monero.one sitesini tarayıcınızda açar"</string>
+    <string name="l10n_wait_for_the_name_lookup_to_finish_a9cfb529" formatted="false">"Ad aramasının bitmesini bekleyin"</string>
     <string name="l10n_waiting_for_fee_estimate_44418c72" formatted="false">"Ücret tahmini bekleniyor"</string>
     <string name="l10n_wallet_d1c9a01d" formatted="false">"Cüzdan"</string>
     <string name="l10n_wallet_s_ca6410b6" formatted="false">"Cüzdan %1$s"</string>

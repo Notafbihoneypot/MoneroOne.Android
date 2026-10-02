@@ -102,7 +102,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -117,7 +116,6 @@ import io.horizontalsystems.monerokit.MoneroKit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import one.monero.moneroone.R
 import one.monero.moneroone.core.openalias.OpenAlias
 import one.monero.moneroone.core.openalias.OpenAliasName
 import one.monero.moneroone.core.openalias.OpenAliasSummary
@@ -578,7 +576,7 @@ private fun AddressPhase(
         }
 
         Text(
-            text = stringResource(R.string.send_recipient_label),
+            text = tr("Recipient"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -607,7 +605,7 @@ private fun AddressPhase(
             } else {
                 // Addresses and names are mono caption, as on iOS. TalkBack reads the
                 // typed text, then this label (checked with TalkBack 14.2).
-                val fieldLabel = stringResource(R.string.send_recipient_field_a11y)
+                val fieldLabel = tr("Recipient address or OpenAlias name")
                 MoneroTextField(
                     value = input,
                     onValueChange = { onInputChange(it, false) },
@@ -615,7 +613,7 @@ private fun AddressPhase(
                         .fillMaxWidth()
                         .focusRequester(fieldFocus)
                         .semantics { contentDescription = fieldLabel },
-                    placeholder = { Text(stringResource(R.string.send_recipient_placeholder), style = MonoCaption) },
+                    placeholder = { Text(tr("Enter XMR address or OpenAlias"), style = MonoCaption) },
                     textStyle = MonoCaption,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text,

@@ -1,8 +1,6 @@
 package one.monero.moneroone.ui.screens.send
 
-import android.content.Context
 import android.view.View
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.EaseOut
@@ -54,7 +52,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -77,7 +74,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import one.monero.moneroone.R
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.openalias.AddressCheck
 import one.monero.moneroone.core.openalias.DnssecStatus
@@ -317,17 +313,15 @@ internal fun rememberOpenAliasLookup(): OpenAliasLookupModel {
             isValidAddress = ::isValidMoneroAddress,
             // The keypad tick of the app, as iOS plays its soft tick.
             resolvedFeedback = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
-            announce = { status -> lookupAnnouncement(context, status)?.let { announce(view, it) } }
+            announce = { status -> lookupAnnouncement(status)?.let { announce(view, it) } }
         )
     }
 }
 
 /** What TalkBack hears when a lookup ends, as on iOS. */
-private fun lookupAnnouncement(context: Context, status: LookupStatus): String? = when (status) {
-    is LookupStatus.Resolved ->
-        context.getString(R.string.openalias_found_a11y, status.name.display) + ". " +
-            context.getString(dnssecWordRes(status.result.dnssec))
-    is LookupStatus.Failed -> context.getString(failureTextRes(status.failure))
+private fun lookupAnnouncement(status: LookupStatus): String? = when (status) {
+    is LookupStatus.Resolved -> tr("Address found for %s", status.name.display) + ". " + dnssecWord(status.result.dnssec)
+    is LookupStatus.Failed -> failureText(status.failure)
     else -> null
 }
 
@@ -358,7 +352,7 @@ internal fun OpenAliasClearButton(onClear: () -> Unit) {
     IconButton(onClick = onClear) {
         Icon(
             Icons.Filled.Cancel,
-            contentDescription = stringResource(R.string.send_clear_address),
+            contentDescription = tr("Clear address"),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)
         )
@@ -409,9 +403,7 @@ private fun StatusRowContent(status: LookupStatus, onRetry: () -> Unit) {
             when (status) {
                 is LookupStatus.Failed -> ErrorLineContent(failureText(status.failure))
                 is LookupStatus.Rejected -> ErrorLineContent(
-                    stringResource(
-                        if (status.reserved) R.string.openalias_error_reserved else R.string.openalias_error_invalid_name
-                    )
+                    if (status.reserved) tr("Monero One names come in a later update") else tr("Invalid name")
                 )
                 LookupStatus.Idle, is LookupStatus.Address, is LookupStatus.Running, is LookupStatus.Resolved -> Unit
             }
@@ -451,9 +443,9 @@ private fun DnssecLineContent(dnssec: DnssecStatus) {
 
 @Composable
 private fun TryAgainButton(onRetry: () -> Unit) {
-    val hint = stringResource(R.string.openalias_try_again_hint)
+    val hint = tr("Look up the name again")
     Text(
-        text = stringResource(R.string.openalias_try_again),
+        text = tr("Try Again"),
         style = MaterialTheme.typography.bodySmall,
         fontWeight = FontWeight.SemiBold,
         color = MoneroOrange,
@@ -466,44 +458,37 @@ private fun TryAgainButton(onRetry: () -> Unit) {
     )
 }
 
-@StringRes
-private fun dnssecWordRes(dnssec: DnssecStatus): Int =
-    if (dnssec == DnssecStatus.VALID) R.string.openalias_dnssec_valid else R.string.openalias_dnssec_off
+private fun dnssecWord(dnssec: DnssecStatus): String =
+    if (dnssec == DnssecStatus.VALID) tr("DNSSEC valid") else tr("DNSSEC off")
 
-@Composable
-private fun dnssecWord(dnssec: DnssecStatus): String = stringResource(dnssecWordRes(dnssec))
-
-@StringRes
-private fun failureTextRes(failure: OpenAliasFailure): Int = when (failure) {
-    OpenAliasFailure.NO_RECORD -> R.string.openalias_error_no_record
-    OpenAliasFailure.SEVERAL_ADDRESSES -> R.string.openalias_error_several
-    OpenAliasFailure.PAYMENT_ID -> R.string.openalias_error_payment_id
-    OpenAliasFailure.INVALID_ADDRESS -> R.string.openalias_error_invalid_address
-    OpenAliasFailure.WRONG_NETWORK -> R.string.openalias_error_wrong_network
-    OpenAliasFailure.DNSSEC_FAILED -> R.string.openalias_error_dnssec_failed
-    OpenAliasFailure.TIMEOUT -> R.string.openalias_error_timeout
-    OpenAliasFailure.NETWORK -> R.string.openalias_error_network
-    OpenAliasFailure.TOR -> R.string.openalias_error_tor
+private fun failureText(failure: OpenAliasFailure): String = when (failure) {
+    OpenAliasFailure.NO_RECORD -> tr("No Monero address for this name")
+    OpenAliasFailure.SEVERAL_ADDRESSES -> tr("This name lists more than one Monero address")
+    OpenAliasFailure.PAYMENT_ID -> tr(
+        "This name uses a payment ID, which Monero no longer supports. Ask the recipient for a subaddress or an integrated address."
+    )
+    OpenAliasFailure.INVALID_ADDRESS -> tr("The record holds an invalid Monero address")
+    OpenAliasFailure.WRONG_NETWORK -> tr("The record holds an address for another network")
+    OpenAliasFailure.DNSSEC_FAILED -> tr("DNSSEC check failed. Someone may have changed this answer.")
+    OpenAliasFailure.TIMEOUT -> tr("The lookup took too long")
+    OpenAliasFailure.NETWORK -> tr("Can't reach the name service")
+    OpenAliasFailure.TOR -> tr("Can't reach the name service through Tor")
 }
 
-@Composable
-private fun failureText(failure: OpenAliasFailure): String = stringResource(failureTextRes(failure))
-
-@StringRes
-private fun pinTextRes(pin: PinState): Int? = when (pin) {
+private fun pinText(pin: PinState): String? = when (pin) {
     PinState.None -> null
-    is PinState.Same -> R.string.openalias_pin_same
-    is PinState.Changed -> R.string.openalias_pin_changed
+    is PinState.Same -> tr("Same address as your last payment")
+    is PinState.Changed -> tr("Address changed since your last payment")
 }
 
-/** The TalkBack value of the recipient card: the DNSSEC word and the pin. [text] reads a string resource. */
-internal fun openAliasSpokenStatus(summary: OpenAliasSummary, text: (Int) -> String): String =
-    listOfNotNull(text(dnssecWordRes(summary.dnssec)), pinTextRes(summary.pin)?.let(text)).joinToString(", ")
+/** The TalkBack value of the recipient card: the DNSSEC word and the pin. */
+internal fun openAliasSpokenStatus(summary: OpenAliasSummary): String =
+    listOfNotNull(dnssecWord(summary.dnssec), pinText(summary.pin)).joinToString(", ")
 
 /** The spinner in the recipient field while a lookup runs, as on iOS. */
 @Composable
 internal fun OpenAliasLookupSpinner(name: OpenAliasName) {
-    val label = stringResource(R.string.openalias_looking_up, name.display)
+    val label = tr("Looking up %s…", name.display)
     CircularProgressIndicator(
         modifier = Modifier
             .size(16.dp)
@@ -595,9 +580,8 @@ internal fun RecipientAvatar(summary: OpenAliasSummary, diameter: Dp = 44.dp) {
  */
 @Composable
 internal fun OpenAliasRecipientCard(summary: OpenAliasSummary, onClear: () -> Unit) {
-    val context = LocalContext.current
-    val spokenStatus = openAliasSpokenStatus(summary, context::getString)
-    val clearLabel = stringResource(R.string.send_clear_address)
+    val spokenStatus = openAliasSpokenStatus(summary)
+    val clearLabel = tr("Clear address")
     // Large text (the iOS accessibility sizes): the names get the full width, under the monogram.
     val largeText = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
     val semantics = Modifier.clearAndSetSemantics {
@@ -730,7 +714,7 @@ internal fun OpenAliasResolvedLines(summary: OpenAliasSummary?) {
             }
             when (shown.pin) {
                 is PinState.Same -> Text(
-                    stringResource(R.string.openalias_pin_same),
+                    tr("Same address as your last payment"),
                     style = MaterialTheme.typography.bodySmall,
                     color = secondary
                 )
@@ -746,7 +730,7 @@ internal fun OpenAliasResolvedLines(summary: OpenAliasSummary?) {
                         modifier = Modifier.padding(top = 1.dp).size(14.dp)
                     )
                     Text(
-                        stringResource(R.string.openalias_pin_changed),
+                        tr("Address changed since your last payment"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -825,7 +809,7 @@ internal fun OpenAliasContinueDialog(
         val paidOn = remember(changed.pinnedAt) {
             DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(changed.pinnedAt * 1000L))
         }
-        title = stringResource(R.string.openalias_changed_title)
+        title = tr("Address Changed")
         val recipientName = request.result.recipientName
         message = if (recipientName != null) {
             tr(
@@ -835,13 +819,20 @@ internal fun OpenAliasContinueDialog(
                 paidOn
             )
         } else {
-            stringResource(R.string.openalias_changed_message, request.name.display, paidOn)
+            tr(
+                "The address for %s is different from the address you paid on %s. Check the new address with the recipient.",
+                request.name.display,
+                paidOn
+            )
         }
-        confirm = stringResource(R.string.openalias_use_new_address)
+        confirm = tr("Use New Address")
     } else {
-        title = stringResource(R.string.openalias_unsigned_title)
-        message = stringResource(R.string.openalias_unsigned_message, request.name.display)
-        confirm = stringResource(R.string.openalias_continue_anyway)
+        title = tr("Name Not Signed")
+        message = tr(
+            "%s has no DNSSEC signature. A DNS server between you and the owner of the name can change this answer. Check the address with the recipient before you send.",
+            request.name.display
+        )
+        confirm = tr("Continue Anyway")
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -851,7 +842,7 @@ internal fun OpenAliasContinueDialog(
             TextButton(onClick = onConfirm) { Text(confirm) }
         },
         dismissButton = {
-            DismissTextButton(onClick = onDismiss) { Text(stringResource(R.string.openalias_cancel)) }
+            DismissTextButton(onClick = onDismiss) { Text(tr("Cancel")) }
         }
     )
 }
@@ -860,7 +851,7 @@ internal fun OpenAliasContinueDialog(
 @Composable
 internal fun openAliasContinueHint(running: Boolean): Modifier {
     if (!running) return Modifier
-    val hint = stringResource(R.string.openalias_continue_hint_wait)
+    val hint = tr("Wait for the name lookup to finish")
     return Modifier.semantics { stateDescription = hint }
 }
 
@@ -870,13 +861,13 @@ internal fun openAliasContinueHint(running: Boolean): Modifier {
 
 @Composable
 internal fun openAliasAmountTitle(summary: OpenAliasSummary): String =
-    stringResource(R.string.send_to_name, summary.name.display)
+    tr("Send to %s", summary.name.display)
 
 /** The review recipient row as one element: "Recipient: record name, OpenAlias name, address …". */
 @Composable
 internal fun openAliasRecipientSemantics(summary: OpenAliasSummary?, address: String): Modifier {
     if (summary == null) return Modifier
-    val label = stringResource(R.string.openalias_review_a11y, summary.spokenName, address)
+    val label = tr("Recipient: %s, address %s", summary.spokenName, address)
     return Modifier.clearAndSetSemantics { contentDescription = label }
 }
 
@@ -949,7 +940,7 @@ internal fun OpenAliasReviewNotes(summary: OpenAliasSummary, modifier: Modifier 
             ) {
                 Icon(Icons.Outlined.Info, contentDescription = null, tint = secondary, modifier = Modifier.size(14.dp))
                 Text(
-                    stringResource(R.string.openalias_first_payment),
+                    tr("First payment to this name. Check the address with the recipient."),
                     style = MaterialTheme.typography.bodySmall,
                     color = secondary
                 )
