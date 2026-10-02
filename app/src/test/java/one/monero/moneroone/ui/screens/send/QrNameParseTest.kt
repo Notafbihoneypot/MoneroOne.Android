@@ -30,6 +30,11 @@ class QrNameParseTest {
     }
 
     @Test
+    fun moneroOneOwnName() {
+        assertEquals("donate@monero.one", parseMoneroUri("donate@monero.one")?.name)
+    }
+
+    @Test
     fun reservedNamesPassSoTheSendScreenRejectsThem() {
         assertEquals("joe@monero.one", parseMoneroUri("joe@monero.one")?.name)
         assertEquals("@joe", parseMoneroUri("monero:@joe")?.name)

@@ -96,6 +96,7 @@ import one.monero.moneroone.core.openalias.recordAfterSend
 import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
+import one.monero.moneroone.ui.components.MoneroLogo
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.MoneroOrange
@@ -572,6 +573,18 @@ internal fun RecipientMonogram(initials: String?, diameter: Dp = 44.dp) {
     }
 }
 
+/** The picture of a recipient: the Monero One logo for Monero One's own names (see [OpenAliasSummary.showsMoneroOneLogo]), else the monogram. */
+@Composable
+internal fun RecipientAvatar(summary: OpenAliasSummary, diameter: Dp = 44.dp) {
+    if (summary.showsMoneroOneLogo) {
+        // The logo of Welcome and Unlock, still, clipped to the circle the
+        // same way. It comes from the app: nothing is fetched.
+        MoneroLogo(size = diameter, modifier = Modifier.clearAndSetSemantics { })
+    } else {
+        RecipientMonogram(summary.initials, diameter)
+    }
+}
+
 /**
  * The field after a lookup resolved: the recipient, the way Mail turns an
  * address into a contact. The record name is the title and the OpenAlias name
@@ -601,7 +614,7 @@ internal fun OpenAliasRecipientCard(summary: OpenAliasSummary, onClear: () -> Un
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(verticalAlignment = Alignment.Top) {
-                RecipientMonogram(summary.initials)
+                RecipientAvatar(summary)
                 Spacer(modifier = Modifier.weight(1f))
                 OpenAliasClearButton(onClear)
             }
@@ -617,7 +630,7 @@ internal fun OpenAliasRecipientCard(summary: OpenAliasSummary, onClear: () -> Un
                 .padding(start = 16.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RecipientMonogram(summary.initials)
+            RecipientAvatar(summary)
             Spacer(modifier = Modifier.width(12.dp))
             RecipientNames(summary, largeText = false, modifier = Modifier.weight(1f))
             OpenAliasClearButton(onClear)

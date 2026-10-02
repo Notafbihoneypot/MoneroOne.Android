@@ -1086,14 +1086,14 @@ private fun ReviewPhase(
             Column(modifier = Modifier.padding(16.dp)) {
 
                 // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph).
-                // A name shows its monogram, the name, the OpenAlias name and
+                // A name shows its picture, the name, the OpenAlias name and
                 // every character of the address.
                 Row(
                     verticalAlignment = if (openAliasSummary == null) Alignment.CenterVertically else Alignment.Top,
                     modifier = openAliasRecipientSemantics(openAliasSummary, address)
                 ) {
                     if (openAliasSummary != null) {
-                        RecipientMonogram(openAliasSummary.initials, diameter = 40.dp)
+                        RecipientAvatar(openAliasSummary, diameter = 40.dp)
                     } else {
                         Box(
                             modifier = Modifier

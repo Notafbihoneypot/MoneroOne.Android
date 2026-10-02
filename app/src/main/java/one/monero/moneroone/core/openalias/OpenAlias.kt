@@ -40,6 +40,11 @@ sealed class RecipientInput {
     data object Empty : RecipientInput()
     data class Address(val text: String) : RecipientInput()
     data class Name(val name: OpenAliasName) : RecipientInput()
+    /**
+     * `monero.one`, a name under it, or the `@name` shorthand: saved for Monero
+     * One names, so the app sends no lookup. Monero One's own names, such as
+     * `donate@monero.one`, resolve as names.
+     */
     data object Reserved : RecipientInput()
     data object InvalidName : RecipientInput()
 }
@@ -94,6 +99,15 @@ data class OpenAliasSummary(
     /** The sanitized `tx_description` of the record. */
     val txDescription: String? = null,
 ) {
+    /**
+     * The Monero One logo in place of the monogram: for Monero One's own names,
+     * and only when the answer is DNSSEC valid (founder, 2026-10-01). An
+     * unsigned answer gets the monogram, like any other name. The name decides,
+     * never the record: a record that calls itself "Monero One" gets a monogram.
+     */
+    val showsMoneroOneLogo: Boolean
+        get() = OpenAlias.isOperatorName(name.display) && dnssec == DnssecStatus.VALID
+
     /** The monogram on the recipient card and the review step. */
     val initials: String? get() = OpenAlias.initials(recipientName, name.display)
 
@@ -142,8 +156,31 @@ object OpenAlias {
         val topOk = (top.length >= 2 && top.all { it in 'a'..'z' }) || top.startsWith("xn--")
         if (!topOk || top in excludedTopLabels) return RecipientInput.InvalidName
 
-        if (query == "monero.one" || query.endsWith(".monero.one")) return RecipientInput.Reserved
+        if ((query == OPERATOR_DOMAIN || query.endsWith(".$OPERATOR_DOMAIN")) && !isOperatorName(display)) {
+            return RecipientInput.Reserved
+        }
         return RecipientInput.Name(OpenAliasName(display = display, query = query))
+    }
+
+    // ---------- Monero One's own names (exception to D8) ----------
+
+    private const val OPERATOR_DOMAIN = "monero.one"
+
+    /**
+     * The names under monero.one that resolve like any other name, in the
+     * `name@monero.one` form only. Monero One publishes these records itself.
+     * Every other monero.one name stays reserved (D8), so no record can pose
+     * as the Monero One team.
+     */
+    private val operatorNames = setOf("donate")
+
+    /**
+     * True for one of Monero One's own names, such as `donate@monero.one`.
+     * [display] is the lowercase name, as [classify] makes it.
+     */
+    fun isOperatorName(display: String): Boolean {
+        val sides = display.split('@')
+        return sides.size == 2 && sides[1] == OPERATOR_DOMAIN && sides[0] in operatorNames
     }
 
     private fun isValidLabel(label: String): Boolean =

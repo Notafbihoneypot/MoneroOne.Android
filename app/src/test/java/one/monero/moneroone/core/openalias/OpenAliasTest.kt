@@ -124,6 +124,18 @@ class OpenAliasTest {
     }
 
     @Test
+    fun classifyOperatorNames() {
+        val donate = RecipientInput.Name(OpenAliasName(display = "donate@monero.one", query = "donate.monero.one"))
+        for (input in listOf("donate@monero.one", " DONATE@Monero.One ", "donate@monero.one.")) {
+            assertEquals(input, donate, OpenAlias.classify(input))
+        }
+        // Only the name@monero.one form, and only the names on the list.
+        for (input in listOf("joe@monero.one", "donate.monero.one", "donate@pay.monero.one", "xdonate@monero.one", "donatex@monero.one", "@donate")) {
+            assertEquals(input, RecipientInput.Reserved, OpenAlias.classify(input))
+        }
+    }
+
+    @Test
     fun classifyInvalidNames() {
         val longLabel = "a".repeat(64) + ".com"
         // 63 + 1 + 63 + 1 + 63 + 1 + 58 + 4 = 254 characters.
@@ -407,6 +419,32 @@ class OpenAliasTest {
         val bare = OpenAliasSummary(name, getmoneroXmr, DnssecStatus.OFF, PinState.Same(1_700_000_000L))
         assertEquals("donate@getmonero.org", bare.spokenName)
         assertEquals("D", bare.initials)
+    }
+
+    @Test
+    fun moneroOneLogoOnlyWhenDnssecValid() {
+        val donate = OpenAliasName(display = "donate@monero.one", query = "donate.monero.one")
+        val valid = OpenAliasSummary(donate, getmoneroXmr, DnssecStatus.VALID, PinState.None, recipientName = "Monero One")
+        assertTrue(valid.showsMoneroOneLogo)
+        // Unsigned: the monogram, like any other name (founder, 2026-10-01).
+        val unsigned = valid.copy(dnssec = DnssecStatus.OFF)
+        assertFalse(unsigned.showsMoneroOneLogo)
+        assertEquals("MO", unsigned.initials)
+    }
+
+    @Test
+    fun moneroOneLogoFollowsTheNameNotTheRecord() {
+        // A record that calls itself Monero One gets a monogram.
+        val getmonero = OpenAliasName(display = "donate@getmonero.org", query = "donate.getmonero.org")
+        val posing = OpenAliasSummary(getmonero, getmoneroXmr, DnssecStatus.VALID, PinState.None, recipientName = "Monero One")
+        assertFalse(posing.showsMoneroOneLogo)
+        for (display in listOf("donate@monero.one.example.com", "donate@monero.on", "joe@monero.one", "donate.monero.one")) {
+            val name = OpenAliasName(display = display, query = display.replace('@', '.'))
+            assertFalse(display, OpenAliasSummary(name, getmoneroXmr, DnssecStatus.VALID, PinState.None).showsMoneroOneLogo)
+        }
+        assertTrue(OpenAlias.isOperatorName("donate@monero.one"))
+        assertFalse(OpenAlias.isOperatorName("joe@monero.one"))
+        assertFalse(OpenAlias.isOperatorName("donate.monero.one"))
     }
 
     @Test
