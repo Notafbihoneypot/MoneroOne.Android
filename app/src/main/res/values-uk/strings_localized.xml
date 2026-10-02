@@ -608,7 +608,6 @@
     <string name="l10n_opens_the_transaction_in_an_in_app_browser_88c02a39" formatted="false">"Відкриває транзакцію у вбудованому браузері"</string>
     <string name="l10n_opens_the_wallet_list_where_you_can_switch_rename_or_ad_900e32f3" formatted="false">"Відкриває список гаманців, де можна перемикатися між гаманцями, перейменовувати й додавати їх"</string>
     <string name="l10n_optic_id_650eb5d4" formatted="false">"Optic ID"</string>
-    <string name="l10n_other_wallets_show_their_last_known_balance_e3e5aca7" formatted="false">"Інші гаманці показують останній відомий баланс."</string>
     <string name="l10n_outgoing_transactions_may_be_out_of_date_179823e2" formatted="false">"Вихідні транзакції можуть бути застарілими"</string>
     <string name="l10n_outside_trusted_zones_7a2e6d43" formatted="false">"Поза довіреними зонами"</string>
     <string name="l10n_outside_trusted_zones_969b7922" formatted="false">"Поза довіреними зонами"</string>

@@ -611,7 +611,6 @@ internal val localizedStrings: Map<String, Int> = mapOf(
     "Opens the transaction in an in-app browser" to R.string.l10n_opens_the_transaction_in_an_in_app_browser_88c02a39,
     "Opens the wallet list, where you can switch, rename or add wallets" to R.string.l10n_opens_the_wallet_list_where_you_can_switch_rename_or_ad_900e32f3,
     "Optic ID" to R.string.l10n_optic_id_650eb5d4,
-    "Other wallets show their last known balance." to R.string.l10n_other_wallets_show_their_last_known_balance_e3e5aca7,
     "Outgoing transactions may be out of date" to R.string.l10n_outgoing_transactions_may_be_out_of_date_179823e2,
     "Outside Trusted Zones" to R.string.l10n_outside_trusted_zones_7a2e6d43,
     "Outside trusted zones" to R.string.l10n_outside_trusted_zones_969b7922,
