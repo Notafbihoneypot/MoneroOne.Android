@@ -809,7 +809,7 @@ private fun AmountPhase(
         ) {
             Icon(Icons.Default.Description, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(tr("Add memo"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(memoToggleText(showMemo), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.weight(1f))
             Text(if (showMemo) "▲" else "▼", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -1137,6 +1137,9 @@ private fun ReviewPhase(
         Spacer(modifier = Modifier.height(40.dp))
     }
 }
+
+/** The memo toggle's text, as on iOS: "Hide memo" while the memo field shows, else "Add memo". */
+internal fun memoToggleText(showMemo: Boolean): String = if (showMemo) tr("Hide memo") else tr("Add memo")
 
 /**
  * The memo row of the Review card, as on iOS: the note icon and the memo.
