@@ -228,8 +228,8 @@ fun SendScreen(
     var address by rememberSaveable { mutableStateOf(prefilledAddress ?: "") }
     // The field text (an address or an OpenAlias name). `address` stays the
     // only value that reaches the fee estimate and the send.
-    var recipientInput by remember { mutableStateOf(prefilledAddress ?: prefilledName ?: "") }
-    var openAliasSummary by remember { mutableStateOf<OpenAliasSummary?>(null) }
+    var recipientInput by rememberSaveable { mutableStateOf(prefilledAddress ?: prefilledName ?: "") }
+    var openAliasSummary by rememberSaveable(stateSaver = OpenAliasSummarySaver) { mutableStateOf<OpenAliasSummary?>(null) }
     val openAlias = rememberOpenAliasLookup()
     // A prefilled address or name (from a scan) is classified at once, like a paste.
     LaunchedEffect(Unit) { if (recipientInput.isNotEmpty()) openAlias.onInputChanged(recipientInput, immediate = true) }

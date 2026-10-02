@@ -40,6 +40,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -185,7 +187,7 @@ internal class OpenAliasLookupModel(
             RecipientInput.Empty -> cancel()
             is RecipientInput.Name -> {
                 val name = input.name
-                val key = "name:" + name.query
+                val key = nameKey(name)
                 // Same query name (a space added, other case): keep the state, with the new text.
                 if (key == activeKey) status = status.withName(name)
                 settle(key, immediate, redRow = null) { start(name) }
@@ -214,6 +216,19 @@ internal class OpenAliasLookupModel(
         activeKey = null
         status = LookupStatus.Idle
     }
+
+    /**
+     * Shows a resolved name again when Send is made again after a rotation,
+     * a dark mode switch or a font size change. The same text then keeps
+     * this state, so no new lookup starts.
+     */
+    fun restore(resolved: LookupStatus.Resolved) {
+        stopWork()
+        activeKey = nameKey(resolved.name)
+        status = resolved
+    }
+
+    private fun nameKey(name: OpenAliasName) = "name:" + name.query
 
     /** Writes the pin when a send to a resolved name succeeds. */
     fun onSendState(state: SendState, summary: OpenAliasSummary?, sentAddress: String) {
@@ -320,7 +335,7 @@ internal fun rememberOpenAliasLookup(): OpenAliasLookupModel {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
-    return remember {
+    val create = {
         val resolver = OpenAliasResolver()
         OpenAliasLookupModel(
             scope = scope,
@@ -331,7 +346,68 @@ internal fun rememberOpenAliasLookup(): OpenAliasLookupModel {
             resolvedFeedback = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
         )
     }
+    // Saved state keeps a resolved name only. Send classifies the field text
+    // again when it is made again, and that gives each other state back.
+    return rememberSaveable(
+        saver = Saver<OpenAliasLookupModel, ArrayList<Any?>>(
+            save = { model -> (model.status as? LookupStatus.Resolved)?.summary()?.toSaved() },
+            restore = { saved -> create().also { it.restore(summaryFromSaved(saved).toResolved()) } }
+        ),
+        init = create
+    )
 }
+
+/**
+ * Keeps the name that Send holds after Continue through a rotation, a dark
+ * mode switch or a font size change, so the amount and review steps show
+ * the same recipient card.
+ */
+internal val OpenAliasSummarySaver = Saver<OpenAliasSummary?, ArrayList<Any?>>(
+    save = { it?.toSaved() },
+    restore = { summaryFromSaved(it) }
+)
+
+/** The summary as values that saved state can hold: text, numbers and null. */
+internal fun OpenAliasSummary.toSaved(): ArrayList<Any?> = arrayListOf(
+    name.display,
+    name.query,
+    address,
+    dnssec.name,
+    when (pin) {
+        PinState.None -> "none"
+        is PinState.Same -> "same"
+        is PinState.Changed -> "changed"
+    },
+    when (pin) {
+        PinState.None -> 0L
+        is PinState.Same -> pin.pinnedAt
+        is PinState.Changed -> pin.pinnedAt
+    },
+    recipientName,
+    txDescription,
+)
+
+internal fun summaryFromSaved(saved: List<Any?>): OpenAliasSummary {
+    val pinnedAt = saved[5] as Long
+    return OpenAliasSummary(
+        name = OpenAliasName(display = saved[0] as String, query = saved[1] as String),
+        address = saved[2] as String,
+        dnssec = DnssecStatus.valueOf(saved[3] as String),
+        pin = when (saved[4]) {
+            "same" -> PinState.Same(pinnedAt)
+            "changed" -> PinState.Changed(pinnedAt)
+            else -> PinState.None
+        },
+        recipientName = saved[6] as String?,
+        txDescription = saved[7] as String?,
+    )
+}
+
+private fun OpenAliasSummary.toResolved() = LookupStatus.Resolved(
+    name,
+    OpenAliasResult(address, recipientName, dnssec, txDescription),
+    pin
+)
 
 /** What TalkBack hears when a lookup ends, as on iOS. */
 internal fun lookupAnnouncement(status: LookupStatus): String? = when (status) {

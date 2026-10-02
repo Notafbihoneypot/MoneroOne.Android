@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.send
 
+import androidx.compose.runtime.saveable.SaverScope
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,9 +12,11 @@ import one.monero.moneroone.core.openalias.OpenAliasFailure
 import one.monero.moneroone.core.openalias.OpenAliasName
 import one.monero.moneroone.core.openalias.OpenAliasOutcome
 import one.monero.moneroone.core.openalias.OpenAliasResult
+import one.monero.moneroone.core.openalias.OpenAliasSummary
 import one.monero.moneroone.core.openalias.PinState
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -290,5 +293,42 @@ class OpenAliasLookupModelTest {
         model.onInputChanged("donate@getmonero.org", immediate = true)
         assertEquals(2, lookups.size)
         assertTrue(model.status is LookupStatus.Resolved)
+    }
+
+    @Test
+    fun aRestoredNameStartsNoNewLookup() {
+        val name = OpenAliasName(display = "donate@getmonero.org", query = "donate.getmonero.org")
+        val record = OpenAliasResult(validAddress, "Monero Development", DnssecStatus.VALID, "Coffee")
+        val restored = LookupStatus.Resolved(name, record, PinState.Same(1_700_000_000L))
+        model.restore(restored)
+
+        // Send classifies the saved field text at once when it is made again.
+        model.onInputChanged("donate@getmonero.org", immediate = true)
+        assertEquals(restored, model.status)
+        assertEquals(0, lookups.size)
+        assertEquals(0, haptics)
+        assertTrue(announced.isEmpty())
+
+        // Other text starts a lookup as usual.
+        model.onInputChanged("donate@example.org", immediate = true)
+        assertEquals(1, lookups.size)
+    }
+
+    @Test
+    fun theSummaryKeepsEachValueThroughSavedState() {
+        val scope = SaverScope { true }
+        val name = OpenAliasName(display = "donate@getmonero.org", query = "donate.getmonero.org")
+        val summaries = listOf(
+            OpenAliasSummary(name, validAddress, DnssecStatus.VALID, PinState.None),
+            OpenAliasSummary(name, validAddress, DnssecStatus.OFF, PinState.Same(1_700_000_000L), "Monero Development", "Coffee"),
+            OpenAliasSummary(name, validAddress, DnssecStatus.VALID, PinState.Changed(1_600_000_000L), recipientName = "Monero"),
+        )
+        for (summary in summaries) {
+            val saved = with(OpenAliasSummarySaver) { scope.save(summary) }!!
+            // Saved state holds text, numbers and null only.
+            assertTrue(saved.all { it == null || it is String || it is Long })
+            assertEquals(summary, OpenAliasSummarySaver.restore(saved))
+        }
+        assertNull(with(OpenAliasSummarySaver) { scope.save(null) })
     }
 }
