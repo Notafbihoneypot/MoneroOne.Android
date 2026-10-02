@@ -37,10 +37,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +51,12 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import one.monero.moneroone.core.locale.pluralTr
 import one.monero.moneroone.core.locale.tr
@@ -82,6 +90,10 @@ fun AddressPickerScreen(walletViewModel: WalletViewModel, onBack: () -> Unit, on
     val view = LocalView.current
     var creating by remember(wallet?.id) { mutableStateOf(false) }
     var createFailed by remember { mutableStateOf(false) }
+    // What TalkBack hears, as iOS posts a VoiceOver announcement.
+    val announcements = remember {
+        MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    }
     val walletId = wallet?.id
     key(walletId) {
         AddressPickerContent(
@@ -105,14 +117,15 @@ fun AddressPickerScreen(walletViewModel: WalletViewModel, onBack: () -> Unit, on
                             // Subaddresses with the check on it.
                             resultHaptic(view, success = true)
                             val index = walletViewModel.walletState.value.receiveIndex
-                            announce(view, tr("Showing new address, %s", ReceiveAddressLogic.name(index)))
+                            announcements.tryEmit(tr("Showing new address, %s", ReceiveAddressLogic.name(index)))
                         } else {
                             resultHaptic(view, success = false)
                             createFailed = true
                         }
                     } finally { creating = false }
                 }
-            }
+            },
+            announcements = announcements
         )
     }
     if (createFailed) {
@@ -129,7 +142,8 @@ fun AddressPickerScreen(walletViewModel: WalletViewModel, onBack: () -> Unit, on
 @Composable
 internal fun AddressPickerContent(
     rows: List<ReceiveAddressRow>, selectedIndex: Int, canCreate: Boolean, creating: Boolean,
-    onBack: () -> Unit, onSelect: (ReceiveAddressRow) -> Unit, onRename: (ReceiveAddressRow, String) -> Unit, onCreate: () -> Unit
+    onBack: () -> Unit, onSelect: (ReceiveAddressRow) -> Unit, onRename: (ReceiveAddressRow, String) -> Unit, onCreate: () -> Unit,
+    announcements: Flow<String> = emptyFlow()
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -182,52 +196,57 @@ internal fun AddressPickerContent(
             )
         }
     ) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)
-        ) {
-            // Search appears once the list needs it, as on iOS.
-            if (subaddresses.size >= ReceiveAddressLogic.SEARCH_THRESHOLD || searching) {
-                item(key = "search") {
-                    AddressSearchField(search, { search = it }, Modifier.animateItem().padding(bottom = 24.dp))
-                }
-            }
-            if (visibleMain != null) {
-                item(key = visibleMain.index) {
-                    GroupCell(first = true, last = true, modifier = Modifier.animateItem()) { AddressRow(visibleMain) }
-                }
-                item(key = "main-footer") {
-                    Box(Modifier.animateItem()) { SettingsSectionFooter(tr("Payments to your main address can be linked together.")) }
-                }
-            }
-            item(key = "subaddresses") { Box(Modifier.animateItem()) { SettingsSectionHeader(tr("Subaddresses")) } }
-            if (!searching) {
-                item(key = "new") {
-                    GroupCell(first = true, last = visibleRows.isEmpty(), modifier = Modifier.animateItem()) {
-                        NewAddressRow(canCreate, creating, editing, onCreate)
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)
+            ) {
+                // Search appears once the list needs it, as on iOS.
+                if (subaddresses.size >= ReceiveAddressLogic.SEARCH_THRESHOLD || searching) {
+                    item(key = "search") {
+                        AddressSearchField(search, { search = it }, Modifier.animateItem().padding(bottom = 24.dp))
                     }
                 }
-            }
-            itemsIndexed(visibleRows, key = { _, row -> row.index }) { position, row ->
-                GroupCell(first = searching && position == 0, last = position == visibleRows.lastIndex, modifier = Modifier.animateItem()) {
-                    AddressRow(row)
-                }
-            }
-            if (searching && visibleRows.isEmpty() && visibleMain == null) {
-                item(key = "no-match") {
-                    GroupCell(first = true, last = true, modifier = Modifier.animateItem()) {
-                        Text(
-                            tr("No matching addresses"),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
-                        )
+                if (visibleMain != null) {
+                    item(key = visibleMain.index) {
+                        GroupCell(first = true, last = true, modifier = Modifier.animateItem()) { AddressRow(visibleMain) }
+                    }
+                    item(key = "main-footer") {
+                        Box(Modifier.animateItem()) { SettingsSectionFooter(tr("Payments to your main address can be linked together.")) }
                     }
                 }
+                item(key = "subaddresses") { Box(Modifier.animateItem()) { SettingsSectionHeader(tr("Subaddresses")) } }
+                if (!searching) {
+                    item(key = "new") {
+                        GroupCell(first = true, last = visibleRows.isEmpty(), modifier = Modifier.animateItem()) {
+                            NewAddressRow(canCreate, creating, editing, onCreate)
+                        }
+                    }
+                }
+                itemsIndexed(visibleRows, key = { _, row -> row.index }) { position, row ->
+                    GroupCell(first = searching && position == 0, last = position == visibleRows.lastIndex, modifier = Modifier.animateItem()) {
+                        AddressRow(row)
+                    }
+                }
+                if (searching && visibleRows.isEmpty() && visibleMain == null) {
+                    item(key = "no-match") {
+                        GroupCell(first = true, last = true, modifier = Modifier.animateItem()) {
+                            Text(
+                                tr("No matching addresses"),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                            )
+                        }
+                    }
+                }
+                if (footer != null) {
+                    item(key = "subaddresses-footer") { Box(Modifier.animateItem()) { SettingsSectionFooter(footer) } }
+                }
             }
-            if (footer != null) {
-                item(key = "subaddresses-footer") { Box(Modifier.animateItem()) { SettingsSectionFooter(footer) } }
-            }
+            // Where TalkBack hears a new address: on top of the list's top gap,
+            // so that no row covers it.
+            AddressAnnouncement(announcements, Modifier.fillMaxWidth().height(8.dp))
         }
     }
 
@@ -507,6 +526,39 @@ private fun resultHaptic(view: View, success: Boolean) {
     }
 }
 
-/** A spoken note for TalkBack, as iOS posts a VoiceOver announcement. */
-@Suppress("DEPRECATION")
-private fun announce(view: View, text: String) = view.announceForAccessibility(text)
+/**
+ * Reads [announcements] to TalkBack in the words iOS announces: a polite live
+ * region, in place of View.announceForAccessibility (deprecated in Android
+ * 16). The region is empty until an announcement comes. It then holds the
+ * words for [ANNOUNCEMENT_HOLD_MS], long enough for TalkBack to take them,
+ * and is empty again, so TalkBack does not stop on it later. Give it a size
+ * that no other element covers: TalkBack skips a node with no area.
+ */
+@Composable
+private fun AddressAnnouncement(announcements: Flow<String>, modifier: Modifier = Modifier) {
+    var words by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(announcements) {
+        announcements.collectLatest { text ->
+            if (words != null) {
+                // Empty first, so that the same words twice are read twice.
+                words = null
+                delay(ANNOUNCEMENT_GAP_MS)
+            }
+            words = text
+            delay(ANNOUNCEMENT_HOLD_MS)
+            words = null
+        }
+    }
+    Box(
+        modifier = modifier.semantics {
+            liveRegion = LiveRegionMode.Polite
+            words?.let { contentDescription = it }
+        }
+    )
+}
+
+/** How long the live region holds the words of an announcement. */
+private const val ANNOUNCEMENT_HOLD_MS = 3_000L
+
+/** Longer than the 100 ms between the accessibility updates of Compose, so TalkBack sees the empty region. */
+private const val ANNOUNCEMENT_GAP_MS = 250L
