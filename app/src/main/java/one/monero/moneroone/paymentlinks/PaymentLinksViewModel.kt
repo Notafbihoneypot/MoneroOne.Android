@@ -141,19 +141,42 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         return true
     }
 
-    /** A retry from Payment Links funds from the active wallet: the record follows it. */
-    fun retryFrom(id: String, walletId: String) {
-        store.updateSent(id) { it.copy(walletId = walletId, state = SentState.CREATED) }
+    /**
+     * Before a retry funds [id] again: syncs its envelope once, so a broadcast
+     * that went out after all (the error came after the node took it) is
+     * seen, and records what it saw. Returns whether money reached the
+     * envelope, or null when the check or the main wallet's restart failed.
+     * The main wallet runs and is synced again when this returns true or false.
+     */
+    suspend fun fundingSeenNow(id: String): Boolean? {
+        val link = store.sent(id) ?: return null
+        closeSession()
+        val seen = sessionLock.withLock {
+            val opened = try {
+                EnvelopeWallet.open(context, link.link)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return@withLock null
+            }
+            try {
+                opened.awaitSnapshot()?.also { snapshot -> store.updateSent(id) { it.copy(lastCheck = snapshot) } }?.fundingSeen
+            } finally {
+                withContext(NonCancellable) { opened.close() }
+            }
+        }
+        if (!awaitMainWalletSynced()) return null
+        return seen
     }
 
     /**
-     * Closes the open envelope so the main wallet runs again, then waits for it
-     * to sync: a funding needs the main kit (the kit runs one wallet at a time).
+     * A retry from Payment Links: only from the wallet that funded it first (its
+     * history is where a lost broadcast shows), after [fundingSeenNow] found nothing.
      */
-    suspend fun resumeMainWallet(): Boolean {
-        closeSession()
-        sessionLock.withLock { }
-        return awaitMainWalletSynced()
+    fun retryFunding(id: String, activeWalletId: String?): Boolean {
+        val link = store.sent(id) ?: return false
+        if (link.walletId != activeWalletId) return false
+        return store.updateSent(id) { it.copy(state = SentState.CREATED) } != null
     }
 
     fun removeSent(id: String) {

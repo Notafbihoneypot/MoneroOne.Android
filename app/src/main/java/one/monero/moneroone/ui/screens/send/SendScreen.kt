@@ -74,6 +74,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -102,6 +103,7 @@ import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.MoneroKit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.util.NetworkMonitor
 import one.monero.moneroone.core.wallet.SendState
@@ -219,6 +221,8 @@ fun SendScreen(
     var linkMode by remember { mutableStateOf(false) }
     var linkDraft by remember { mutableStateOf<EnvelopeDraft?>(null) }
     var linkFeeReserve by remember { mutableLongStateOf(0L) }
+    var linkRetryError by remember { mutableStateOf<String?>(null) }
+    val linkScope = rememberCoroutineScope()
     val canSendWithLink = paymentLinks != null && walletViewModel.activeWallet.value?.isViewOnly == false
 
     // React to send state changes from ViewModel
@@ -459,8 +463,9 @@ fun SendScreen(
                     }
                 }
                 SendPhase.ERROR -> ErrorPhase(
-                    message = (sendState as? SendState.Error)?.message ?: tr("Transaction Failed"),
+                    message = linkRetryError ?: (sendState as? SendState.Error)?.message ?: tr("Transaction Failed"),
                     onRetry = {
+                        linkRetryError = null
                         walletViewModel.resetSendState(flow)
                         goBack(SendPhase.REVIEW)
                     },
@@ -483,20 +488,41 @@ fun SendScreen(
                 val draft = linkDraft
                 if (linkMode && paymentLinks != null && draft != null) {
                     val id = draft.link.id
+                    val record = paymentLinks.store.sent(id)
                     when {
-                        // A retry after a failed broadcast: never fund the same envelope twice.
-                        paymentLinks.store.sent(id) != null && paymentLinks.fundingAlreadySent(id) -> {
-                            phase = SendPhase.SUCCESS
-                            sendInProgress = false
+                        // A retry after a failed broadcast, which may have gone out after all: check the
+                        // envelope first, and never fund it twice or from another wallet.
+                        record != null -> {
+                            phase = SendPhase.SENDING
+                            linkScope.launch {
+                                val seen = paymentLinks.fundingSeenNow(id)
+                                when {
+                                    seen == null -> {
+                                        linkRetryError = tr("Could not check this link.")
+                                        phase = SendPhase.ERROR
+                                        sendInProgress = false
+                                    }
+                                    paymentLinks.fundingAlreadySent(id) -> {
+                                        phase = SendPhase.SUCCESS
+                                        sendInProgress = false
+                                    }
+                                    !paymentLinks.retryFunding(id, walletViewModel.activeWallet.value?.id) -> {
+                                        linkRetryError = tr("Transaction Failed")
+                                        phase = SendPhase.ERROR
+                                        sendInProgress = false
+                                    }
+                                    else -> walletViewModel.send(flow, draft.address, draft.link.amount + record.feeReserve, memo = "Payment link")
+                                }
+                            }
                         }
                         // The record is saved before any broadcast; without it, nothing is sent.
-                        paymentLinks.store.sent(id) == null && !paymentLinks.recordBeforeFunding(
+                        !paymentLinks.recordBeforeFunding(
                             draft, walletViewModel.activeWallet.value?.id.orEmpty(), linkFeeReserve
                         ) -> sendInProgress = false
                         else -> walletViewModel.send(
                             flow,
                             draft.address,
-                            draft.link.amount + paymentLinks.store.sent(id)!!.feeReserve,
+                            draft.link.amount + linkFeeReserve,
                             memo = "Payment link"
                         )
                     }

@@ -354,6 +354,8 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var confirmRemove by remember { mutableStateOf(false) }
+    var confirmRetry by remember { mutableStateOf(false) }
+    val wallets by walletViewModel.wallets.collectAsState()
 
     // The envelope is open only while this screen is on screen: leaving or going to the background
     // closes it, so the main wallet runs again. A settled link needs no check, and a funding send in
@@ -379,6 +381,7 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
                 message = sendState.message
                 walletViewModel.resetSendState(flow)
                 busy = false
+                paymentLinks.recheck(id)
             }
             else -> {}
         }
@@ -479,27 +482,24 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when (status) {
                 LinkStatus.NOT_FUNDED -> {
+                    // Only the wallet that funded it retries: its history is where a lost broadcast shows.
+                    val fundingWallet = link.walletId == activeWallet?.id
                     PrimaryButton(
-                        onClick = {
-                            scope.launch {
-                                busy = true
-                                message = null
-                                if (!paymentLinks.resumeMainWallet()) {
-                                    message = tr("Wallet is not connected yet. Wait for the wallet to reconnect and try again.")
-                                    busy = false
-                                } else if (paymentLinks.fundingAlreadySent(id)) {
-                                    busy = false
-                                    paymentLinks.recheck(id)
-                                } else {
-                                    showAuthGate = true
-                                }
-                            }
-                        },
-                        enabled = !busy && activeWallet?.isViewOnly == false,
+                        onClick = { confirmRetry = true },
+                        enabled = !busy && fundingWallet && activeWallet?.isViewOnly == false,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (busy) CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                         Text(tr("Retry"))
+                    }
+                    if (!fundingWallet) {
+                        val name = wallets.firstOrNull { it.id == link.walletId }?.name
+                        Text(
+                            if (name != null) tr("Switch to %s to retry this link.", name) else tr("The wallet that funded this link is gone."),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
                     // Words go with the record: remove only after a check that found no funding.
                     RemoveButton(
@@ -528,6 +528,45 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
                 LinkStatus.CLAIMED, LinkStatus.RECLAIMED -> RemoveButton(onClick = { confirmRemove = true })
             }
         }
+        if (confirmRetry) {
+            AlertDialog(
+                onDismissRequest = { confirmRetry = false },
+                title = { Text(tr("Fund this link again?")) },
+                text = {
+                    Text(
+                        tr(
+                            "%s XMR and the network fee go from %s to this link.",
+                            walletViewModel.formatXmr(link.amount + link.feeReserve),
+                            activeWallet?.name.orEmpty()
+                        )
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmRetry = false
+                        scope.launch {
+                            busy = true
+                            message = null
+                            // A fresh check first: the failed broadcast may have gone out after all.
+                            val seen = paymentLinks.fundingSeenNow(id)
+                            when {
+                                seen == null -> {
+                                    message = tr("Could not check this link.")
+                                    busy = false
+                                    paymentLinks.recheck(id)
+                                }
+                                paymentLinks.fundingAlreadySent(id) -> {
+                                    busy = false
+                                    paymentLinks.recheck(id)
+                                }
+                                else -> showAuthGate = true
+                            }
+                        }
+                    }) { Text(tr("Retry")) }
+                },
+                dismissButton = { TextButton(onClick = { confirmRetry = false }) { Text(tr("Cancel")) } }
+            )
+        }
         if (confirmRemove) {
             ConfirmRemove(
                 message = tr("The link stops showing here."),
@@ -548,17 +587,17 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
             subtitle = tr("Confirm this transaction"),
             onAuthenticated = {
                 showAuthGate = false
-                val walletId = activeWallet?.id
-                if (walletId == null) {
-                    busy = false
-                } else {
-                    paymentLinks.retryFrom(id, walletId)
+                if (paymentLinks.retryFunding(id, activeWallet?.id)) {
                     walletViewModel.send(flow, link.envelopeAddress, link.amount + link.feeReserve, memo = "Payment link")
+                } else {
+                    busy = false
+                    paymentLinks.recheck(id)
                 }
             },
             onCancel = {
                 showAuthGate = false
                 busy = false
+                paymentLinks.recheck(id)
             }
         )
     }
