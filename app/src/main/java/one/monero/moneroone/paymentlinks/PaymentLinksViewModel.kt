@@ -32,7 +32,11 @@ data class EnvelopeSession(
     enum class Phase { CHECKING, LIVE, SWEEPING, ERROR }
 }
 
-/** What the last sweep of the open envelope did. */
+enum class SweepKind { CLAIM, RECLAIM }
+
+/** What the last sweep of envelope [id] did. */
+data class SweepResult(val id: String, val kind: SweepKind, val outcome: SweepOutcome)
+
 sealed class SweepOutcome {
     data class Sent(val txid: String?, val amount: Long) : SweepOutcome()
     object AlreadyClaimed : SweepOutcome()
@@ -54,8 +58,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     private val _session = MutableStateFlow<EnvelopeSession?>(null)
     val session: StateFlow<EnvelopeSession?> = _session.asStateFlow()
 
-    private val _sweep = MutableStateFlow<SweepOutcome?>(null)
-    val sweep: StateFlow<SweepOutcome?> = _sweep.asStateFlow()
+    private val _sweep = MutableStateFlow<SweepResult?>(null)
+    val sweep: StateFlow<SweepResult?> = _sweep.asStateFlow()
 
     private val sessionLock = Mutex()
     private var envelope: EnvelopeWallet? = null
@@ -123,6 +127,34 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             tx.transfers?.any { it.address == envelopeAddress } == true
     }?.hash
 
+    /**
+     * Before a retry funds [id] again: true when a funding of this envelope is
+     * already known (in the envelope's last check or the main wallet's history),
+     * so nothing may be sent twice. Marks the record funded in that case.
+     */
+    fun fundingAlreadySent(id: String): Boolean {
+        val link = store.sent(id) ?: return false
+        val txid = fundingTxid(link.envelopeAddress)
+        if (txid == null && link.lastCheck?.fundingSeen != true) return false
+        store.updateSent(id) { it.copy(state = SentState.FUNDED, fundingTxid = txid ?: it.fundingTxid) }
+        return true
+    }
+
+    /** A retry from Payment Links funds from the active wallet: the record follows it. */
+    fun retryFrom(id: String, walletId: String) {
+        store.updateSent(id) { it.copy(walletId = walletId, state = SentState.CREATED) }
+    }
+
+    /**
+     * Closes the open envelope so the main wallet runs again, then waits for it
+     * to sync: a funding needs the main kit (the kit runs one wallet at a time).
+     */
+    suspend fun resumeMainWallet(): Boolean {
+        closeSession()
+        sessionLock.withLock { }
+        return awaitMainWalletSynced()
+    }
+
     fun removeSent(id: String) {
         viewModelScope.launch {
             if (_session.value?.id == id) closeSession()
@@ -189,6 +221,14 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    /** Opens the envelope of [id] again for a fresh check (Retry, Check Again). */
+    fun recheck(id: String) {
+        if (sweeping) return
+        sessionJob?.cancel()
+        _session.value = null
+        openSession(id)
+    }
+
     private fun publish(id: String, snapshot: EnvelopeSnapshot) {
         store.updateSent(id) { it.copy(lastCheck = snapshot) }
         store.updateReceived(id) { it.copy(lastCheck = snapshot) }
@@ -196,6 +236,11 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun closeSession() {
+        // A sweep in flight keeps its kit open; it closes the session when it ends.
+        if (sweeping) {
+            closeAfterSweep = true
+            return
+        }
         sessionJob?.cancel()
         sessionJob = null
         _session.value = null
@@ -211,16 +256,23 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         if (id !in store.liveEnvelopeIds()) withContext(Dispatchers.IO) { EnvelopeFiles.delete(context, id) }
     }
 
+    @Volatile
+    private var sweeping = false
+    private var closeAfterSweep = false
+
     /**
-     * Sweeps the open envelope to [address]: a claim of a received link or a
-     * reclaim of a sent one. [walletName] names the destination in the record.
+     * Sweeps the open envelope to [address] (the active wallet's receive
+     * address): a [SweepKind.CLAIM] of a received link or a [SweepKind.RECLAIM]
+     * of a sent one. [walletName] names the destination in the record.
      */
-    fun sweepOpenEnvelope(address: String, walletName: String) {
+    fun sweepOpenEnvelope(kind: SweepKind, address: String, walletName: String) {
         val current = _session.value ?: return
         val open = envelope ?: return
-        if (current.phase != EnvelopeSession.Phase.LIVE) return
+        if (current.phase != EnvelopeSession.Phase.LIVE || sweeping) return
         val id = current.id
         val amount = current.snapshot?.unlocked ?: 0L
+        sweeping = true
+        closeAfterSweep = false
         _session.value = current.copy(phase = EnvelopeSession.Phase.SWEEPING)
         _sweep.value = null
         viewModelScope.launch(NonCancellable) {
@@ -232,25 +284,40 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 Timber.w("PaymentLinks: sweep failed (%s)", e.javaClass.simpleName)
                 SweepOutcome.Failed(e.message ?: "")
             }
-            when (outcome) {
-                is SweepOutcome.Sent -> {
-                    store.updateSent(id) { it.copy(reclaimTxid = outcome.txid ?: "") }
-                    store.updateReceived(id) {
-                        it.copy(
-                            state = ReceivedState.CLAIMED, words = null, claimTxid = outcome.txid,
-                            claimedAmount = amount, claimedTo = walletName
-                        )
-                    }
-                }
+            record(id, kind, outcome, amount, walletName)
+            _sweep.value = SweepResult(id, kind, outcome)
+            val snapshot = runCatching { open.snapshot() }.getOrNull()
+            _session.update { s -> s?.takeIf { it.id == id }?.copy(phase = EnvelopeSession.Phase.LIVE, snapshot = snapshot ?: s.snapshot) }
+            sweeping = false
+            // Done with this envelope: close it so the main wallet syncs again and sees the money.
+            if (outcome !is SweepOutcome.Failed || closeAfterSweep) closeSession()
+        }
+    }
+
+    private fun record(id: String, kind: SweepKind, outcome: SweepOutcome, amount: Long, walletName: String) {
+        when (kind) {
+            SweepKind.RECLAIM -> when (outcome) {
+                is SweepOutcome.Sent -> store.updateSent(id) { it.copy(reclaimTxid = outcome.txid ?: "") }
                 SweepOutcome.AlreadyClaimed -> store.updateSent(id) { it.copy(reclaimLostRace = true) }
                 is SweepOutcome.Failed -> {}
             }
-            _sweep.value = outcome
-            val snapshot = open.snapshot()
-            _session.update { it?.takeIf { s -> s.id == id }?.copy(phase = EnvelopeSession.Phase.LIVE, snapshot = snapshot) }
-            if (outcome !is SweepOutcome.Failed) {
-                // Done with this envelope: close it so the main wallet syncs again and sees the money.
-                closeSession()
+            SweepKind.CLAIM -> {
+                if (outcome is SweepOutcome.Failed) return
+                val claimed: (ReceivedLink) -> ReceivedLink = {
+                    if (outcome is SweepOutcome.Sent) {
+                        it.copy(state = ReceivedState.CLAIMED, words = null, claimTxid = outcome.txid, claimedAmount = amount, claimedTo = walletName)
+                    } else {
+                        it.copy(state = ReceivedState.CLAIMED, words = null)
+                    }
+                }
+                if (store.updateReceived(id, claimed) == null) {
+                    // Claimed by another wallet on this phone from a link it sent: keep a received entry too.
+                    store.sent(id)?.let { sent ->
+                        store.putReceived(
+                            claimed(ReceivedLink(sent.id, null, sent.height, sent.amount, sent.expiry, System.currentTimeMillis()))
+                        )
+                    }
+                }
             }
         }
     }

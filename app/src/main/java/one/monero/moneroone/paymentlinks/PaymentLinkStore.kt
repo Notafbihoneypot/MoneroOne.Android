@@ -67,12 +67,48 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         if (write(KEY_RECEIVED, next, ReceivedLink.serializer())) _received.value = next
     }
 
-    /** A received link waiting to open its claim sheet (after unlock, or after the first wallet exists). */
-    var pendingOpen: String?
-        get() = prefs.getString(KEY_PENDING_OPEN, null)
-        set(value) {
-            prefs.edit().apply { if (value == null) remove(KEY_PENDING_OPEN) else putString(KEY_PENDING_OPEN, value) }.commit()
+    private val _pendingOpen = MutableStateFlow(prefs.getString(KEY_PENDING_OPEN, null))
+
+    /** A link id waiting to open its claim sheet (after unlock, or after the first wallet exists). Kept across restarts. */
+    val pendingOpen: StateFlow<String?> = _pendingOpen.asStateFlow()
+
+    fun setPendingOpen(id: String?) {
+        prefs.edit().apply { if (id == null) remove(KEY_PENDING_OPEN) else putString(KEY_PENDING_OPEN, id) }.commit()
+        _pendingOpen.value = id
+    }
+
+    private val _intakeProblem = MutableStateFlow<PaymentLinkParse?>(null)
+
+    /** A link that arrived and cannot open (incomplete, or a newer version). Not secret: no words. */
+    val intakeProblem: StateFlow<PaymentLinkParse?> = _intakeProblem.asStateFlow()
+
+    fun clearIntakeProblem() {
+        _intakeProblem.value = null
+    }
+
+    /**
+     * A claim link arrived (App Link, paste, scan). A valid one is saved at once,
+     * so it survives a lock, a restart or a missing wallet, and its sheet is
+     * queued. Returns false when [text] is not a claim link at all.
+     */
+    @Synchronized
+    fun accept(text: String): Boolean {
+        when (val parsed = PaymentLinkCodec.parse(text)) {
+            is PaymentLinkParse.Valid -> {
+                val link = parsed.link
+                // A link this phone sent opens from its sent record; it is not a received link.
+                if (sent(link.id) == null && received(link.id) == null) {
+                    putReceived(
+                        ReceivedLink(link.id, link.words, link.height, link.amount, link.expiry, System.currentTimeMillis())
+                    )
+                }
+                setPendingOpen(link.id)
+            }
+            PaymentLinkParse.Incomplete, PaymentLinkParse.NeedsUpdate -> _intakeProblem.value = parsed
+            PaymentLinkParse.NotALink -> return false
         }
+        return true
+    }
 
     /** Envelope ids whose files must stay: every link that can still move money. */
     fun liveEnvelopeIds(): Set<String> =
