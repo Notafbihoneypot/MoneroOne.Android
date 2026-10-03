@@ -26,7 +26,13 @@ data class EnvelopeSnapshot(
     /** Confirmations of the oldest incoming transaction (0 in the pool). */
     val confirmations: Long,
     val balance: Long,
-    val unlocked: Long
+    val unlocked: Long,
+    /**
+     * The envelope's history shows a spend of its money (a claim or a reclaim).
+     * A zero balance alone is not proof: the kit reports Synced before it
+     * publishes the balance, and a link read as claimed loses its words.
+     */
+    val spendSeen: Boolean = false
 )
 
 /**
@@ -122,8 +128,8 @@ object LinkStatusRules {
         return when {
             !check.fundingSeen -> LinkStatus.NOT_FUNDED
             !check.fundingMined -> LinkStatus.PENDING
-            // Funding mined, balance gone, and not by our reclaim: someone claimed it.
-            check.balance == 0L -> LinkStatus.CLAIMED
+            // Funding mined, balance spent, and not by our reclaim: someone claimed it.
+            check.balance == 0L && check.spendSeen -> LinkStatus.CLAIMED
             check.confirmations < CONFIRMATIONS -> LinkStatus.PENDING
             check.unlocked > 0L -> LinkStatus.READY
             else -> LinkStatus.PENDING
@@ -149,7 +155,7 @@ object LinkStatusRules {
 
     fun claimView(check: EnvelopeSnapshot): ClaimView = when {
         !check.fundingSeen -> ClaimView.NoMoney
-        check.fundingMined && check.balance == 0L -> ClaimView.AlreadyClaimed
+        check.fundingMined && check.balance == 0L && check.spendSeen -> ClaimView.AlreadyClaimed
         check.fundingMined && check.confirmations >= CONFIRMATIONS && check.unlocked > 0L -> ClaimView.Ready(check.unlocked)
         else -> {
             val confirmations = if (check.fundingMined) check.confirmations.coerceIn(0, CONFIRMATIONS) else 0L

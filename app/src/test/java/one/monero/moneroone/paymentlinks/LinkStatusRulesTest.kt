@@ -23,8 +23,10 @@ class LinkStatusRulesTest {
         state = state, reclaimTxid = reclaimTxid, reclaimLostRace = lostRace, lastCheck = check
     )
 
-    private fun check(seen: Boolean = true, mined: Boolean = true, confirmations: Long = 0, balance: Long = 0, unlocked: Long = 0) =
-        EnvelopeSnapshot(0, seen, mined, confirmations, balance, unlocked)
+    private fun check(
+        seen: Boolean = true, mined: Boolean = true, confirmations: Long = 0, balance: Long = 0, unlocked: Long = 0,
+        spent: Boolean = balance == 0L && confirmations > 0
+    ) = EnvelopeSnapshot(0, seen, mined, confirmations, balance, unlocked, spent)
 
     @Test
     fun `no funding seen is not funded`() {
@@ -61,6 +63,15 @@ class LinkStatusRulesTest {
         assertEquals(LinkStatus.CLAIMED, LinkStatusRules.status(sent(check = check(confirmations = 12)), before))
         assertEquals(LinkStatus.CLAIMED, LinkStatusRules.status(sent(lostRace = true), before))
         assertFalse(LinkStatusRules.canReclaim(sent(check = check(confirmations = 12))))
+    }
+
+    @Test
+    fun `a zero balance without a seen spend is never claimed`() {
+        // The kit reports Synced before it publishes the balance: a stale zero must not settle the link.
+        val stale = sent(check = check(confirmations = 12, spent = false))
+        assertEquals(LinkStatus.PENDING, LinkStatusRules.status(stale, before))
+        assertFalse(LinkStatusRules.isSettled(stale))
+        assertEquals(ClaimView.Waiting(10, 2), LinkStatusRules.claimView(check(confirmations = 12, spent = false)))
     }
 
     @Test

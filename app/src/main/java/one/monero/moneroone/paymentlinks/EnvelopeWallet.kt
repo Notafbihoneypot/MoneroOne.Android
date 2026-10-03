@@ -53,7 +53,10 @@ class EnvelopeWallet private constructor(
         val state = withTimeoutOrNull(timeoutMs) {
             kit.syncStateFlow.first { it is SyncState.Synced || it is SyncState.NotSynced && it.error !is MoneroKit.SyncError.NotStarted }
         }
-        return if (state is SyncState.Synced) snapshot() else null
+        if (state !is SyncState.Synced) return null
+        // The kit publishes Synced, then the balance, in the same pass: let the balance land.
+        delay(BALANCE_SETTLE_MS)
+        return snapshot()
     }
 
     /** What the envelope holds now. Confirmations come from the chain height: the kit's history is refreshed only on money events. */
@@ -65,13 +68,17 @@ class EnvelopeWallet private constructor(
         val chainHeight = kit.lastBlockHeight ?: 0L
         val confirmations = mined.maxOfOrNull { maxOf(it.confirmations, chainHeight - it.blockheight) } ?: 0L
         val balance = kit.balance
+        val spent = kit.allTransactionsFlow.value.any {
+            it.direction == TransactionInfo.Direction.Direction_Out && !it.isFailed
+        }
         return EnvelopeSnapshot(
             checkedAt = System.currentTimeMillis(),
             fundingSeen = incoming.isNotEmpty(),
             fundingMined = mined.isNotEmpty(),
             confirmations = confirmations.coerceAtLeast(0),
             balance = balance.all,
-            unlocked = balance.unlocked
+            unlocked = balance.unlocked,
+            spendSeen = spent
         )
     }
 
@@ -129,6 +136,7 @@ class EnvelopeWallet private constructor(
         private const val SYNC_TIMEOUT_MS = 120_000L
         private const val TXID_WAIT_MS = 30_000L
         private const val SLOT_WAIT_MS = 1_500L
+        private const val BALANCE_SETTLE_MS = 750L
 
         private val runtimeLock = Mutex()
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
