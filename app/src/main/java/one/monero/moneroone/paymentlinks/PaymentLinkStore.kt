@@ -2,10 +2,12 @@ package one.monero.moneroone.paymentlinks
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import one.monero.moneroone.core.wallet.SecurePrefs
 import timber.log.Timber
@@ -114,6 +116,19 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         return true
     }
 
+    /** A sent link that may still hold money: Remove All warns that it will be lost. */
+    fun hasUnsettledSentLinks(): Boolean = _sent.value.any { !LinkStatusRules.isSettled(it) }
+
+    /** Remove All (the full wipe): every record and its words leave the encrypted store. */
+    @Synchronized
+    fun removeAll() {
+        prefs.edit().remove(KEY_SENT).remove(KEY_RECEIVED).remove(KEY_PENDING_OPEN).commit()
+        _sent.value = emptyList()
+        _received.value = emptyList()
+        _pendingOpen.value = null
+        _intakeProblem.value = null
+    }
+
     /** Envelope ids whose files must stay: every link that can still move money. */
     fun liveEnvelopeIds(): Set<String> =
         (_sent.value.filterNot { LinkStatusRules.isSettled(it) }.map { it.id } +
@@ -137,6 +152,13 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
     }
 
     companion object {
+        /** Remove All: closes an open envelope, then deletes every link record, its words and every envelope's files. */
+        suspend fun wipe(context: Context) {
+            EnvelopeWallet.closeCurrent()
+            get(context).removeAll()
+            withContext(Dispatchers.IO) { EnvelopeFiles.sweep(context, emptySet()) }
+        }
+
         private const val KEY_SENT = "paymentlinks.sent.v1"
         private const val KEY_RECEIVED = "paymentlinks.received.v1"
         private const val KEY_PENDING_OPEN = "paymentlinks.pending_open"

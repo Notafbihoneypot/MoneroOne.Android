@@ -176,6 +176,11 @@ class EnvelopeWallet private constructor(
             return envelope
         }
 
+        /** Closes the open envelope, if any (Remove All). */
+        suspend fun closeCurrent() {
+            current?.close()
+        }
+
         private suspend fun openLocked(context: Context, link: PaymentLink): EnvelopeWallet =
             runtimeLock.withLock {
                 val app = context.applicationContext

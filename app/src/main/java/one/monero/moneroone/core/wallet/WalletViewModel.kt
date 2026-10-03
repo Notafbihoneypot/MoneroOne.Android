@@ -37,6 +37,7 @@ import one.monero.moneroone.data.model.Currency
 import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.repository.PriceRepository
 import one.monero.moneroone.data.util.XmrFormat
+import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.widget.PriceWidget
 import one.monero.moneroone.widget.WalletWidget
 import one.monero.moneroone.widget.WidgetDataStore
@@ -1399,6 +1400,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }.apply()
                 store.deleteAll()
+                // The full wipe takes the payment links and their envelope words too.
+                PaymentLinkStore.wipe(context)
                 resetFailedAttempts()
 
                 // Widget cache holds the removed wallets' balance and recent tx hashes.
