@@ -69,11 +69,15 @@ enum class ReceivedState {
     /** Opened, not claimed yet. */
     PENDING,
 
-    /** This device swept it. The words are gone from the record. */
+    /** This device swept it. The words stay until the claim is mined ([LinkStatusRules.claimWordsToForget]). */
     CLAIMED
 }
 
-/** A link opened on this device. The words are deleted once this device claims it. */
+/**
+ * A link opened on this device. The words stay after this device claims it,
+ * until the claim is in a block: a claim that never confirms leaves the money
+ * in the envelope, and only the words reach it.
+ */
 @Serializable
 data class ReceivedLink(
     val id: String,
@@ -115,6 +119,13 @@ sealed class ClaimView {
 object LinkStatusRules {
     /** Outputs unlock after 10 blocks. */
     const val CONFIRMATIONS = 10L
+
+    /**
+     * Ids of claimed links whose claim is now in a block ([minedHashes]: the
+     * open wallet's mined transactions): their words can go.
+     */
+    fun claimWordsToForget(received: List<ReceivedLink>, minedHashes: Set<String>): List<String> =
+        received.filter { it.state == ReceivedState.CLAIMED && it.words != null && it.claimTxid in minedHashes }.map { it.id }
 
     /** About 2 minutes a block. */
     const val MINUTES_PER_BLOCK = 2L

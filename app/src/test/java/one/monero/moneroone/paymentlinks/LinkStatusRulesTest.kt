@@ -110,4 +110,17 @@ class LinkStatusRulesTest {
         assertEquals(ClaimView.AlreadyClaimed, LinkStatusRules.claimView(check(confirmations = 11)))
         assertEquals(ClaimView.Waiting(9, 2), LinkStatusRules.claimView(check(confirmations = 10, balance = 5)))
     }
+
+    @Test
+    fun `claim words go only once the claim is mined`() {
+        fun received(state: ReceivedState, txid: String?, words: List<String>? = List(25) { "abbey" }, id: String = "0123456789abcdef") =
+            ReceivedLink(id, words, 100, 5, expiry, 0, state = state, claimTxid = txid)
+        val claimed = received(ReceivedState.CLAIMED, "aa")
+        val pending = received(ReceivedState.PENDING, null, id = "1111111111111111")
+        val forgotten = received(ReceivedState.CLAIMED, "bb", words = null, id = "2222222222222222")
+        val list = listOf(claimed, pending, forgotten)
+        assertEquals(emptyList<String>(), LinkStatusRules.claimWordsToForget(list, emptySet()))
+        assertEquals(emptyList<String>(), LinkStatusRules.claimWordsToForget(list, setOf("cc")))
+        assertEquals(listOf(claimed.id), LinkStatusRules.claimWordsToForget(list, setOf("aa", "bb")))
+    }
 }

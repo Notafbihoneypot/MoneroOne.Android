@@ -97,10 +97,14 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
             is PaymentLinkParse.Valid -> {
                 val link = parsed.link
                 // A link this phone sent opens from its sent record; it is not a received link.
-                if (sent(link.id) == null && received(link.id) == null) {
+                val known = received(link.id)
+                if (sent(link.id) == null && known == null) {
                     putReceived(
                         ReceivedLink(link.id, link.words, link.height, link.amount, link.expiry, System.currentTimeMillis())
                     )
+                } else if (known != null && known.words == null) {
+                    // Opened again after its claim: the words come back until that claim is mined.
+                    updateReceived(link.id) { it.copy(words = link.words) }
                 }
                 setPendingOpen(link.id)
             }

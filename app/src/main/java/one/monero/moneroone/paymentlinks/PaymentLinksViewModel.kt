@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -71,6 +72,15 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         // Files of settled or removed links go; live envelopes keep theirs.
         viewModelScope.launch(Dispatchers.IO) {
             if (envelope == null) EnvelopeFiles.sweep(context, store.liveEnvelopeIds())
+        }
+        // A claim's words go once the claim is in a block, as the open wallet's history shows it.
+        viewModelScope.launch {
+            combine(WalletManager.transactionsFlow, store.received) { txs, received ->
+                val mined = txs.filter { !it.isPending && !it.isFailed && it.blockheight > 0 }.mapNotNull { it.hash }.toSet()
+                LinkStatusRules.claimWordsToForget(received, mined)
+            }.collect { ids ->
+                ids.forEach { id -> store.updateReceived(id) { it.copy(words = null) } }
+            }
         }
     }
 
@@ -339,11 +349,13 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             }
             SweepKind.CLAIM -> {
                 if (outcome is SweepOutcome.Failed) return
+                // The words stay until the claim is mined (see init): a claim that never confirms leaves the money
+                // in the envelope.
                 val claimed: (ReceivedLink) -> ReceivedLink = {
                     if (outcome is SweepOutcome.Sent) {
-                        it.copy(state = ReceivedState.CLAIMED, words = null, claimTxid = outcome.txid, claimedAmount = amount, claimedTo = walletName)
+                        it.copy(state = ReceivedState.CLAIMED, claimTxid = outcome.txid, claimedAmount = amount, claimedTo = walletName)
                     } else {
-                        it.copy(state = ReceivedState.CLAIMED, words = null)
+                        it.copy(state = ReceivedState.CLAIMED)
                     }
                 }
                 if (store.updateReceived(id, claimed) == null) {
