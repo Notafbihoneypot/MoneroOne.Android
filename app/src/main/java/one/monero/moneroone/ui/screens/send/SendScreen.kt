@@ -110,6 +110,7 @@ import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.paymentlinks.EnvelopeDraft
 import one.monero.moneroone.paymentlinks.LinkRecipientField
 import one.monero.moneroone.paymentlinks.PaymentLinkCodec
+import one.monero.moneroone.paymentlinks.PaymentLinkParse
 import one.monero.moneroone.paymentlinks.PaymentLinkReadyPhase
 import one.monero.moneroone.paymentlinks.PaymentLinkReview
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
@@ -346,8 +347,16 @@ fun SendScreen(
                 SendPhase.ADDRESS -> AddressPhase(
                     address = address,
                     onAddressChange = {
-                        // A claim link opens the claim sheet; it is never an address.
-                        if (paymentLinks != null && PaymentLinkCodec.isClaimLink(it)) onClaimLink(it.trim()) else address = it
+                        // A pasted claim link opens the claim sheet (which explains a cut-off one); it is never
+                        // an address. Typed by hand, a link opens once it is whole.
+                        val pasted = it.length - address.length > 1
+                        val link = PaymentLinkCodec.parse(it)
+                        val whole = link is PaymentLinkParse.Valid || link == PaymentLinkParse.NeedsUpdate
+                        if (paymentLinks != null && (whole || pasted && link != PaymentLinkParse.NotALink)) {
+                            onClaimLink(it.trim())
+                        } else {
+                            address = it
+                        }
                     },
                     onScanQr = onScanQr,
                     onContinue = { goForward(SendPhase.AMOUNT) },

@@ -80,8 +80,9 @@ object PaymentLinkCodec {
         if (hash < 0) return PaymentLinkParse.Incomplete
         val fields = readFields(rest.substring(hash + 1))
 
-        val version = fields["v"] ?: return PaymentLinkParse.Incomplete
-        if (version != "1") return PaymentLinkParse.NeedsUpdate
+        // Only a whole version number above 1 asks for an update: "v=" alone is a link cut short.
+        val version = fields["v"]?.let(::readDecimal) ?: return PaymentLinkParse.Incomplete
+        if (version != 1L) return if (version > 1L) PaymentLinkParse.NeedsUpdate else PaymentLinkParse.Incomplete
 
         val words = fields["s"]?.let(::readWords) ?: return PaymentLinkParse.Incomplete
         if (words.size != PaymentLink.WORD_COUNT) return PaymentLinkParse.Incomplete
