@@ -353,6 +353,8 @@ fun SendScreen(
                         val link = PaymentLinkCodec.parse(it)
                         val whole = link is PaymentLinkParse.Valid || link == PaymentLinkParse.NeedsUpdate
                         if (paymentLinks != null && (whole || pasted && link != PaymentLinkParse.NotALink)) {
+                            // The start of the link typed so far is no address either.
+                            if (PaymentLinkCodec.isClaimLink(address)) address = ""
                             onClaimLink(it.trim())
                         } else {
                             address = it
