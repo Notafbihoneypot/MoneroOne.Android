@@ -124,8 +124,13 @@ class EnvelopeWallet private constructor(
         withContext(NonCancellable) {
             runtimeLock.withLock {
                 withContext(Dispatchers.IO) {
+                    // The stop frees the kit's running slot for the main wallet: a failed release must not skip it.
                     try {
                         kit.release()
+                    } catch (e: Exception) {
+                        Timber.w(e, "PaymentLinks: envelope release failed")
+                    }
+                    try {
                         kit.stop()
                     } catch (e: Exception) {
                         Timber.w(e, "PaymentLinks: envelope stop failed")

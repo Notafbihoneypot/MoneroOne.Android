@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import kotlinx.coroutines.launch
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.SendFlow
@@ -217,9 +219,12 @@ fun PaymentLinksScreen(
     val sent by paymentLinks.sent.collectAsState()
     val received by paymentLinks.received.collectAsState()
 
-    // Checks each open link's envelope, one at a time, while the list is up.
-    LaunchedEffect(Unit) { paymentLinks.refreshSent() }
-    DisposableEffect(Unit) { onDispose { paymentLinks.stopRefresh() } }
+    // Checks each open link's envelope, one at a time, while the list is on screen. In the background
+    // it stops, so no envelope holds the kit and the main wallet syncs.
+    LifecycleStartEffect(Unit) {
+        paymentLinks.refreshSent()
+        onStopOrDispose { paymentLinks.stopRefresh() }
+    }
 
     LinksScaffold(tr("Payment Links"), onBack) {
         if (sent.isEmpty() && received.isEmpty()) {
@@ -350,13 +355,16 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
     var message by remember { mutableStateOf<String?>(null) }
     var confirmRemove by remember { mutableStateOf(false) }
 
-    LaunchedEffect(id) { paymentLinks.openSession(id) }
-    DisposableEffect(id) {
-        onDispose {
-            paymentLinks.closeSession()
-            paymentLinks.clearSweep()
-        }
+    // The envelope is open only while this screen is on screen: leaving or going to the background
+    // closes it, so the main wallet runs again. A settled link needs no check, and a funding send in
+    // flight needs the main wallet.
+    val wantsSession = link != null && !LinkStatusRules.isSettled(link)
+    val fundingInFlight by rememberUpdatedState(busy)
+    LifecycleStartEffect(id, wantsSession) {
+        if (wantsSession && !fundingInFlight) paymentLinks.openSession(id)
+        onStopOrDispose { paymentLinks.closeSession() }
     }
+    DisposableEffect(id) { onDispose { paymentLinks.clearSweep() } }
     LaunchedEffect(sendState) {
         when (sendState) {
             is SendState.Success -> {

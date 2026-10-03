@@ -31,8 +31,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -45,6 +43,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.core.wallet.addressesOf
@@ -142,11 +141,15 @@ private fun ClaimSheet(
     val walletName = activeWallet?.name.orEmpty()
     val receiveAddress = walletState.addressesOf(activeWallet?.id)?.shownAddress(walletState.receiveIndex)?.address
 
-    LaunchedEffect(id, hasWords, claimedBefore, reclaimedBefore) {
-        if (hasWords && !claimedBefore && !reclaimedBefore) paymentLinks.openSession(id)
+    // The envelope is open only while the sheet is on screen and still has something to check: closing
+    // the sheet or going to the background closes it, so the main wallet runs again. A finished claim
+    // keeps its result on screen when the app comes back.
+    val wantsSession = hasWords && !claimedBefore && !reclaimedBefore && result == null
+    LifecycleStartEffect(id, wantsSession) {
+        if (wantsSession) paymentLinks.openSession(id)
+        onStopOrDispose { paymentLinks.closeSession() }
     }
     val dismiss by rememberUpdatedState(onDismiss)
-    DisposableEffect(id) { onDispose { paymentLinks.closeSession() } }
 
     val current = session?.takeIf { it.id == id }
     val ui: ClaimUi = when {

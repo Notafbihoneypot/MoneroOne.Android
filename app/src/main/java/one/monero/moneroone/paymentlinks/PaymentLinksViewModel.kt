@@ -205,6 +205,9 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 if (first == null) {
                     val state = opened.syncState.value
                     val message = (state as? SyncState.NotSynced)?.error?.message
+                    // A check that failed or timed out holds nothing: close it so the main wallet runs again.
+                    // Retry opens it anew.
+                    closeEnvelopeLocked()
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = message)
                     return@withLock
                 }
