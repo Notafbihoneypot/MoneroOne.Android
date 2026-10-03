@@ -248,11 +248,11 @@ private fun ClaimBody(
                 Disc(Icons.Default.HourglassTop, MoneroOrange)
                 Amount("${formatXmr(if (state.amount > 0) state.amount else 0)} XMR")
                 Text(
-                    tr("%d/10 confirmations", state.confirmations),
+                    tr("%s/10 confirmations", state.confirmations),
                     style = MaterialTheme.typography.titleMedium,
                     color = MoneroOrange
                 )
-                Secondary(tr("Ready in about %d min", state.minutes))
+                Secondary(tr("Ready in about %s min", state.minutes))
                 if (own) {
                     PrimaryButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(tr("Reclaim")) }
                 }
