@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -192,6 +193,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 _session.value = EnvelopeSession(id, EnvelopeSession.Phase.CHECKING)
                 val opened = try {
                     EnvelopeWallet.open(context, link)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Timber.w("PaymentLinks: envelope open failed (%s)", e.javaClass.simpleName)
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = e.message)
@@ -230,6 +233,10 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private fun publish(id: String, snapshot: EnvelopeSnapshot) {
+        Timber.d(
+            "PaymentLinks: envelope check seen=%b mined=%b conf=%d unlocked=%b spent=%b",
+            snapshot.fundingSeen, snapshot.fundingMined, snapshot.confirmations, snapshot.unlocked > 0, snapshot.spendSeen
+        )
         store.updateSent(id) { it.copy(lastCheck = snapshot) }
         store.updateReceived(id) { it.copy(lastCheck = snapshot) }
         _session.value = EnvelopeSession(id, EnvelopeSession.Phase.LIVE, snapshot)
@@ -277,14 +284,16 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         _sweep.value = null
         viewModelScope.launch(NonCancellable) {
             val outcome = try {
-                SweepOutcome.Sent(open.sweepTo(address), amount)
+                val sweepTx = open.sweepTo(address)
+                // What arrives: the sweep's amount after its fee; the unlocked total until the kit shows it.
+                SweepOutcome.Sent(sweepTx?.hash, sweepTx?.amount?.takeIf { it > 0 } ?: amount)
             } catch (e: AlreadyClaimedException) {
                 SweepOutcome.AlreadyClaimed
             } catch (e: Exception) {
                 Timber.w("PaymentLinks: sweep failed (%s)", e.javaClass.simpleName)
                 SweepOutcome.Failed(e.message ?: "")
             }
-            record(id, kind, outcome, amount, walletName)
+            record(id, kind, outcome, (outcome as? SweepOutcome.Sent)?.amount ?: amount, walletName)
             _sweep.value = SweepResult(id, kind, outcome)
             val snapshot = runCatching { open.snapshot() }.getOrNull()
             _session.update { s -> s?.takeIf { it.id == id }?.copy(phase = EnvelopeSession.Phase.LIVE, snapshot = snapshot ?: s.snapshot) }
@@ -341,6 +350,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 sessionLock.withLock {
                     val opened = try {
                         EnvelopeWallet.open(context, link.link)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         return@withLock
                     }

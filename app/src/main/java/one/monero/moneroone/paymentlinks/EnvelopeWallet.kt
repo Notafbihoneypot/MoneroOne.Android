@@ -5,14 +5,17 @@ import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.Seed
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -83,11 +86,12 @@ class EnvelopeWallet private constructor(
     }
 
     /**
-     * Sweeps every unlocked output to [address]. Returns the sweep's txid, or
-     * null when the kit's history did not show it in time. Throws
-     * [AlreadyClaimedException] when the node rejects a double spend.
+     * Sweeps every unlocked output to [address]. Returns the sweep's txid and
+     * the amount that arrives (fee paid), or null when the kit's history did not
+     * show it in time. Throws [AlreadyClaimedException] when the node rejects a
+     * double spend.
      */
-    suspend fun sweepTo(address: String): String? {
+    suspend fun sweepTo(address: String): TransactionInfo? {
         val before = outgoingHashes()
         try {
             withContext(Dispatchers.IO) { kit.send(0, address, null, sweepAll = true) }
@@ -99,18 +103,19 @@ class EnvelopeWallet private constructor(
             throw e
         }
         return withTimeoutOrNull(TXID_WAIT_MS) {
-            var hash: String? = null
-            while (hash == null) {
-                hash = outgoingHashes().firstOrNull { it !in before }
-                if (hash == null) delay(500)
+            var sweep: TransactionInfo? = null
+            while (sweep == null) {
+                sweep = outgoing().firstOrNull { it.hash !in before }
+                if (sweep == null) delay(500)
             }
-            hash
+            sweep
         }
     }
 
-    private fun outgoingHashes(): List<String> = kit.allTransactionsFlow.value
-        .filter { it.direction == TransactionInfo.Direction.Direction_Out && !it.isFailed }
-        .mapNotNull { it.hash }
+    private fun outgoing(): List<TransactionInfo> = kit.allTransactionsFlow.value
+        .filter { it.direction == TransactionInfo.Direction.Direction_Out && !it.isFailed && it.hash != null }
+
+    private fun outgoingHashes(): Set<String> = outgoing().mapNotNull { it.hash }.toSet()
 
     /** Stops and closes the envelope kit, then starts the main wallet's kit again. */
     suspend fun close() {
@@ -148,7 +153,25 @@ class EnvelopeWallet private constructor(
          */
         suspend fun open(context: Context, link: PaymentLink): EnvelopeWallet {
             current?.close()
-            return runtimeLock.withLock {
+            // One unit: a cancel between the main kit's stop and the return would leave the
+            // envelope kit running and the main wallet stopped, with no one to close them.
+            var opened: EnvelopeWallet? = null
+            try {
+                withContext(NonCancellable) { opened = openLocked(context, link) }
+            } catch (e: CancellationException) {
+                opened?.close()
+                throw e
+            }
+            val envelope = checkNotNull(opened)
+            if (!currentCoroutineContext().isActive) {
+                envelope.close()
+                throw CancellationException("Envelope open cancelled")
+            }
+            return envelope
+        }
+
+        private suspend fun openLocked(context: Context, link: PaymentLink): EnvelopeWallet =
+            runtimeLock.withLock {
                 val app = context.applicationContext
                 val node = EnvelopeNode.kitNodeString(app)
                 val proxy = TorNetwork.route.walletProxy
@@ -170,7 +193,6 @@ class EnvelopeWallet private constructor(
                 envelope.startKit()
                 envelope
             }
-        }
 
         private suspend fun pauseMain(): MoneroKit? {
             val main = WalletManager.kit ?: return null
