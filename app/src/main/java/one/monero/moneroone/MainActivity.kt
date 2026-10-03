@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.ui.navigation.MoneroOneNavHost
 import one.monero.moneroone.ui.theme.MoneroOneTheme
 import one.monero.moneroone.ui.theme.setSystemNightMode
@@ -27,6 +28,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun acceptPaymentLink(intent: Intent) {
+        // A claim link (App Link) goes straight to the encrypted store; nothing keeps it in memory or the bundle.
+        if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme.equals("https", ignoreCase = true) &&
+            intent.data?.host.equals("monero.one", ignoreCase = true)
+        ) {
+            PaymentLinkStore.get(this).accept(intent.dataString.orEmpty())
+            intent.data = null
+            return
+        }
         if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme.equals("monero", ignoreCase = true)) {
             pendingPaymentLink.value = intent.dataString
             // Consume the Intent so recreation cannot reopen a completed request.

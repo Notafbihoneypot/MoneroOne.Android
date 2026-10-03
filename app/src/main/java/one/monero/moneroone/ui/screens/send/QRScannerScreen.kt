@@ -315,7 +315,9 @@ private fun ViewfinderOverlay(
 @Composable
 fun QRScannerScreen(
     onBack: () -> Unit,
-    onScanned: (MoneroUriData) -> Unit
+    onScanned: (MoneroUriData) -> Unit,
+    // True when the code was a payment link claim, which opens the claim sheet instead of Send.
+    onClaimLink: (String) -> Boolean = { false }
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -463,7 +465,9 @@ fun QRScannerScreen(
                                     view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
 
                                     val parsed = parseMoneroUri(rawValue)
-                                    if (parsed != null) {
+                                    if (onClaimLink(rawValue)) {
+                                        // Handled: the claim sheet opens.
+                                    } else if (parsed != null) {
                                         onScanned(parsed)
                                     } else {
                                         scanError = tr("Invalid Monero address or QR code")

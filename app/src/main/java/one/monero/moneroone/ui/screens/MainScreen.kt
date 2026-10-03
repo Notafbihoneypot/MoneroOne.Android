@@ -210,6 +210,7 @@ fun MainScreen(
                     2 -> SettingsScreen(
                         walletViewModel = walletViewModel,
                         onBackupClick = { navController.navigate("backup_seed") },
+                        onPaymentLinksClick = { navController.navigate(one.monero.moneroone.paymentlinks.PaymentLinkRoutes.LIST) },
                         onSecurityClick = { navController.navigate("security") },
                         onThemeClick = { navController.navigate("theme") },
                         onCurrencyClick = { navController.navigate("currency") },

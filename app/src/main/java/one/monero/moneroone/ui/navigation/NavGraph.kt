@@ -68,6 +68,12 @@ import one.monero.moneroone.ui.screens.settings.WidgetSettingsScreen
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.screens.chart.ChartViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
+import one.monero.moneroone.paymentlinks.ClaimSheetHost
+import one.monero.moneroone.paymentlinks.PaymentLinkCodec
+import one.monero.moneroone.paymentlinks.PaymentLinkDetailScreen
+import one.monero.moneroone.paymentlinks.PaymentLinkRoutes
+import one.monero.moneroone.paymentlinks.PaymentLinksScreen
+import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import kotlinx.coroutines.flow.map
 
 sealed class Screen(val route: String) {
@@ -127,7 +133,8 @@ fun MoneroOneNavHost(
     onPaymentLinkConsumed: () -> Unit = {},
     navController: NavHostController = rememberNavController(),
     walletViewModel: WalletViewModel = viewModel(),
-    chartViewModel: ChartViewModel = viewModel()
+    chartViewModel: ChartViewModel = viewModel(),
+    paymentLinks: PaymentLinksViewModel = viewModel()
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val isLocked by walletViewModel.isLocked.collectAsState()
@@ -434,7 +441,9 @@ fun MoneroOneNavHost(
                         navController.navigate(Screen.Main.route) {
                             popUpTo(Screen.Main.route) { inclusive = true }
                         }
-                    }
+                    },
+                    paymentLinks = paymentLinks,
+                    onClaimLink = { paymentLinks.store.accept(it) }
                 )
             }
 
@@ -444,6 +453,14 @@ fun MoneroOneNavHost(
                     onScanned = { uriData ->
                         navController.popBackStack()
                         navController.navigate(Screen.Send.createRoute(uriData.address, uriData.amount, SendPrefillSource.QR_CODE))
+                    },
+                    onClaimLink = { raw ->
+                        PaymentLinkCodec.isClaimLink(raw).also { claim ->
+                            if (claim) {
+                                paymentLinks.store.accept(raw)
+                                navController.popBackStack()
+                            }
+                        }
                     }
                 )
             }
@@ -594,6 +611,41 @@ fun MoneroOneNavHost(
                     }
                 )
             }
+
+            composable(PaymentLinkRoutes.LIST) {
+                PaymentLinksScreen(
+                    paymentLinks = paymentLinks,
+                    formatXmr = walletViewModel::formatXmr,
+                    onBack = { navController.popBackStack() },
+                    onOpen = { kind, id -> navController.navigate(PaymentLinkRoutes.detail(kind, id)) }
+                )
+            }
+
+            composable(
+                route = PaymentLinkRoutes.DETAIL,
+                arguments = listOf(navArgument("kind") { type = NavType.StringType }, navArgument("id") { type = NavType.StringType })
+            ) { backStackEntry ->
+                PaymentLinkDetailScreen(
+                    paymentLinks = paymentLinks,
+                    walletViewModel = walletViewModel,
+                    kind = backStackEntry.arguments?.getString("kind").orEmpty(),
+                    id = backStackEntry.arguments?.getString("id").orEmpty(),
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
+
+        // Payment link claims: after unlock, with a wallet, and never over wallet setup.
+        val setupRoutes = remember {
+            setOf(
+                Screen.Welcome.route, Screen.CreateWallet.route, Screen.RestoreWallet.route, Screen.AddWallet.route,
+                Screen.SetPin.route, Screen.SetupBiometrics.route, Screen.Unlock.route, Screen.QRScanner.route
+            )
+        }
+        ClaimSheetHost(
+            paymentLinks = paymentLinks,
+            walletViewModel = walletViewModel,
+            canShow = walletState.hasWallet && entry?.destination?.route.let { it != null && it !in setupRoutes }
+        )
     }
 }
