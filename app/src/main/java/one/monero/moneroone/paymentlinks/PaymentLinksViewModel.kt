@@ -252,6 +252,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         sessionJob = null
         _session.value = null
         viewModelScope.launch(NonCancellable) { sessionLock.withLock { closeEnvelopeLocked() } }
+        if (refreshWanted) refreshSent()
     }
 
     private suspend fun closeEnvelopeLocked() {
@@ -337,38 +338,54 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     /**
      * Checks every sent link that can still change, one envelope at a time
-     * (the list screen). Stops when a session opens or [stopRefresh] runs.
+     * (the list screen), every [REFRESH_INTERVAL_MS] until [stopRefresh] runs.
+     * Skips a round while a claim sheet or detail screen holds a session.
      */
     fun refreshSent() {
-        if (refreshJob?.isActive == true || _session.value != null) return
+        refreshWanted = true
+        if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            val due = store.sent.value.filter {
-                !LinkStatusRules.isSettled(it) && now - (it.lastCheck?.checkedAt ?: 0) > REFRESH_AFTER_MS
+            // While the list shows: pending links turn ready, ready ones turn claimed.
+            while (true) {
+                checkDueSent()
+                delay(REFRESH_INTERVAL_MS)
             }
-            for (link in due) {
-                sessionLock.withLock {
-                    val opened = try {
-                        EnvelopeWallet.open(context, link.link)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        return@withLock
-                    }
-                    try {
-                        opened.awaitSnapshot()?.let { snapshot -> store.updateSent(link.id) { it.copy(lastCheck = snapshot) } }
-                    } finally {
-                        withContext(NonCancellable) { opened.close() }
-                    }
+        }
+    }
+
+    private suspend fun checkDueSent() {
+        val now = System.currentTimeMillis()
+        val due = store.sent.value.filter {
+            !LinkStatusRules.isSettled(it) && now - (it.lastCheck?.checkedAt ?: 0) > REFRESH_AFTER_MS
+        }
+        for (link in due) {
+            // A claim sheet or detail screen has the envelope runtime: leave it alone.
+            if (_session.value != null) return
+            sessionLock.withLock {
+                val opened = try {
+                    EnvelopeWallet.open(context, link.link)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    return@withLock
+                }
+                try {
+                    opened.awaitSnapshot()?.let { snapshot -> store.updateSent(link.id) { it.copy(lastCheck = snapshot) } }
+                } finally {
+                    withContext(NonCancellable) { opened.close() }
                 }
             }
         }
     }
 
     fun stopRefresh() {
+        refreshWanted = false
         refreshJob?.cancel()
         refreshJob = null
     }
+
+    /** The list screen shows: a session that cancelled the refresh starts it again when it closes. */
+    private var refreshWanted = false
 
     /** Waits until the main wallet's kit runs and is synced again (after an envelope closed). */
     suspend fun awaitMainWalletSynced(timeoutMs: Long = 90_000): Boolean =
@@ -388,6 +405,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     companion object {
         private const val LIVE_INTERVAL_MS = 3_000L
         private const val REFRESH_AFTER_MS = 20_000L
+        private const val REFRESH_INTERVAL_MS = 30_000L
         private const val FUNDING_TXID_WAIT_MS = 60_000L
     }
 }

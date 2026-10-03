@@ -130,7 +130,8 @@ object LinkStatusRules {
             !check.fundingMined -> LinkStatus.PENDING
             // Funding mined, balance spent, and not by our reclaim: someone claimed it.
             check.balance == 0L && check.spendSeen -> LinkStatus.CLAIMED
-            check.confirmations < CONFIRMATIONS -> LinkStatus.PENDING
+            // wallet2 unlocks an output after 10 blocks: an unlocked balance is the ready signal.
+            // The kit's chain height can trail by a block, so the count alone would lag it.
             check.unlocked > 0L -> LinkStatus.READY
             else -> LinkStatus.PENDING
         }
@@ -156,9 +157,10 @@ object LinkStatusRules {
     fun claimView(check: EnvelopeSnapshot): ClaimView = when {
         !check.fundingSeen -> ClaimView.NoMoney
         check.fundingMined && check.balance == 0L && check.spendSeen -> ClaimView.AlreadyClaimed
-        check.fundingMined && check.confirmations >= CONFIRMATIONS && check.unlocked > 0L -> ClaimView.Ready(check.unlocked)
+        check.fundingMined && check.unlocked > 0L -> ClaimView.Ready(check.unlocked)
         else -> {
-            val confirmations = if (check.fundingMined) check.confirmations.coerceIn(0, CONFIRMATIONS) else 0L
+            // Still locked: at most 9 of 10, whatever the trailing height says.
+            val confirmations = if (check.fundingMined) check.confirmations.coerceIn(0, CONFIRMATIONS - 1) else 0L
             ClaimView.Waiting(confirmations, (CONFIRMATIONS - confirmations).coerceAtLeast(1) * MINUTES_PER_BLOCK)
         }
     }

@@ -402,7 +402,7 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
                 DetailRow(tr("Expires"), formatLinkDate(link.expiry))
                 link.lastCheck?.takeIf { status == LinkStatus.PENDING && it.fundingMined }?.let {
                     DetailDivider()
-                    DetailRow(tr("Confirmations"), tr("%s/10", it.confirmations.coerceAtMost(10)))
+                    DetailRow(tr("Confirmations"), tr("%s/10", it.confirmations.coerceAtMost(LinkStatusRules.CONFIRMATIONS - 1)))
                 }
                 link.fundingTxid?.let {
                     DetailDivider()

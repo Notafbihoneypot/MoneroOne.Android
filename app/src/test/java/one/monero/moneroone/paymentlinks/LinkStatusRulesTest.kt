@@ -56,6 +56,9 @@ class LinkStatusRulesTest {
     @Test
     fun `an unlocked balance is ready`() {
         assertEquals(LinkStatus.READY, LinkStatusRules.status(sent(check = check(confirmations = 10, balance = 5, unlocked = 5)), before))
+        // The kit's height can trail wallet2's unlock by a block: the unlock decides.
+        assertEquals(LinkStatus.READY, LinkStatusRules.status(sent(check = check(confirmations = 9, balance = 5, unlocked = 5)), before))
+        assertEquals(ClaimView.Ready(5), LinkStatusRules.claimView(check(confirmations = 9, balance = 5, unlocked = 5)))
     }
 
     @Test
@@ -71,7 +74,7 @@ class LinkStatusRulesTest {
         val stale = sent(check = check(confirmations = 12, spent = false))
         assertEquals(LinkStatus.PENDING, LinkStatusRules.status(stale, before))
         assertFalse(LinkStatusRules.isSettled(stale))
-        assertEquals(ClaimView.Waiting(10, 2), LinkStatusRules.claimView(check(confirmations = 12, spent = false)))
+        assertEquals(ClaimView.Waiting(9, 2), LinkStatusRules.claimView(check(confirmations = 12, spent = false)))
     }
 
     @Test
@@ -105,5 +108,6 @@ class LinkStatusRulesTest {
         assertEquals(ClaimView.Waiting(9, 2), LinkStatusRules.claimView(check(confirmations = 9, balance = 5)))
         assertEquals(ClaimView.Ready(5), LinkStatusRules.claimView(check(confirmations = 10, balance = 5, unlocked = 5)))
         assertEquals(ClaimView.AlreadyClaimed, LinkStatusRules.claimView(check(confirmations = 11)))
+        assertEquals(ClaimView.Waiting(9, 2), LinkStatusRules.claimView(check(confirmations = 10, balance = 5)))
     }
 }
