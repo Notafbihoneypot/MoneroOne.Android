@@ -81,7 +81,8 @@ class EnvelopeWallet private constructor(
             confirmations = confirmations.coerceAtLeast(0),
             balance = balance.all,
             unlocked = balance.unlocked,
-            spendSeen = spent
+            spendSeen = spent,
+            spendTxids = outgoingHashes().sorted()
         )
     }
 

@@ -32,7 +32,9 @@ data class EnvelopeSnapshot(
      * A zero balance alone is not proof: the kit reports Synced before it
      * publishes the balance, and a link read as claimed loses its words.
      */
-    val spendSeen: Boolean = false
+    val spendSeen: Boolean = false,
+    /** The envelope's outgoing transactions: a sweep this app started and lost track of is found by its hash. */
+    val spendTxids: List<String> = emptyList()
 )
 
 /**
@@ -56,7 +58,11 @@ data class SentLink(
     val reclaimTxid: String? = null,
     /** The reclaim lost a race to a claim: the link reads Claimed. */
     val reclaimLostRace: Boolean = false,
-    val lastCheck: EnvelopeSnapshot? = null
+    val lastCheck: EnvelopeSnapshot? = null,
+    /** A reclaim began (saved before its broadcast), so one the app lost mid-flight is still found. */
+    val reclaimStartedAt: Long? = null,
+    /** The kit wallet that reclaim swept into (WalletManager.currentWalletId). */
+    val reclaimWallet: String? = null
 ) {
     val link: PaymentLink get() = PaymentLink(words, height, amount, expiry, id)
 
@@ -90,7 +96,12 @@ data class ReceivedLink(
     val claimTxid: String? = null,
     val claimedAmount: Long? = null,
     val claimedTo: String? = null,
-    val lastCheck: EnvelopeSnapshot? = null
+    val lastCheck: EnvelopeSnapshot? = null,
+    /** A claim began (saved before its broadcast), so one the app lost mid-flight is still found. */
+    val claimStartedAt: Long? = null,
+    /** The wallet that claim went to: its name, and its kit wallet (WalletManager.currentWalletId). */
+    val claimStartedTo: String? = null,
+    val claimWallet: String? = null
 ) {
     /** The link, while the words are still held. */
     val link: PaymentLink? get() = words?.let { PaymentLink(it, height, amount, expiry, id) }
@@ -126,6 +137,23 @@ object LinkStatusRules {
      */
     fun claimWordsToForget(received: List<ReceivedLink>, minedHashes: Set<String>): List<String> =
         received.filter { it.state == ReceivedState.CLAIMED && it.words != null && it.claimTxid in minedHashes }.map { it.id }
+
+    /**
+     * Reclaims the app started and lost (killed mid-flight) whose sweep now
+     * shows as incoming ([incomingHashes]) in the wallet it went to, open now
+     * as [openWallet]: id to txid. Proof by hash in that wallet, so a claim
+     * that won the race (even into another wallet on this phone) is never read as ours.
+     */
+    fun lostReclaims(sent: List<SentLink>, openWallet: String?, incomingHashes: Set<String>): Map<String, String> =
+        sent.filter { it.reclaimStartedAt != null && it.reclaimTxid == null && openWallet != null && it.reclaimWallet == openWallet }
+            .mapNotNull { link -> link.lastCheck?.spendTxids?.firstOrNull { it in incomingHashes }?.let { link.id to it } }
+            .toMap()
+
+    /** Claims the app started and lost, found as for [lostReclaims]: id to txid. */
+    fun lostClaims(received: List<ReceivedLink>, openWallet: String?, incomingHashes: Set<String>): Map<String, String> =
+        received.filter { it.claimStartedAt != null && it.claimTxid == null && openWallet != null && it.claimWallet == openWallet }
+            .mapNotNull { link -> link.lastCheck?.spendTxids?.firstOrNull { it in incomingHashes }?.let { link.id to it } }
+            .toMap()
 
     /** About 2 minutes a block. */
     const val MINUTES_PER_BLOCK = 2L

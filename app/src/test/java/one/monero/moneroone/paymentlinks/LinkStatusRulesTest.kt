@@ -123,4 +123,24 @@ class LinkStatusRulesTest {
         assertEquals(emptyList<String>(), LinkStatusRules.claimWordsToForget(list, setOf("cc")))
         assertEquals(listOf(claimed.id), LinkStatusRules.claimWordsToForget(list, setOf("aa", "bb")))
     }
+
+    @Test
+    fun `a lost sweep is ours only when its hash reached the open wallet`() {
+        val spent = check(confirmations = 12).copy(spendTxids = listOf("aa"))
+        val started = sent(check = spent).copy(reclaimStartedAt = 1, reclaimWallet = "w1")
+        val notStarted = sent(check = spent).copy(id = "1111111111111111")
+        val done = sent(check = spent, reclaimTxid = "aa").copy(id = "2222222222222222", reclaimStartedAt = 1, reclaimWallet = "w1")
+        val list = listOf(started, notStarted, done)
+        assertEquals(emptyMap<String, String>(), LinkStatusRules.lostReclaims(list, "w1", setOf("bb")))
+        assertEquals(mapOf(started.id to "aa"), LinkStatusRules.lostReclaims(list, "w1", setOf("aa")))
+        // The same spend in another wallet on this phone is a claim that won, not our reclaim.
+        assertEquals(emptyMap<String, String>(), LinkStatusRules.lostReclaims(list, "w2", setOf("aa")))
+        assertEquals(emptyMap<String, String>(), LinkStatusRules.lostReclaims(list, null, setOf("aa")))
+
+        val claim = ReceivedLink("3333333333333333", List(25) { "abbey" }, 100, 5, expiry, 0, lastCheck = spent, claimStartedAt = 1, claimWallet = "w2")
+        val untouched = claim.copy(id = "4444444444444444", claimStartedAt = null)
+        assertEquals(emptyMap<String, String>(), LinkStatusRules.lostClaims(listOf(claim, untouched), "w2", emptySet()))
+        assertEquals(emptyMap<String, String>(), LinkStatusRules.lostClaims(listOf(claim, untouched), "w1", setOf("aa")))
+        assertEquals(mapOf(claim.id to "aa"), LinkStatusRules.lostClaims(listOf(claim, untouched), "w2", setOf("aa")))
+    }
 }

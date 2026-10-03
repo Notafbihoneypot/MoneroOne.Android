@@ -82,6 +82,23 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 ids.forEach { id -> store.updateReceived(id) { it.copy(words = null) } }
             }
         }
+        // A sweep the app lost mid-flight (killed, swiped away): its envelope's spend shows up in the open wallet.
+        viewModelScope.launch {
+            combine(WalletManager.transactionsFlow, store.sent, store.received) { txs, sent, received ->
+                val incoming = txs.filter { it.direction == TransactionInfo.Direction.Direction_In && !it.isFailed && it.hash != null }
+                val hashes = incoming.mapNotNull { it.hash }.toSet()
+                val open = WalletManager.currentWalletId
+                Triple(LinkStatusRules.lostReclaims(sent, open, hashes), LinkStatusRules.lostClaims(received, open, hashes), incoming)
+            }.collect { (reclaims, claims, incoming) ->
+                reclaims.forEach { (id, txid) -> store.updateSent(id) { it.copy(reclaimTxid = txid, reclaimLostRace = false) } }
+                claims.forEach { (id, txid) ->
+                    val amount = incoming.firstOrNull { it.hash == txid }?.amount
+                    store.updateReceived(id) {
+                        it.copy(state = ReceivedState.CLAIMED, claimTxid = txid, claimedAmount = amount ?: it.claimedAmount, claimedTo = it.claimStartedTo)
+                    }
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- sender
@@ -315,6 +332,19 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         if (current.phase != EnvelopeSession.Phase.LIVE || sweeping) return
         val id = current.id
         val amount = current.snapshot?.unlocked ?: 0L
+        // Saved before the broadcast, so a sweep the app loses mid-flight is found later by its hash.
+        val now = System.currentTimeMillis()
+        val earlierAttempt = when (kind) {
+            SweepKind.RECLAIM -> store.sent(id)?.reclaimStartedAt != null
+            SweepKind.CLAIM -> store.received(id)?.claimStartedAt != null
+        }
+        val into = WalletManager.currentWalletId
+        when (kind) {
+            SweepKind.RECLAIM -> store.updateSent(id) { it.copy(reclaimStartedAt = it.reclaimStartedAt ?: now, reclaimWallet = into) }
+            SweepKind.CLAIM -> store.updateReceived(id) {
+                it.copy(claimStartedAt = it.claimStartedAt ?: now, claimStartedTo = walletName, claimWallet = into)
+            }
+        }
         sweeping = true
         closeAfterSweep = false
         _session.value = current.copy(phase = EnvelopeSession.Phase.SWEEPING)
@@ -330,7 +360,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 Timber.w("PaymentLinks: sweep failed (%s)", e.javaClass.simpleName)
                 SweepOutcome.Failed(e.message ?: "")
             }
-            record(id, kind, outcome, (outcome as? SweepOutcome.Sent)?.amount ?: amount, walletName)
+            record(id, kind, outcome, (outcome as? SweepOutcome.Sent)?.amount ?: amount, walletName, earlierAttempt)
             _sweep.value = SweepResult(id, kind, outcome)
             val snapshot = runCatching { open.snapshot() }.getOrNull()
             _session.update { s -> s?.takeIf { it.id == id }?.copy(phase = EnvelopeSession.Phase.LIVE, snapshot = snapshot ?: s.snapshot) }
@@ -340,11 +370,13 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    private fun record(id: String, kind: SweepKind, outcome: SweepOutcome, amount: Long, walletName: String) {
+    private fun record(id: String, kind: SweepKind, outcome: SweepOutcome, amount: Long, walletName: String, earlierAttempt: Boolean) {
         when (kind) {
             SweepKind.RECLAIM -> when (outcome) {
                 is SweepOutcome.Sent -> store.updateSent(id) { it.copy(reclaimTxid = outcome.txid ?: "") }
-                SweepOutcome.AlreadyClaimed -> store.updateSent(id) { it.copy(reclaimLostRace = true) }
+                // After a reclaim the app lost, the spend that beat this one may be our own: the open
+                // wallet's history decides (see init). Otherwise a claim won the race.
+                SweepOutcome.AlreadyClaimed -> if (!earlierAttempt) store.updateSent(id) { it.copy(reclaimLostRace = true) }
                 is SweepOutcome.Failed -> {}
             }
             SweepKind.CLAIM -> {
