@@ -305,7 +305,6 @@
     <string name="l10n_device_paired_af592192" formatted="false">"Dispozitiv asociat"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"Eroare dispozitiv: %1$s"</string>
     <string name="l10n_device_wallet_sync_failed_s_2ed19bfc" formatted="false">"Sincronizarea portofelului de pe dispozitiv a eșuat: %1$s"</string>
-    <string name="l10n_dismiss_48845bff" formatted="false">"Închide"</string>
     <string name="l10n_display_34e108c0" formatted="false">"Afișare"</string>
     <string name="l10n_display_currency_a34d6ee5" formatted="false">"Moneda afișată"</string>
     <string name="l10n_district_50f1878d" formatted="false">"Cartier"</string>
@@ -446,7 +445,6 @@
     <string name="l10n_icon_a35abcd6" formatted="false">"Pictogramă"</string>
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"Pictogramă, %1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"Inactiv"</string>
-    <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"Dacă acest portofel este mai vechi, scade înălțimea de restaurare în Configurări › Configurări sincronizare și resetează datele de sincronizare."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"Dacă pierzi fraza seed, fondurile sunt pierdute definitiv. Noteaz-o și păstreaz-o în siguranță, offline."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"Imediat"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"Informații importante"</string>
@@ -561,7 +559,6 @@
     <string name="l10n_no_sent_transactions_520d20b0" formatted="false">"Nicio tranzacție trimisă"</string>
     <string name="l10n_no_transactions_6ca1aa5e" formatted="false">"Încă nu există tranzacții"</string>
     <string name="l10n_no_transactions_by_this_time_4b570646" formatted="false">"Nicio tranzacție până în acest moment"</string>
-    <string name="l10n_no_transactions_found_since_block_s_0102185a" formatted="false">"Nicio tranzacție găsită începând cu blocul %1$s"</string>
     <string name="l10n_no_transactions_on_s_8bb726f5" formatted="false">"Nicio tranzacție pe %1$s"</string>
     <string name="l10n_no_transactions_yet_f75dda0d" formatted="false">"Încă nu există tranzacții"</string>
     <string name="l10n_no_wallet_4485d729" formatted="false">"Niciun portofel"</string>
@@ -608,7 +605,6 @@
     <string name="l10n_opens_the_transaction_in_an_in_app_browser_88c02a39" formatted="false">"Deschide tranzacția într-un browser din aplicație"</string>
     <string name="l10n_opens_the_wallet_list_where_you_can_switch_rename_or_ad_900e32f3" formatted="false">"Deschide lista de portofele, unde poți comuta, redenumi sau adăuga portofele"</string>
     <string name="l10n_optic_id_650eb5d4" formatted="false">"Optic ID"</string>
-    <string name="l10n_other_wallets_show_their_last_known_balance_e3e5aca7" formatted="false">"Celelalte portofele afișează ultimul sold cunoscut."</string>
     <string name="l10n_outgoing_transactions_may_be_out_of_date_179823e2" formatted="false">"Tranzacțiile trimise pot fi neactualizate"</string>
     <string name="l10n_outside_trusted_zones_7a2e6d43" formatted="false">"În afara zonelor de încredere"</string>
     <string name="l10n_outside_trusted_zones_969b7922" formatted="false">"În afara zonelor de încredere"</string>

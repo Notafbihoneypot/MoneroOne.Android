@@ -305,7 +305,6 @@
     <string name="l10n_device_paired_af592192" formatted="false">"기기 페어링됨"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"기기 오류: %1$s"</string>
     <string name="l10n_device_wallet_sync_failed_s_2ed19bfc" formatted="false">"기기 지갑 동기화 실패: %1$s"</string>
-    <string name="l10n_dismiss_48845bff" formatted="false">"닫기"</string>
     <string name="l10n_display_34e108c0" formatted="false">"표시"</string>
     <string name="l10n_display_currency_a34d6ee5" formatted="false">"표시 통화"</string>
     <string name="l10n_district_50f1878d" formatted="false">"동네"</string>
@@ -446,7 +445,6 @@
     <string name="l10n_icon_a35abcd6" formatted="false">"아이콘"</string>
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"아이콘, %1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"유휴"</string>
-    <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"이 지갑이 더 오래되었다면 설정 › 동기화 설정에서 복원 높이를 낮추고 동기화 데이터를 재설정하세요."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"시드 문구를 잃어버리면 자금을 영구적으로 잃게 됩니다. 시드 문구를 적어서 오프라인에 안전하게 보관하세요."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"즉시"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"중요 정보"</string>
@@ -561,7 +559,6 @@
     <string name="l10n_no_sent_transactions_520d20b0" formatted="false">"보낸 거래 없음"</string>
     <string name="l10n_no_transactions_6ca1aa5e" formatted="false">"아직 거래 없음"</string>
     <string name="l10n_no_transactions_by_this_time_4b570646" formatted="false">"이 시점까지 거래 없음"</string>
-    <string name="l10n_no_transactions_found_since_block_s_0102185a" formatted="false">"블록 %1$s 이후 거래를 찾을 수 없음"</string>
     <string name="l10n_no_transactions_on_s_8bb726f5" formatted="false">"%1$s에 거래 없음"</string>
     <string name="l10n_no_transactions_yet_f75dda0d" formatted="false">"아직 거래 없음"</string>
     <string name="l10n_no_wallet_4485d729" formatted="false">"지갑 없음"</string>
@@ -608,7 +605,6 @@
     <string name="l10n_opens_the_transaction_in_an_in_app_browser_88c02a39" formatted="false">"앱 내 브라우저에서 거래를 엽니다"</string>
     <string name="l10n_opens_the_wallet_list_where_you_can_switch_rename_or_ad_900e32f3" formatted="false">"지갑을 전환하거나 이름을 변경하거나 추가할 수 있는 지갑 목록을 엽니다"</string>
     <string name="l10n_optic_id_650eb5d4" formatted="false">"Optic ID"</string>
-    <string name="l10n_other_wallets_show_their_last_known_balance_e3e5aca7" formatted="false">"다른 지갑에는 마지막으로 확인된 잔액이 표시됩니다."</string>
     <string name="l10n_outgoing_transactions_may_be_out_of_date_179823e2" formatted="false">"보낸 거래 정보가 최신이 아닐 수 있습니다"</string>
     <string name="l10n_outside_trusted_zones_7a2e6d43" formatted="false">"신뢰 구역 밖"</string>
     <string name="l10n_outside_trusted_zones_969b7922" formatted="false">"신뢰 구역 밖"</string>

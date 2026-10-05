@@ -305,7 +305,6 @@
     <string name="l10n_device_paired_af592192" formatted="false">"Urządzenie sparowane"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"Błąd urządzenia: %1$s"</string>
     <string name="l10n_device_wallet_sync_failed_s_2ed19bfc" formatted="false">"Synchronizacja portfela urządzenia nie powiodła się: %1$s"</string>
-    <string name="l10n_dismiss_48845bff" formatted="false">"Zamknij"</string>
     <string name="l10n_display_34e108c0" formatted="false">"Wyświetlanie"</string>
     <string name="l10n_display_currency_a34d6ee5" formatted="false">"Waluta wyświetlania"</string>
     <string name="l10n_district_50f1878d" formatted="false">"Dzielnica"</string>
@@ -446,7 +445,6 @@
     <string name="l10n_icon_a35abcd6" formatted="false">"Ikona"</string>
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"Ikona, %1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"Bezczynny"</string>
-    <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"Jeśli ten portfel jest starszy, obniż wysokość przywracania (Ustawienia › Ustawienia synchronizacji) i zresetuj dane synchronizacji."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"Jeśli zgubisz frazę seed, stracisz środki na zawsze. Zapisz ją i przechowuj bezpiecznie offline."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"Natychmiast"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"Ważne informacje"</string>
@@ -561,7 +559,6 @@
     <string name="l10n_no_sent_transactions_520d20b0" formatted="false">"Brak wysłanych transakcji"</string>
     <string name="l10n_no_transactions_6ca1aa5e" formatted="false">"Brak transakcji"</string>
     <string name="l10n_no_transactions_by_this_time_4b570646" formatted="false">"Brak transakcji do tego momentu"</string>
-    <string name="l10n_no_transactions_found_since_block_s_0102185a" formatted="false">"Nie znaleziono transakcji od bloku %1$s"</string>
     <string name="l10n_no_transactions_on_s_8bb726f5" formatted="false">"Brak transakcji na %1$s"</string>
     <string name="l10n_no_transactions_yet_f75dda0d" formatted="false">"Brak transakcji"</string>
     <string name="l10n_no_wallet_4485d729" formatted="false">"Brak portfela"</string>
@@ -608,7 +605,6 @@
     <string name="l10n_opens_the_transaction_in_an_in_app_browser_88c02a39" formatted="false">"Otwiera transakcję w przeglądarce w aplikacji"</string>
     <string name="l10n_opens_the_wallet_list_where_you_can_switch_rename_or_ad_900e32f3" formatted="false">"Otwiera listę portfeli, gdzie możesz je przełączać, dodawać i zmieniać ich nazwy"</string>
     <string name="l10n_optic_id_650eb5d4" formatted="false">"Optic ID"</string>
-    <string name="l10n_other_wallets_show_their_last_known_balance_e3e5aca7" formatted="false">"Pozostałe portfele pokazują ostatnie znane saldo."</string>
     <string name="l10n_outgoing_transactions_may_be_out_of_date_179823e2" formatted="false">"Transakcje wychodzące mogą być nieaktualne"</string>
     <string name="l10n_outside_trusted_zones_7a2e6d43" formatted="false">"Poza zaufanymi strefami"</string>
     <string name="l10n_outside_trusted_zones_969b7922" formatted="false">"Poza zaufanymi strefami"</string>

@@ -305,7 +305,6 @@
     <string name="l10n_device_paired_af592192" formatted="false">"设备已配对"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"设备错误：%1$s"</string>
     <string name="l10n_device_wallet_sync_failed_s_2ed19bfc" formatted="false">"设备钱包同步失败：%1$s"</string>
-    <string name="l10n_dismiss_48845bff" formatted="false">"关闭"</string>
     <string name="l10n_display_34e108c0" formatted="false">"显示"</string>
     <string name="l10n_display_currency_a34d6ee5" formatted="false">"显示货币"</string>
     <string name="l10n_district_50f1878d" formatted="false">"城区"</string>
@@ -446,7 +445,6 @@
     <string name="l10n_icon_a35abcd6" formatted="false">"图标"</string>
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"图标，%1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"空闲"</string>
-    <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"如果此钱包创建得更早，请在“设置”›“同步设置”中调低恢复高度，并重置同步数据。"</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"如果丢失助记词，你的资金将永久丢失。请将其写下，并离线妥善保管。"</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"立即"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"重要信息"</string>
@@ -561,7 +559,6 @@
     <string name="l10n_no_sent_transactions_520d20b0" formatted="false">"没有已发送的交易"</string>
     <string name="l10n_no_transactions_6ca1aa5e" formatted="false">"还没有交易"</string>
     <string name="l10n_no_transactions_by_this_time_4b570646" formatted="false">"截至此时没有交易"</string>
-    <string name="l10n_no_transactions_found_since_block_s_0102185a" formatted="false">"自区块 %1$s 以来未找到交易"</string>
     <string name="l10n_no_transactions_on_s_8bb726f5" formatted="false">"“%1$s”上没有交易"</string>
     <string name="l10n_no_transactions_yet_f75dda0d" formatted="false">"还没有交易"</string>
     <string name="l10n_no_wallet_4485d729" formatted="false">"没有钱包"</string>
@@ -608,7 +605,6 @@
     <string name="l10n_opens_the_transaction_in_an_in_app_browser_88c02a39" formatted="false">"在 App 内浏览器中打开此交易"</string>
     <string name="l10n_opens_the_wallet_list_where_you_can_switch_rename_or_ad_900e32f3" formatted="false">"打开钱包列表，你可以在其中切换、重新命名或添加钱包"</string>
     <string name="l10n_optic_id_650eb5d4" formatted="false">"Optic ID"</string>
-    <string name="l10n_other_wallets_show_their_last_known_balance_e3e5aca7" formatted="false">"其他钱包显示最后已知的余额。"</string>
     <string name="l10n_outgoing_transactions_may_be_out_of_date_179823e2" formatted="false">"已发送交易可能不是最新"</string>
     <string name="l10n_outside_trusted_zones_7a2e6d43" formatted="false">"在可信区域外"</string>
     <string name="l10n_outside_trusted_zones_969b7922" formatted="false">"在可信区域外"</string>

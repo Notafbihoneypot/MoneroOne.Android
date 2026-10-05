@@ -27,7 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -104,23 +103,6 @@ data class PendingSeed(
 enum class SeedType {
     ELECTRUM_25,    // 25-word Monero legacy
     BIP39_24        // 24-word BIP39 (Standard)
-}
-
-/**
- * When the empty restore hint shows (iOS WalletManager.evaluateEmptyRestoreHint).
- * Only a seed restore can land on a height after its history. Transactions
- * hide it. It appears once the wallet is synced from a height above 0 and was
- * not dismissed, and then stays through later syncs.
- */
-internal object EmptyRestoreHint {
-    fun shows(
-        showing: Boolean, restoredFromSeed: Boolean, hasTransactions: Boolean,
-        synced: Boolean, restoreHeight: Long, dismissed: Boolean
-    ): Boolean = when {
-        !restoredFromSeed || hasTransactions -> false
-        !synced || restoreHeight <= 0L || dismissed -> showing
-        else -> true
-    }
 }
 
 /**
@@ -925,8 +907,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             name = name,
             emoji = emoji,
             restoreHeight = restoreHeight?.toLongOrNull() ?: 0L,
-            restoreDateMillis = restoreDateMillis ?: 0L,
-            restored = true
+            restoreDateMillis = restoreDateMillis ?: 0L
         )
     }
 
@@ -936,8 +917,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         name: String?,
         emoji: String,
         restoreHeight: Long,
-        restoreDateMillis: Long,
-        restored: Boolean = false
+        restoreDateMillis: Long
     ): Boolean = walletMutationMutex.withLock {
         val previousActive = _activeWallet.value
         var persisted: WalletInfo? = null
@@ -987,8 +967,6 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             existingPinHash()?.let { secrets.savePinHash(info.id, it) }
 
             store.addWallet(info)
-            // Before the first sync: only a restore can land on a height after its history.
-            if (restored) prefs.edit().putBoolean(info.keyPrefix + RESTORED_FROM_SEED_SUFFIX, true).apply()
             store.setActiveWalletId(info.id)
             _wallets.value = store.wallets()
             _activeWallet.value = info
@@ -1595,7 +1573,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         // Set once the cached primary addresses of older builds were dropped.
         const val CACHED_ADDRESSES_CHECKED_KEY = "wallet_store.cached_addresses_checked"
 
-        // Per wallet, after WalletInfo.keyPrefix: restored from a seed, and the empty restore hint closed.
+        // Legacy keys (after WalletInfo.keyPrefix) from the 1.0.9 (15) restore hint. The app only removes them now.
         const val RESTORED_FROM_SEED_SUFFIX = ".restored_from_seed"
         const val RESTORE_HINT_DISMISSED_SUFFIX = ".empty_restore_hint_dismissed"
     }
@@ -2115,57 +2093,6 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) {
             "Error getting debug info: ${e.message}"
         }
-    }
-
-    // =========================================================================
-    // Empty restore hint (iOS WalletManager.evaluateEmptyRestoreHint)
-    // =========================================================================
-
-    private val _showsEmptyRestoreHint = MutableStateFlow(false)
-
-    /**
-     * True once a wallet restored from its seed has synced to the tip with no
-     * transactions from a restore height above 0: the height was probably too
-     * recent. It stays up through later syncs, and goes when transactions
-     * arrive, the wallet is left or locked, or the user dismisses it for this
-     * wallet. A new wallet never shows it: nothing came before its height.
-     */
-    val showsEmptyRestoreHint: StateFlow<Boolean> = _showsEmptyRestoreHint.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            var session = -1L
-            combine(_walletState, _activeWallet, _walletSessionId, _isLocked) { state, wallet, id, locked ->
-                // iOS clears it on a wallet switch and on lock.
-                if (id != session || locked) {
-                    session = id
-                    _showsEmptyRestoreHint.value = false
-                }
-                if (!locked) evaluateEmptyRestoreHint(state, wallet)
-            }.collect { }
-        }
-    }
-
-    private fun evaluateEmptyRestoreHint(state: WalletState, wallet: WalletInfo?) {
-        val showing = _showsEmptyRestoreHint.value
-        val shows = wallet != null && EmptyRestoreHint.shows(
-            showing = showing,
-            restoredFromSeed = !wallet.isViewOnly && prefs.getBoolean(wallet.keyPrefix + RESTORED_FROM_SEED_SUFFIX, false),
-            hasTransactions = state.transactions.isNotEmpty(),
-            synced = state.syncState is SyncState.Synced,
-            restoreHeight = wallet.restoreHeight,
-            dismissed = prefs.getBoolean(wallet.keyPrefix + RESTORE_HINT_DISMISSED_SUFFIX, false)
-        )
-        if (shows && !showing && wallet != null) {
-            Timber.i("Empty restore hint shown: restoreHeight=${wallet.restoreHeight} source=${wallet.source}")
-        }
-        _showsEmptyRestoreHint.value = shows
-    }
-
-    /** The user closed the hint: it stays away for this wallet. */
-    fun dismissEmptyRestoreHint() {
-        _activeWallet.value?.let { prefs.edit().putBoolean(it.keyPrefix + RESTORE_HINT_DISMISSED_SUFFIX, true).apply() }
-        _showsEmptyRestoreHint.value = false
     }
 
     fun lock() {

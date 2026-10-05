@@ -305,7 +305,6 @@
     <string name="l10n_device_paired_af592192" formatted="false">"Apparaat gekoppeld"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"Apparaatfout: %1$s"</string>
     <string name="l10n_device_wallet_sync_failed_s_2ed19bfc" formatted="false">"Synchroniseren van hardwareportemonnee mislukt: %1$s"</string>
-    <string name="l10n_dismiss_48845bff" formatted="false">"Sluit"</string>
     <string name="l10n_display_34e108c0" formatted="false">"Weergave"</string>
     <string name="l10n_display_currency_a34d6ee5" formatted="false">"Weergavevaluta"</string>
     <string name="l10n_district_50f1878d" formatted="false">"Wijk"</string>
@@ -446,7 +445,6 @@
     <string name="l10n_icon_a35abcd6" formatted="false">"Symbool"</string>
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"Symbool, %1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"Inactief"</string>
-    <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"Is deze portemonnee ouder? Verlaag dan de herstelhoogte in Instellingen › Synchronisatie-instellingen en stel de synchronisatie opnieuw in."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"Als je je seedzin kwijtraakt, ben je je tegoed voorgoed kwijt. Schrijf hem op en bewaar hem veilig offline."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"Onmiddellijk"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"Belangrijke informatie"</string>
@@ -561,7 +559,6 @@
     <string name="l10n_no_sent_transactions_520d20b0" formatted="false">"Geen verzonden transacties"</string>
     <string name="l10n_no_transactions_6ca1aa5e" formatted="false">"Nog geen transacties"</string>
     <string name="l10n_no_transactions_by_this_time_4b570646" formatted="false">"Geen transacties tot dit moment"</string>
-    <string name="l10n_no_transactions_found_since_block_s_0102185a" formatted="false">"Geen transacties gevonden sinds blok %1$s"</string>
     <string name="l10n_no_transactions_on_s_8bb726f5" formatted="false">"Geen transacties op %1$s"</string>
     <string name="l10n_no_transactions_yet_f75dda0d" formatted="false">"Nog geen transacties"</string>
     <string name="l10n_no_wallet_4485d729" formatted="false">"Geen portemonnee"</string>
@@ -608,7 +605,6 @@
     <string name="l10n_opens_the_transaction_in_an_in_app_browser_88c02a39" formatted="false">"Opent de transactie in een browser in de app"</string>
     <string name="l10n_opens_the_wallet_list_where_you_can_switch_rename_or_ad_900e32f3" formatted="false">"Opent de lijst met portemonnees, waar je portemonnees kunt wisselen, hernoemen of toevoegen"</string>
     <string name="l10n_optic_id_650eb5d4" formatted="false">"Optic ID"</string>
-    <string name="l10n_other_wallets_show_their_last_known_balance_e3e5aca7" formatted="false">"Andere portemonnees tonen hun laatst bekende saldo."</string>
     <string name="l10n_outgoing_transactions_may_be_out_of_date_179823e2" formatted="false">"Uitgaande transacties zijn mogelijk niet actueel"</string>
     <string name="l10n_outside_trusted_zones_7a2e6d43" formatted="false">"Buiten vertrouwde zones"</string>
     <string name="l10n_outside_trusted_zones_969b7922" formatted="false">"Buiten vertrouwde zones"</string>
