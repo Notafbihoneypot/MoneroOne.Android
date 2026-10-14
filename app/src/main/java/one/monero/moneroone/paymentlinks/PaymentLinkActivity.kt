@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -275,14 +276,18 @@ fun PendingPaymentLinkRow(link: ReceivedLink, walletName: String?, formatXmr: (L
     val hint = if (ready && !walletName.isNullOrEmpty()) tr("Claims the money to %s", walletName) else tr("Opens the link to claim it")
     val open = { store.openClaim(link.id, autoClaim = ready) }
 
-    GlassCard(modifier = Modifier.fillMaxWidth().testTag("activity.paymentLink.${link.id}"), onClick = open) {
+    // One TalkBack node, as a transaction card: the card's click (with the hint as its label) and the row's text.
+    GlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("activity.paymentLink.${link.id}")
+            .semantics { onClick(label = hint) { open(); true } },
+        onClick = open
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clearAndSetSemantics {
-                    contentDescription = spoken
-                    onClick(label = hint) { open(); true }
-                }
+                .clearAndSetSemantics { contentDescription = spoken }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
