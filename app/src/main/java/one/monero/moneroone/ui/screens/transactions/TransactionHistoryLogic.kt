@@ -21,14 +21,16 @@ object TransactionHistoryLogic {
     fun through(asOfMs: Long?, transactions: List<TransactionInfo>): List<TransactionInfo> =
         if (asOfMs == null) transactions else transactions.filter { it.timestamp * 1000 <= asOfMs }
 
+    /** [isLink]: whether a transaction belongs to a payment link on this device (the Links filter). */
     fun filter(transactions: List<TransactionInfo>, filter: TransactionFilter, receivingIndex: Int?, query: String,
-               addresses: List<ReceiveAddressRow>): List<TransactionInfo> = transactions.filter { tx ->
+               addresses: List<ReceiveAddressRow>, isLink: (TransactionInfo) -> Boolean = { false }): List<TransactionInfo> = transactions.filter { tx ->
         val incoming = tx.direction == TransactionInfo.Direction.Direction_In
         val kindMatches = when (filter) {
             TransactionFilter.ALL -> true
             TransactionFilter.RECEIVED -> incoming
             TransactionFilter.SENT -> !incoming
             TransactionFilter.PENDING -> !tx.isFailed && (tx.isPending || tx.confirmations == 0L)
+            TransactionFilter.LINKS -> isLink(tx)
         }
         val addressMatches = receivingIndex == null || (incoming && tx.accountIndex == 0 && tx.addressIndex == receivingIndex)
         val row = if (incoming) addresses.firstOrNull { it.index == tx.addressIndex } else null

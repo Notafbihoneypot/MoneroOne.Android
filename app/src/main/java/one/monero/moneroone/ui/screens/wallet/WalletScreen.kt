@@ -96,6 +96,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -1055,7 +1056,7 @@ private fun EmptyTransactionsCard(isSyncing: Boolean) {
 @Composable
 private fun TransactionCard(
     transaction: TransactionInfo,
-    /** Payment link transactions read "Payment link" and so on. */
+    /** Payment link transactions read "Sent by Link" and so on. */
     linkIndex: PaymentLinkIndex,
     onClick: () -> Unit,
     formatXmr: (Long) -> String,
@@ -1123,7 +1124,9 @@ private fun TransactionCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = if (link?.subtitleIsStatus == true) 1 else Int.MAX_VALUE,
-                    softWrap = link?.subtitleIsStatus != true
+                    softWrap = link?.subtitleIsStatus != true,
+                    // At a large font scale a cut status ends in "…", not mid-letter.
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 

@@ -6,11 +6,15 @@ import one.monero.moneroone.core.wallet.addressesOf
 import one.monero.moneroone.data.model.PriceHistory
 import one.monero.moneroone.data.util.MoneyFormat
 import one.monero.moneroone.data.util.XmrFormat
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import one.monero.moneroone.ui.components.ShrinkToFitText
 import one.monero.moneroone.core.locale.tr
@@ -67,7 +71,10 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.components.CapsuleShape
@@ -82,6 +89,7 @@ import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
 import one.monero.moneroone.paymentlinks.PaymentLinkIndex
+import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import one.monero.moneroone.paymentlinks.PendingPaymentLinkRow
 import one.monero.moneroone.paymentlinks.linkRowText
 import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
@@ -94,15 +102,20 @@ enum class TransactionFilter(val label: String) {
     ALL("All"),
     RECEIVED("Received"),
     SENT("Sent"),
-    PENDING("Pending")
+    PENDING("Pending"),
+
+    /** Payment link transactions (funding, reclaim, claim) and the received links waiting above them. */
+    LINKS("Links")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TransactionListScreen(
     walletViewModel: WalletViewModel,
     onBack: () -> Unit,
     onTransactionClick: (String) -> Unit,
+    /** Checks sent links' envelopes while the Links filter shows. */
+    paymentLinks: PaymentLinksViewModel? = null,
     /** From History: only transactions up to this moment (ms); null for all. */
     asOf: Long? = null
 ) {
@@ -123,14 +136,23 @@ fun TransactionListScreen(
     val addressRows = remember(walletState.addresses, transactions, activeWallet?.addressLabels) {
         ReceiveAddressLogic.rows(walletState.addressesOf(activeWallet?.id)?.list.orEmpty(), transactions, activeWallet?.addressLabels.orEmpty())
     }
-    val filteredTransactions = remember(transactions, selectedFilter, searchQuery, receivingIndex, addressRows) {
-        TransactionHistoryLogic.filter(transactions, selectedFilter, receivingIndex, searchQuery, addressRows)
+    val filteredTransactions = remember(transactions, selectedFilter, searchQuery, receivingIndex, addressRows, linkIndex) {
+        TransactionHistoryLogic.filter(transactions, selectedFilter, receivingIndex, searchQuery, addressRows) { linkIndex.match(it) != null }
     }
     // Received payment links not claimed yet, above the rows: now only, with no search, and under the
-    // filters that can hold an incoming payment still on its way.
+    // filters that can hold an incoming payment still on its way (Links too).
     val pendingLinks = if (asOf == null && searchQuery.isBlank() && receivingIndex == null &&
-        selectedFilter in setOf(TransactionFilter.ALL, TransactionFilter.RECEIVED, TransactionFilter.PENDING)
+        selectedFilter != TransactionFilter.SENT
     ) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
+
+    // Under Links (now only), look at sent links someone could have claimed, so their rows say so. A look
+    // holds the wallet runtime for a moment, so no other filter runs it; it stops in the background.
+    if (paymentLinks != null && asOf == null && selectedFilter == TransactionFilter.LINKS) {
+        LifecycleStartEffect(paymentLinks) {
+            paymentLinks.refreshSent()
+            onStopOrDispose { paymentLinks.stopRefresh() }
+        }
+    }
     val dates = rememberChartDateFormats()
     val totals = remember(filteredTransactions) { TransactionHistoryLogic.totals(filteredTransactions) }
     val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice) {
@@ -187,10 +209,14 @@ fun TransactionListScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 TransactionFilter.entries.forEach { filter ->
+                    // The row scrolls (Links ends past the edge on a phone): the selected chip shows whole.
+                    val requester = remember { BringIntoViewRequester() }
+                    if (selectedFilter == filter) LaunchedEffect(Unit) { requester.bringIntoView() }
                     // Chips: capsules, the selected one tinted in the brand hue.
                     FilterChip(
                         selected = selectedFilter == filter,
                         onClick = { selectedFilter = filter },
+                        modifier = Modifier.bringIntoViewRequester(requester),
                         label = { Text(tr(filter.label), fontWeight = FontWeight.SemiBold) },
                         shape = CapsuleShape,
                         border = null,
@@ -256,17 +282,28 @@ fun TransactionListScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        val links = searchQuery.isBlank() && selectedFilter == TransactionFilter.LINKS
                         Text(
-                            text = if (searchQuery.isNotBlank()) tr("No matching transactions") else tr("No transactions"),
+                            text = when {
+                                searchQuery.isNotBlank() -> tr("No matching transactions")
+                                links -> tr("No payment links yet")
+                                else -> tr("No transactions")
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (searchQuery.isNotBlank()) {
+                        val hint = when {
+                            searchQuery.isNotBlank() -> tr("Try a different search term")
+                            links -> tr("In Send, choose Link to make one.")
+                            else -> null
+                        }
+                        if (hint != null) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = tr("Try a different search term"),
+                                text = hint,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
@@ -304,7 +341,7 @@ fun TransactionListScreen(
 @Composable
 private fun TransactionListItem(
     transaction: TransactionInfo,
-    /** Payment link transactions read "Payment link" and so on. */
+    /** Payment link transactions read "Sent by Link" and so on. */
     linkIndex: PaymentLinkIndex,
     formatXmr: (Long) -> String,
     fiatMode: Boolean,
@@ -385,7 +422,9 @@ private fun TransactionListItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = if (link?.subtitleIsStatus == true) 1 else Int.MAX_VALUE,
-                    softWrap = link?.subtitleIsStatus != true
+                    softWrap = link?.subtitleIsStatus != true,
+                    // At a large font scale a cut status ends in "…", not mid-letter.
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 

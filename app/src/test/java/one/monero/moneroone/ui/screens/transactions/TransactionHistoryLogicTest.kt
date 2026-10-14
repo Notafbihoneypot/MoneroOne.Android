@@ -33,6 +33,16 @@ class TransactionHistoryLogicTest {
         val failed = tx(failed = true).apply { confirmations = 0; isPending = true }
         assertTrue(TransactionHistoryLogic.filter(listOf(failed), TransactionFilter.PENDING, null, "", emptyList()).isEmpty())
     }
+    @Test fun `links filter keeps payment link transactions only`() {
+        val funding = tx(false, 1)
+        val claim = tx(true, 2)
+        val plain = tx(true, 3)
+        val isLink = { t: TransactionInfo -> t.hash == funding.hash || t.hash == claim.hash }
+        val links = TransactionHistoryLogic.filter(listOf(funding, claim, plain), TransactionFilter.LINKS, null, "", emptyList(), isLink)
+        assertEquals(setOf(funding, claim), links.toSet())
+        assertTrue(TransactionHistoryLogic.filter(listOf(plain), TransactionFilter.LINKS, null, "", emptyList()).isEmpty())
+        assertEquals(3, TransactionHistoryLogic.filter(listOf(funding, claim, plain), TransactionFilter.ALL, null, "", emptyList(), isLink).size)
+    }
     @Test fun `missing historical quote suppresses complete fiat totals`() {
         val first = tx(); val later = tx(false).apply { timestamp = 200 }
         assertNull(TransactionHistoryLogic.fiatTotals(listOf(first, later)) { if (it == 100L) 200.0 else null })

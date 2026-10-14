@@ -20,7 +20,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -50,17 +49,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import kotlinx.coroutines.launch
-import one.monero.moneroone.core.wallet.WalletManager
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.SendState
@@ -79,11 +75,8 @@ import one.monero.moneroone.ui.theme.WarningYellow
 import one.monero.moneroone.ui.theme.truncateMiddle
 
 object PaymentLinkRoutes {
-    const val LIST = "payment_links"
-    const val DETAIL = "payment_link/{kind}/{id}"
     const val SENT = "sent"
     const val RECEIVED = "received"
-    fun detail(kind: String, id: String) = "payment_link/$kind/$id"
 
     /** A link's transaction, opened from the link's detail: the transaction itself, never the link again. */
     const val TRANSACTION = "payment_link_tx/{txId}"
@@ -218,129 +211,6 @@ private fun LinksScaffold(title: String, onBack: () -> Unit, content: @Composabl
 }
 
 @Composable
-private fun SectionHeader(title: String) {
-    Text(
-        title,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp).semantics { }
-    )
-}
-
-@Composable
-private fun LinkRow(amount: String, date: String, chip: @Composable () -> Unit, spoken: String, onClick: () -> Unit, divider: Boolean) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .clearAndSetSemantics { contentDescription = spoken }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(amount, style = MaterialTheme.typography.bodyLarge)
-                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            chip()
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MoneroTheme.colors.labelTertiary,
-                modifier = Modifier.padding(start = 8.dp).size(20.dp)
-            )
-        }
-        if (divider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(start = 16.dp))
-    }
-}
-
-/** Send > Your links: every link this device made (Sent) or opened (Received). */
-@Composable
-fun PaymentLinksScreen(
-    paymentLinks: PaymentLinksViewModel,
-    formatXmr: (Long) -> String,
-    onBack: () -> Unit,
-    onOpen: (kind: String, id: String) -> Unit
-) {
-    val sent by paymentLinks.sent.collectAsState()
-    val received by paymentLinks.received.collectAsState()
-    val transactions by WalletManager.transactionsFlow.collectAsState()
-    val daemonHeight = rememberDaemonHeight()
-
-    // Checks each open link's envelope, one at a time, while the list is on screen. In the background
-    // it stops, so no envelope holds the kit and the main wallet syncs.
-    LifecycleStartEffect(Unit) {
-        paymentLinks.refreshSent()
-        onStopOrDispose { paymentLinks.stopRefresh() }
-    }
-
-    LinksScaffold(tr("Your Links"), onBack) {
-        if (sent.isEmpty() && received.isEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp, horizontal = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(Icons.Default.Link, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
-                    Text(tr("No payment links yet"), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        tr("Links you send or open show here."),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            return@LinksScaffold
-        }
-        if (sent.isNotEmpty()) {
-            SectionHeader(tr("Sent"))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
-                Column {
-                    val rows = sent.sortedByDescending { it.createdAtMillis }
-                    rows.forEachIndexed { index, link ->
-                        val display = sentDisplay(link, transactions)
-                        val amount = "${formatXmr(link.amount)} XMR"
-                        val date = formatRecordDate(link.createdAtMillis)
-                        LinkRow(
-                            amount = amount,
-                            date = date,
-                            chip = { LinkStatusChip(display) },
-                            spoken = tr("Sent %s, %s, %s", amount, date, display.label),
-                            onClick = { onOpen(PaymentLinkRoutes.SENT, link.id) },
-                            divider = index < rows.lastIndex
-                        )
-                    }
-                }
-            }
-        }
-        if (received.isNotEmpty()) {
-            SectionHeader(tr("Received"))
-            GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
-                Column {
-                    val rows = received.sortedByDescending { it.receivedAtMillis }
-                    rows.forEachIndexed { index, link ->
-                        // A received v2 link carries no amount: "Checking…" until a check sees the balance.
-                        val amount = (link.claimedAmount ?: link.knownAmount)?.let { "${formatXmr(it)} XMR" } ?: tr("Checking…")
-                        val date = formatRecordDate(link.receivedAtMillis)
-                        val display = receivedDisplay(link, daemonHeight)
-                        LinkRow(
-                            amount = amount,
-                            date = date,
-                            chip = { LinkStatusChip(display) },
-                            spoken = tr("Received %s, %s, %s", amount, date, display.label),
-                            onClick = { onOpen(PaymentLinkRoutes.RECEIVED, link.id) },
-                            divider = index < rows.lastIndex
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun DetailRow(label: String, value: String, mono: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp).semantics(mergeDescendants = true) {},
@@ -418,8 +288,8 @@ private fun ConfirmRemove(message: String, onConfirm: () -> Unit, onCancel: () -
 
 /**
  * One link: its status, amount, transactions and the actions the spec's
- * status table gives it. Opened from Your links and from the link's
- * transactions in Activity; its transaction rows open the transaction.
+ * status table gives it. Opened from the link's transactions in Activity;
+ * its transaction rows open the transaction.
  */
 @Composable
 fun PaymentLinkDetailScreen(

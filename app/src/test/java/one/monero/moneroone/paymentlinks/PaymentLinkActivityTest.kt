@@ -81,9 +81,9 @@ class PaymentLinkActivityTest {
 
     @Test
     fun titles() {
-        assertEquals("Payment link", LinkActivity(LinkActivityKind.FUNDING, sent(), null).title)
-        assertEquals("Link reclaimed", LinkActivity(LinkActivityKind.RECLAIM, sent(), null).title)
-        assertEquals("Claimed link", LinkActivity(LinkActivityKind.CLAIM, null, received()).title)
+        assertEquals("Sent by Link", LinkActivity(LinkActivityKind.FUNDING, sent(), null).title)
+        assertEquals("Reclaimed by Link", LinkActivity(LinkActivityKind.RECLAIM, sent(), null).title)
+        assertEquals("Received by Link", LinkActivity(LinkActivityKind.CLAIM, null, received()).title)
     }
 
     @Test
@@ -101,12 +101,12 @@ class PaymentLinkActivityTest {
     @Test
     fun `spoken label`() {
         assertEquals(
-            "Payment link, minus 0.5 XMR, Waiting to be claimed, 2 hours ago, Confirmed",
-            PaymentLinkActivityRules.spokenLabel("Payment link", false, "0.5 XMR", "Waiting to be claimed", "2 hours ago", "Confirmed")
+            "Sent by Link, minus 0.5 XMR, Waiting to be claimed, 2 hours ago, Confirmed",
+            PaymentLinkActivityRules.spokenLabel("Sent by Link", false, "0.5 XMR", "Waiting to be claimed", "2 hours ago", "Confirmed")
         )
         assertEquals(
-            "Claimed link, plus 0.25 XMR, 1 minute ago, Pending",
-            PaymentLinkActivityRules.spokenLabel("Claimed link", true, "0.25 XMR", null, "1 minute ago", "Pending")
+            "Received by Link, plus 0.25 XMR, 1 minute ago, Pending",
+            PaymentLinkActivityRules.spokenLabel("Received by Link", true, "0.25 XMR", null, "1 minute ago", "Pending")
         )
     }
 
@@ -163,29 +163,7 @@ class PaymentLinkActivityTest {
     }
 
     @Test
-    fun `open count counts links that may hold money`() {
-        val sentLinks = listOf(
-            sent(id = "s1", check = waiting),
-            sent(id = "s2", check = ready),
-            sent(id = "s3", state = SentState.CREATED),
-            sent(id = "s4", state = SentState.NOT_FUNDED, check = noMoney),
-            sent(id = "s5", check = claimed),
-            sent(id = "s6", reclaimTxid = "r1", check = check(balance = 0, spent = true))
-        )
-        val receivedLinks = listOf(
-            received(id = "r1"),
-            received(id = "r2", withSecret = false),
-            received(id = "r3", check = waiting),
-            received(id = "r4", state = ReceivedState.CLAIMED),
-            received(id = "r5", check = noMoney)
-        )
-        // s1, s2, r1 (unchecked with its secret), r3.
-        assertEquals(4, PaymentLinkActivityRules.openCount(sentLinks, receivedLinks))
-        assertEquals(0, PaymentLinkActivityRules.openCount(emptyList(), emptyList()))
-    }
-
-    @Test
-    fun `received links in Your links read as the pinned row`() {
+    fun `a received link's detail chip reads as the pinned row`() {
         val now = 1_800_000_000_000
         assertEquals("No money yet", receivedDisplay(received(check = noMoney), null, now / 1000).label)
         val unlocked = received(check = check(confirmations = 10, checkedAt = now))

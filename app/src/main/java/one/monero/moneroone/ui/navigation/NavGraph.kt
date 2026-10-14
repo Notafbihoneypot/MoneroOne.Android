@@ -73,7 +73,6 @@ import one.monero.moneroone.paymentlinks.ActivityTransactionDestination
 import one.monero.moneroone.paymentlinks.PaymentLinkCodec
 import one.monero.moneroone.paymentlinks.PaymentLinkDetailScreen
 import one.monero.moneroone.paymentlinks.PaymentLinkRoutes
-import one.monero.moneroone.paymentlinks.PaymentLinksScreen
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import kotlinx.coroutines.flow.map
 
@@ -444,8 +443,7 @@ fun MoneroOneNavHost(
                         }
                     },
                     paymentLinks = paymentLinks,
-                    onClaimLink = { paymentLinks.store.accept(it) },
-                    onOpenPaymentLinks = { navController.navigate(PaymentLinkRoutes.LIST) }
+                    onClaimLink = { paymentLinks.store.accept(it) }
                 )
             }
 
@@ -526,6 +524,7 @@ fun MoneroOneNavHost(
             ) { backStackEntry ->
                 TransactionListScreen(
                     walletViewModel = walletViewModel,
+                    paymentLinks = paymentLinks,
                     asOf = backStackEntry.arguments?.getLong("asOf")?.takeIf { it >= 0 },
                     onBack = { navController.popBackStack() },
                     onTransactionClick = { txId ->
@@ -626,29 +625,6 @@ fun MoneroOneNavHost(
                             popUpTo(Screen.Donation.route) { inclusive = true }
                         }
                     }
-                )
-            }
-
-            composable(PaymentLinkRoutes.LIST) {
-                PaymentLinksScreen(
-                    paymentLinks = paymentLinks,
-                    formatXmr = walletViewModel::formatXmr,
-                    onBack = { navController.popBackStack() },
-                    onOpen = { kind, id -> navController.navigate(PaymentLinkRoutes.detail(kind, id)) }
-                )
-            }
-
-            composable(
-                route = PaymentLinkRoutes.DETAIL,
-                arguments = listOf(navArgument("kind") { type = NavType.StringType }, navArgument("id") { type = NavType.StringType })
-            ) { backStackEntry ->
-                PaymentLinkDetailScreen(
-                    paymentLinks = paymentLinks,
-                    walletViewModel = walletViewModel,
-                    kind = backStackEntry.arguments?.getString("kind").orEmpty(),
-                    id = backStackEntry.arguments?.getString("id").orEmpty(),
-                    onBack = { navController.popBackStack() },
-                    onOpenTransaction = { navController.navigate(PaymentLinkRoutes.transaction(it)) }
                 )
             }
 

@@ -5,6 +5,8 @@ import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -62,6 +64,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -80,6 +85,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.drawBehind
@@ -91,6 +97,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -110,13 +118,12 @@ import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.paymentlinks.EnvelopeDraft
-import one.monero.moneroone.paymentlinks.LinkRecipientField
+import one.monero.moneroone.paymentlinks.LinkRecipientCard
 import one.monero.moneroone.paymentlinks.PaymentLinkCodec
 import one.monero.moneroone.paymentlinks.PaymentLinkParse
 import one.monero.moneroone.paymentlinks.PaymentLinkReadyPhase
 import one.monero.moneroone.paymentlinks.PaymentLinkReview
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
-import one.monero.moneroone.paymentlinks.SendWithLinkButton
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
@@ -162,11 +169,9 @@ fun SendScreen(
     onBack: () -> Unit,
     onScanQr: () -> Unit,
     onSent: () -> Unit,
-    // Payment links: "Send with a link", and claim links pasted into the recipient field.
+    // Payment links: the Link segment, and claim links pasted into the recipient field.
     paymentLinks: PaymentLinksViewModel? = null,
-    onClaimLink: (String) -> Unit = {},
-    /** Send > Your links: the links this device made and received. */
-    onOpenPaymentLinks: (() -> Unit)? = null
+    onClaimLink: (String) -> Unit = {}
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val flow = remember { SendFlow(walletViewModel.activeWallet.value?.id) }
@@ -300,7 +305,7 @@ fun SendScreen(
                 title = {
                     Text(
                         text = when (phase) {
-                            SendPhase.ADDRESS -> if (linkMode) tr("Send with a link") else tr("Send XMR")
+                            SendPhase.ADDRESS -> tr("Send XMR")
                             SendPhase.AMOUNT -> if (linkMode) tr("Send with a link") else if (address.length > 20) tr("Send to %s", truncateMiddle(address)) else tr("Amount")
                             SendPhase.REVIEW -> tr("Review")
                             else -> ""
@@ -369,8 +374,7 @@ fun SendScreen(
                     onScanQr = onScanQr,
                     onContinue = { goForward(SendPhase.AMOUNT) },
                     linkMode = linkMode,
-                    showSendWithLink = canSendWithLink,
-                    onYourLinks = onOpenPaymentLinks,
+                    showModePicker = canSendWithLink,
                     onLinkModeChange = { on ->
                         linkMode = on
                         linkDraft = null
@@ -557,8 +561,8 @@ private fun AddressPhase(
     onScanQr: () -> Unit,
     onContinue: () -> Unit,
     linkMode: Boolean = false,
-    showSendWithLink: Boolean = false,
-    onYourLinks: (() -> Unit)? = null,
+    /** The Address | Link control: any wallet that can send (view-only wallets do not see it). */
+    showModePicker: Boolean = false,
     onLinkModeChange: (Boolean) -> Unit = {}
 ) {
     val isValid = linkMode || address.isNotEmpty() && isValidMoneroAddress(address)
@@ -584,127 +588,187 @@ private fun AddressPhase(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp)
-            .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() }
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        // A link is a way to send, so it is a segment of Send (iOS send.modePicker). It stays put
+        // while the step below it fades in.
+        if (showModePicker) {
+            Spacer(modifier = Modifier.height(8.dp))
+            SendModePicker(linkMode = linkMode, onLinkModeChange = onLinkModeChange)
+        }
 
-        // iOS ErrorBanner(.offline) at the top of the step: gray tint, label
-        // text, 24 above the field. It appears without an animation, as on iOS.
-        if (!isOnline) {
-            val gray = MoneroTheme.colors.gray
-            Row(
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() }
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // iOS ErrorBanner(.offline) at the top of the step: gray tint, label
+            // text, 24 above the field. It appears without an animation, as on iOS.
+            if (!isOnline) {
+                val gray = MoneroTheme.colors.gray
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(gray.copy(alpha = 0.1f))
+                        .padding(16.dp)
+                        .clearAndSetSemantics { contentDescription = tr("Offline: no internet connection") },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.WifiOff,
+                        contentDescription = null,
+                        tint = gray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = tr("No internet connection. Cannot send."),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // The segment's content cross-fades in place, no slide (iOS: opacity, easeInOut 0.2 s).
+            Crossfade(
+                targetState = linkMode,
+                animationSpec = tween(200, easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)),
+                label = "sendMode"
+            ) { link ->
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = if (link) tr("Recipient") else tr("Recipient Address"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    if (link) {
+                        LinkRecipientCard()
+                    } else {
+                        // Addresses are mono caption, as on iOS.
+                        MoneroTextField(
+                            value = address,
+                            onValueChange = onAddressChange,
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
+                            textStyle = MonoCaption,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                            singleLine = true
+                        )
+
+                        // Inline validation indicator
+                        if (address.isNotEmpty()) {
+                            val valid = isValidMoneroAddress(address)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 6.dp)
+                            ) {
+                                Icon(
+                                    if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                    contentDescription = null,
+                                    tint = if (valid) SuccessGreen else ErrorRed,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    if (valid) tr("Valid address") else tr("Invalid address"),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (valid) SuccessGreen else ErrorRed
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Scan QR + Paste buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            PrimaryButton(
+                                onClick = onScanQr,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Text(tr("Scan QR"))
+                            }
+                            PrimaryButton(
+                                onClick = {
+                                    clipboardManager.getText()?.text?.let { onAddressChange(it.trim()) }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Text(tr("Paste"))
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Continue button
+            PrimaryButton(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = isValid && isOnline
+            ) {
+                Text(tr("Continue"))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
+        }
+    }
+}
+
+/**
+ * Send's Address | Link control (iOS `send.modePicker`), a Material 3 segmented
+ * row in the segmented tokens: fill track, elevated-fill selection, labels in
+ * the label color (selected, semibold) and the secondary color.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SendModePicker(linkMode: Boolean, onLinkModeChange: (Boolean) -> Unit) {
+    val colors = SegmentedButtonDefaults.colors(
+        activeContainerColor = MoneroTheme.colors.fillElevated,
+        activeContentColor = MaterialTheme.colorScheme.onSurface,
+        activeBorderColor = MoneroTheme.colors.separator,
+        inactiveContainerColor = MoneroTheme.colors.fill,
+        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        inactiveBorderColor = MoneroTheme.colors.separator
+    )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().testTag("send.modePicker")) {
+        listOf(false to tr("Address"), true to tr("Link")).forEachIndexed { index, (link, label) ->
+            val selected = linkMode == link
+            SegmentedButton(
+                selected = selected,
+                onClick = { if (!selected) onLinkModeChange(link) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                colors = colors,
+                icon = {},
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(gray.copy(alpha = 0.1f))
-                    .padding(16.dp)
-                    .clearAndSetSemantics { contentDescription = tr("Offline: no internet connection") },
-                verticalAlignment = Alignment.CenterVertically
+                    .testTag(if (link) "send.mode.link" else "send.mode.address")
+                    .then(
+                        // TalkBack: the visible label, and on Link the hint iOS gives it.
+                        if (link) Modifier.semantics {
+                            onClick(label = tr("Send money as a link anyone can claim")) { if (!selected) onLinkModeChange(true); true }
+                        } else Modifier
+                    )
             ) {
-                Icon(
-                    imageVector = Icons.Default.WifiOff,
-                    contentDescription = null,
-                    tint = gray,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = tr("No internet connection. Cannot send."),
+                    label,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        Text(
-            text = if (linkMode) tr("Recipient") else tr("Recipient Address"),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        if (linkMode) {
-            LinkRecipientField(onClear = { onLinkModeChange(false) })
-        } else {
-        // Addresses are mono caption, as on iOS.
-        MoneroTextField(
-            value = address,
-            onValueChange = onAddressChange,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
-            textStyle = MonoCaption,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
-            singleLine = true
-        )
-
-        // Inline validation indicator
-        if (address.isNotEmpty()) {
-            val valid = isValidMoneroAddress(address)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 6.dp)
-            ) {
-                Icon(
-                    if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                    contentDescription = null,
-                    tint = if (valid) SuccessGreen else ErrorRed,
-                    modifier = Modifier.size(14.dp)
-                )
-                Text(
-                    if (valid) tr("Valid address") else tr("Invalid address"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (valid) SuccessGreen else ErrorRed
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    maxLines = 1
                 )
             }
         }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Scan QR + Paste buttons
-        if (!linkMode) Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            PrimaryButton(
-                onClick = onScanQr,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(tr("Scan QR"))
-            }
-            PrimaryButton(
-                onClick = {
-                    clipboardManager.getText()?.text?.let { onAddressChange(it.trim()) }
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(tr("Paste"))
-            }
-        }
-
-        // Payment links: any wallet that can send (view-only wallets do not see it).
-        if (showSendWithLink && !linkMode) {
-            Spacer(modifier = Modifier.height(12.dp))
-            SendWithLinkButton(onClick = { onLinkModeChange(true) }, onYourLinks = onYourLinks)
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Continue button
-        PrimaryButton(
-            onClick = onContinue,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = isValid && isOnline
-        ) {
-            Text(tr("Continue"))
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
-        }
-
-        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 

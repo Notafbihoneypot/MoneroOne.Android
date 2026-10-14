@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,7 +26,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
@@ -35,7 +33,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -93,44 +90,35 @@ internal fun shareLink(context: Context, amountXmr: String, link: PaymentLink) {
     context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
-/** Send's recipient-area control that turns the flow into a payment link. Styled like Scan QR and Paste. */
+/**
+ * Send's Link segment: who gets the money and how a link works (iOS
+ * PaymentLinkAddressStep). One TalkBack node with the visible text.
+ */
 @Composable
-fun SendWithLinkButton(onClick: () -> Unit, modifier: Modifier = Modifier, onYourLinks: (() -> Unit)? = null) {
-    // Under it, the way to the links already made (shown once there is one).
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        PrimaryButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(tr("Send with a link"))
-        }
-        onYourLinks?.let { YourLinksRow(onClick = it) }
-    }
-}
-
-/** The recipient area in link mode: a read-only field reading "Anyone with the link". */
-@Composable
-fun LinkRecipientField(onClear: () -> Unit, modifier: Modifier = Modifier) {
+fun LinkRecipientCard(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 54.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(start = 16.dp, end = 4.dp),
+            .padding(16.dp)
+            .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Default.Link, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
+        Box(
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(MoneroOrange.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Link, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
+        }
         Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            tr("Anyone with the link"),
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
-        IconButton(onClick = onClear) {
-            Icon(
-                Icons.Default.Close,
-                contentDescription = tr("Send to an address"),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // iOS headline over subheadline secondary.
+            Text(tr("Anyone with the link"), style = MaterialTheme.typography.titleMedium)
+            Text(
+                tr("You get a link to send in a chat. The first person to open it can claim the money."),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

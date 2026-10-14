@@ -1,7 +1,6 @@
 package one.monero.moneroone.paymentlinks
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,9 +64,9 @@ class LinkActivity(val kind: LinkActivityKind, val sent: SentLink?, val received
 
     val title: String
         get() = when (kind) {
-            LinkActivityKind.FUNDING -> tr("Payment link")
-            LinkActivityKind.RECLAIM -> tr("Link reclaimed")
-            LinkActivityKind.CLAIM -> tr("Claimed link")
+            LinkActivityKind.FUNDING -> tr("Sent by Link")
+            LinkActivityKind.RECLAIM -> tr("Reclaimed by Link")
+            LinkActivityKind.CLAIM -> tr("Received by Link")
         }
 }
 
@@ -89,11 +88,13 @@ sealed interface PendingLinkState {
 /**
  * Payment links in Activity, the same rules as iOS `PaymentLinkActivity`.
  * A transaction matches a link record on this device by txid:
- * - sent record, outgoing tx == fundingTxid: "Payment link" (funding)
- * - sent record, incoming tx == reclaimTxid: "Link reclaimed"
- * - received record, incoming tx == claimTxid: "Claimed link"
+ * - sent record, outgoing tx == fundingTxid: "Sent by Link" (funding)
+ * - sent record, incoming tx == reclaimTxid: "Reclaimed by Link"
+ * - received record, incoming tx == claimTxid: "Received by Link"
  * Every other transaction keeps "Received" / "Sent". A link row shows a link
- * glyph in the disc of its direction and opens the link's detail.
+ * glyph in the disc of its direction and opens the link's detail. Activity's
+ * Links filter shows these rows only, under the received links still waiting
+ * to be claimed.
  */
 object PaymentLinkActivityRules {
 
@@ -123,7 +124,7 @@ object PaymentLinkActivityRules {
         else -> tr("Waiting to be claimed")
     }
 
-    /** TalkBack: "Payment link, minus 0.5 XMR, Waiting to be claimed, 2 hours ago, Confirmed". */
+    /** TalkBack: "Sent by Link, minus 0.5 XMR, Waiting to be claimed, 2 hours ago, Confirmed". */
     fun spokenLabel(
         title: String,
         incoming: Boolean,
@@ -174,26 +175,6 @@ object PaymentLinkActivityRules {
         PendingLinkState.NoMoney -> tr("No money yet")
         is PendingLinkState.Waiting -> tr("Ready in about %s min", state.minutes)
         PendingLinkState.Ready -> tr("Ready to claim")
-    }
-
-    /**
-     * Links that may still hold money: funded and not settled (sent or
-     * received), and received links not checked yet.
-     */
-    fun openCount(sent: List<SentLink>, received: List<ReceivedLink>): Int {
-        val openSent = sent.count {
-            val status = LinkStatusRules.baseStatus(it)
-            status == LinkStatus.PENDING || status == LinkStatus.READY
-        }
-        val openReceived = received.count { link ->
-            if (link.isSettled) return@count false
-            val check = link.lastCheck ?: return@count link.link != null
-            when (LinkStatusRules.claimView(check)) {
-                is ClaimView.Waiting, is ClaimView.Ready -> true
-                ClaimView.NoMoney, ClaimView.AlreadyClaimed -> false
-            }
-        }
-        return openSent + openReceived
     }
 
     /**
@@ -340,48 +321,6 @@ fun PendingPaymentLinkRow(link: ReceivedLink, walletName: String?, formatXmr: (L
                 modifier = Modifier.size(16.dp)
             )
         }
-    }
-}
-
-/**
- * Under "Send with a link": every link this device made or received, with the
- * number still open. Shown once there is at least one link.
- */
-@Composable
-fun YourLinksRow(onClick: () -> Unit) {
-    val store = PaymentLinkStore.get(LocalContext.current)
-    val sent by store.sent.collectAsState()
-    val received by store.received.collectAsState()
-    if (sent.isEmpty() && received.isEmpty()) return
-    val open = PaymentLinkActivityRules.openCount(sent, received)
-    val spoken = if (open > 0) tr("Your links, %s open", open) else tr("Your links")
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick)
-            .clearAndSetSemantics {
-                contentDescription = spoken
-                onClick(label = tr("Shows the payment links you made and received")) { onClick(); true }
-            }
-            .padding(horizontal = 16.dp, vertical = 14.dp)
-            .testTag("send.yourLinksRow"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Text(tr("Your links"), style = MaterialTheme.typography.bodyMedium)
-        if (open > 0) {
-            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(tr("%s open", open), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.weight(1f))
-        Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MoneroTheme.colors.labelTertiary,
-            modifier = Modifier.size(16.dp)
-        )
     }
 }
 
