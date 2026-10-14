@@ -117,7 +117,8 @@ internal fun sentDisplay(link: SentLink, transactions: List<TransactionInfo>, no
     }
     var status = LinkStatusRules.status(link, nowSeconds)
     if (status == LinkStatus.NOT_FUNDED && link.lastCheck == null && funding != null) status = LinkStatus.PENDING
-    val confirmations = funding?.confirmations ?: link.lastCheck?.takeIf { it.fundingMined }?.confirmations
+    // The open wallet's count stalls while an envelope holds the kit: the higher count wins.
+    val confirmations = listOfNotNull(funding?.confirmations, link.lastCheck?.takeIf { it.fundingMined }?.confirmations).maxOrNull()
     return when (status) {
         LinkStatus.NOT_FUNDED -> LinkDisplay(statusLabel(status), LinkHue.RED)
         LinkStatus.PENDING -> LinkDisplay(
