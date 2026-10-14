@@ -55,6 +55,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import io.horizontalsystems.monerokit.model.TransactionInfo
@@ -142,9 +143,13 @@ internal fun receivedDisplay(link: ReceivedLink, daemonHeight: Long?, nowSeconds
     if (live && link.expiry > 0 && nowSeconds > link.expiry) return LinkDisplay(tr("Expired"), LinkHue.YELLOW)
     return when (view) {
         ClaimView.AlreadyClaimed -> LinkDisplay(tr("Already claimed"), LinkHue.GRAY)
-        ClaimView.NoMoney -> LinkDisplay(tr("Not checked"), LinkHue.GRAY)
+        // The same words as the pinned row in Activity, so both say the same.
+        ClaimView.NoMoney -> LinkDisplay(PaymentLinkActivityRules.pendingLabel(PendingLinkState.NoMoney), LinkHue.GRAY)
         is ClaimView.Ready -> LinkDisplay(tr("Ready to claim"), LinkHue.GREEN)
         is ClaimView.Waiting -> {
+            if (PaymentLinkActivityRules.pendingState(link, daemonHeight, nowSeconds * 1000) == PendingLinkState.Ready) {
+                return LinkDisplay(PaymentLinkActivityRules.pendingLabel(PendingLinkState.Ready), LinkHue.GREEN)
+            }
             val confirmations = PaymentLinkActivityRules.receivedConfirmations(link, daemonHeight) ?: 0L
             LinkDisplay(
                 tr("Pending %s/%s", confirmations.coerceAtMost(LinkStatusRules.CONFIRMATIONS), LinkStatusRules.CONFIRMATIONS),
@@ -162,6 +167,8 @@ private fun StatusChip(label: String, hue: Color, labelInHue: Boolean = true) {
         style = MaterialTheme.typography.bodySmall,
         fontWeight = FontWeight.SemiBold,
         color = if (labelInHue) hue else MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+        softWrap = false,
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(hue.copy(alpha = 0.15f))
@@ -233,7 +240,7 @@ private fun LinkRow(amount: String, date: String, chip: @Composable () -> Unit, 
         ) {
             Column(Modifier.weight(1f)) {
                 Text(amount, style = MaterialTheme.typography.bodyLarge)
-                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             chip()
             Icon(

@@ -185,6 +185,17 @@ class PaymentLinkActivityTest {
     }
 
     @Test
+    fun `received links in Your links read as the pinned row`() {
+        val now = 1_800_000_000_000
+        assertEquals("No money yet", receivedDisplay(received(check = noMoney), null, now / 1000).label)
+        val unlocked = received(check = check(confirmations = 10, checkedAt = now))
+        assertEquals("Ready to claim", receivedDisplay(unlocked, null, now / 1000).label)
+        assertEquals(LinkHue.GREEN, receivedDisplay(unlocked, null, now / 1000).hue)
+        val young = received(check = check(confirmations = 2, checkedAt = now))
+        assertEquals("Pending 2/10", receivedDisplay(young, null, now / 1000).label)
+    }
+
+    @Test
     fun `received confirmations take the higher of the check and the daemon height`() {
         val link = received(check = check(confirmations = 2, fundingHeight = 400))
         assertEquals(2L, PaymentLinkActivityRules.receivedConfirmations(link, null))
