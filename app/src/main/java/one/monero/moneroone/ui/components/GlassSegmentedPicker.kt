@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
@@ -39,6 +40,9 @@ import androidx.compose.ui.unit.dp
  * elevated-fill capsule for the selection, with the raised shadow in light mode.
  * Labels are subheadline medium: the selected one in the label color and
  * semibold, the others secondary. Nothing here is orange.
+ *
+ * [onClickLabel] gives a segment a TalkBack action label (the iOS
+ * accessibilityHint); [segmentTestTag] tags each segment for UI tests.
  */
 @Composable
 fun <T> GlassSegmentedPicker(
@@ -47,6 +51,8 @@ fun <T> GlassSegmentedPicker(
     onOptionSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
     accessibilityLabel: ((T) -> String)? = null,
+    onClickLabel: ((T) -> String?)? = null,
+    segmentTestTag: ((T) -> String)? = null,
     labelSelector: (T) -> String = { it.toString() }
 ) {
     val density = LocalDensity.current
@@ -104,6 +110,7 @@ fun <T> GlassSegmentedPicker(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
+                        .then(segmentTestTag?.let { Modifier.testTag(it(option)) } ?: Modifier)
                         .semantics {
                             selected = isSelected
                             accessibilityLabel?.let { contentDescription = it(option) }
@@ -111,7 +118,8 @@ fun <T> GlassSegmentedPicker(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            role = Role.Tab
+                            role = Role.Tab,
+                            onClickLabel = onClickLabel?.invoke(option)
                         ) { onOptionSelected(option) },
                     contentAlignment = Alignment.Center
                 ) {

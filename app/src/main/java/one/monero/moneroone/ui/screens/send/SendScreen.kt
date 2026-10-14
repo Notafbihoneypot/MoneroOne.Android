@@ -64,9 +64,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -97,7 +94,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -129,6 +125,7 @@ import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
+import one.monero.moneroone.ui.components.GlassSegmentedPicker
 import one.monero.moneroone.ui.components.MoneroTextField
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ShrinkToFitText
@@ -728,48 +725,22 @@ private fun AddressPhase(
 }
 
 /**
- * Send's Address | Link control (iOS `send.modePicker`), a Material 3 segmented
- * row in the segmented tokens: fill track, elevated-fill selection, labels in
- * the label color (selected, semibold) and the secondary color.
+ * Send's Address | Link control (iOS `send.modePicker`): the app's segmented
+ * picker (tokens.json components.segmented). TalkBack reads each segment's
+ * label; Link adds the hint iOS gives it as its action label.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SendModePicker(linkMode: Boolean, onLinkModeChange: (Boolean) -> Unit) {
-    val colors = SegmentedButtonDefaults.colors(
-        activeContainerColor = MoneroTheme.colors.fillElevated,
-        activeContentColor = MaterialTheme.colorScheme.onSurface,
-        activeBorderColor = MoneroTheme.colors.separator,
-        inactiveContainerColor = MoneroTheme.colors.fill,
-        inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        inactiveBorderColor = MoneroTheme.colors.separator
+    val linkHint = tr("Send money as a link anyone can claim")
+    GlassSegmentedPicker(
+        options = listOf(false, true),
+        selectedOption = linkMode,
+        onOptionSelected = { link -> if (link != linkMode) onLinkModeChange(link) },
+        modifier = Modifier.fillMaxWidth().testTag("send.modePicker"),
+        onClickLabel = { link -> if (link) linkHint else null },
+        segmentTestTag = { link -> if (link) "send.mode.link" else "send.mode.address" },
+        labelSelector = { link -> if (link) tr("Link") else tr("Address") }
     )
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().testTag("send.modePicker")) {
-        listOf(false to tr("Address"), true to tr("Link")).forEachIndexed { index, (link, label) ->
-            val selected = linkMode == link
-            SegmentedButton(
-                selected = selected,
-                onClick = { if (!selected) onLinkModeChange(link) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
-                colors = colors,
-                icon = {},
-                modifier = Modifier
-                    .testTag(if (link) "send.mode.link" else "send.mode.address")
-                    .then(
-                        // TalkBack: the visible label, and on Link the hint iOS gives it.
-                        if (link) Modifier.semantics {
-                            onClick(label = tr("Send money as a link anyone can claim")) { if (!selected) onLinkModeChange(true); true }
-                        } else Modifier
-                    )
-            ) {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    maxLines = 1
-                )
-            }
-        }
-    }
 }
 
 // ============================================================
