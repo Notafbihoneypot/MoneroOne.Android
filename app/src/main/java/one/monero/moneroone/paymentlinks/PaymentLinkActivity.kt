@@ -339,6 +339,48 @@ fun PendingPaymentLinkRow(link: ReceivedLink, walletName: String?, formatXmr: (L
 }
 
 /**
+ * Under "Send with a link": every link this device made or received, with the
+ * number still open. Shown once there is at least one link.
+ */
+@Composable
+fun YourLinksRow(onClick: () -> Unit) {
+    val store = PaymentLinkStore.get(LocalContext.current)
+    val sent by store.sent.collectAsState()
+    val received by store.received.collectAsState()
+    if (sent.isEmpty() && received.isEmpty()) return
+    val open = PaymentLinkActivityRules.openCount(sent, received)
+    val spoken = if (open > 0) tr("Your links, %s open", open) else tr("Your links")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .clearAndSetSemantics {
+                contentDescription = spoken
+                onClick(label = tr("Shows the payment links you made and received")) { onClick(); true }
+            }
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .testTag("send.yourLinksRow"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(tr("Your links"), style = MaterialTheme.typography.bodyMedium)
+        if (open > 0) {
+            Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr("%s open", open), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.weight(1f))
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MoneroTheme.colors.labelTertiary,
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+/**
  * Transaction detail: a "Payment link" row with the link's status chip, for a
  * transaction that belongs to a link.
  */

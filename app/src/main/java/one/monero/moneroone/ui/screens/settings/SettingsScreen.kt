@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
@@ -101,8 +100,7 @@ fun SettingsScreen(
     onSyncSettingsClick: () -> Unit,
     onResetSyncClick: () -> Unit,
     onRemoveAllWalletsClick: () -> Unit,
-    onDonateClick: () -> Unit = {},
-    onPaymentLinksClick: () -> Unit = {}
+    onDonateClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("monero_wallet", android.content.Context.MODE_PRIVATE) }
@@ -154,12 +152,6 @@ fun SettingsScreen(
                 icon = Icons.Default.Key,
                 title = tr("Backup Seed Phrase"),
                 onClick = onBackupClick,
-                iconColor = MoneroOrange
-            )
-            SettingsItem(
-                icon = Icons.Default.Link,
-                title = tr("Payment Links"),
-                onClick = onPaymentLinksClick,
                 iconColor = MoneroOrange,
                 showDivider = false
             )

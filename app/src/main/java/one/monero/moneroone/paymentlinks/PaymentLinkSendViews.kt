@@ -95,10 +95,14 @@ internal fun shareLink(context: Context, amountXmr: String, link: PaymentLink) {
 
 /** Send's recipient-area control that turns the flow into a payment link. Styled like Scan QR and Paste. */
 @Composable
-fun SendWithLinkButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    PrimaryButton(onClick = onClick, modifier = modifier.fillMaxWidth()) {
-        Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(20.dp))
-        Text(tr("Send with a link"))
+fun SendWithLinkButton(onClick: () -> Unit, modifier: Modifier = Modifier, onYourLinks: (() -> Unit)? = null) {
+    // Under it, the way to the links already made (shown once there is one).
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PrimaryButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(tr("Send with a link"))
+        }
+        onYourLinks?.let { YourLinksRow(onClick = it) }
     }
 }
 

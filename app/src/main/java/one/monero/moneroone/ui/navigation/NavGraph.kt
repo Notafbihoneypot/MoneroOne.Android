@@ -444,7 +444,8 @@ fun MoneroOneNavHost(
                         }
                     },
                     paymentLinks = paymentLinks,
-                    onClaimLink = { paymentLinks.store.accept(it) }
+                    onClaimLink = { paymentLinks.store.accept(it) },
+                    onOpenPaymentLinks = { navController.navigate(PaymentLinkRoutes.LIST) }
                 )
             }
 

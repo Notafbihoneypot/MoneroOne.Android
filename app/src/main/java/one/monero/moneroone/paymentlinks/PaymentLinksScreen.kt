@@ -246,7 +246,7 @@ private fun LinkRow(amount: String, date: String, chip: @Composable () -> Unit, 
     }
 }
 
-/** Settings > Payment Links: Sent and Received. */
+/** Send > Your links: every link this device made (Sent) or opened (Received). */
 @Composable
 fun PaymentLinksScreen(
     paymentLinks: PaymentLinksViewModel,
@@ -266,7 +266,7 @@ fun PaymentLinksScreen(
         onStopOrDispose { paymentLinks.stopRefresh() }
     }
 
-    LinksScaffold(tr("Payment Links"), onBack) {
+    LinksScaffold(tr("Your Links"), onBack) {
         if (sent.isEmpty() && received.isEmpty()) {
             Spacer(Modifier.height(16.dp))
             GlassCard(modifier = Modifier.fillMaxWidth()) {

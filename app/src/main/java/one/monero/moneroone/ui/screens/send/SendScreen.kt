@@ -164,7 +164,9 @@ fun SendScreen(
     onSent: () -> Unit,
     // Payment links: "Send with a link", and claim links pasted into the recipient field.
     paymentLinks: PaymentLinksViewModel? = null,
-    onClaimLink: (String) -> Unit = {}
+    onClaimLink: (String) -> Unit = {},
+    /** Send > Your links: the links this device made and received. */
+    onOpenPaymentLinks: (() -> Unit)? = null
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val flow = remember { SendFlow(walletViewModel.activeWallet.value?.id) }
@@ -368,6 +370,7 @@ fun SendScreen(
                     onContinue = { goForward(SendPhase.AMOUNT) },
                     linkMode = linkMode,
                     showSendWithLink = canSendWithLink,
+                    onYourLinks = onOpenPaymentLinks,
                     onLinkModeChange = { on ->
                         linkMode = on
                         linkDraft = null
@@ -555,6 +558,7 @@ private fun AddressPhase(
     onContinue: () -> Unit,
     linkMode: Boolean = false,
     showSendWithLink: Boolean = false,
+    onYourLinks: (() -> Unit)? = null,
     onLinkModeChange: (Boolean) -> Unit = {}
 ) {
     val isValid = linkMode || address.isNotEmpty() && isValidMoneroAddress(address)
@@ -685,7 +689,7 @@ private fun AddressPhase(
         // Payment links: any wallet that can send (view-only wallets do not see it).
         if (showSendWithLink && !linkMode) {
             Spacer(modifier = Modifier.height(12.dp))
-            SendWithLinkButton(onClick = { onLinkModeChange(true) })
+            SendWithLinkButton(onClick = { onLinkModeChange(true) }, onYourLinks = onYourLinks)
         }
 
         Spacer(modifier = Modifier.weight(1f))
