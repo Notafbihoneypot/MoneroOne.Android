@@ -69,6 +69,7 @@ import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.screens.chart.ChartViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import one.monero.moneroone.paymentlinks.ClaimSheetHost
+import one.monero.moneroone.paymentlinks.ActivityTransactionDestination
 import one.monero.moneroone.paymentlinks.PaymentLinkCodec
 import one.monero.moneroone.paymentlinks.PaymentLinkDetailScreen
 import one.monero.moneroone.paymentlinks.PaymentLinkRoutes
@@ -491,11 +492,26 @@ fun MoneroOneNavHost(
                 )
             ) { backStackEntry ->
                 val txId = backStackEntry.arguments?.getString("txId") ?: ""
-                TransactionDetailScreen(
-                    walletViewModel = walletViewModel,
+                // A payment link transaction opens the link's detail.
+                ActivityTransactionDestination(
                     txId = txId,
-                    onBack = { navController.popBackStack() }
-                )
+                    linkDetail = { kind, id ->
+                        PaymentLinkDetailScreen(
+                            paymentLinks = paymentLinks,
+                            walletViewModel = walletViewModel,
+                            kind = kind,
+                            id = id,
+                            onBack = { navController.popBackStack() },
+                            onOpenTransaction = { navController.navigate(PaymentLinkRoutes.transaction(it)) }
+                        )
+                    }
+                ) {
+                    TransactionDetailScreen(
+                        walletViewModel = walletViewModel,
+                        txId = txId,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
 
             composable(
@@ -630,6 +646,18 @@ fun MoneroOneNavHost(
                     walletViewModel = walletViewModel,
                     kind = backStackEntry.arguments?.getString("kind").orEmpty(),
                     id = backStackEntry.arguments?.getString("id").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onOpenTransaction = { navController.navigate(PaymentLinkRoutes.transaction(it)) }
+                )
+            }
+
+            composable(
+                route = PaymentLinkRoutes.TRANSACTION,
+                arguments = listOf(navArgument("txId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                TransactionDetailScreen(
+                    walletViewModel = walletViewModel,
+                    txId = backStackEntry.arguments?.getString("txId").orEmpty(),
                     onBack = { navController.popBackStack() }
                 )
             }

@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ChevronRight
@@ -105,6 +106,11 @@ import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.R
+import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
+import one.monero.moneroone.paymentlinks.PaymentLinkIndex
+import one.monero.moneroone.paymentlinks.PendingPaymentLinkRow
+import one.monero.moneroone.paymentlinks.linkRowText
+import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import one.monero.moneroone.core.wallet.ReceiveAddressLogic
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.core.wallet.addressesOf
@@ -168,6 +174,7 @@ fun WalletScreen(
     val wallets by walletViewModel.wallets.collectAsState()
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     val walletSessionId by walletViewModel.walletSessionId.collectAsState()
+    val linkIndex = rememberPaymentLinkIndex()
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
     val isOnline by NetworkMonitor.isConnected.collectAsState()
@@ -457,7 +464,9 @@ fun WalletScreen(
             }
         }
 
-        if (recentTransactions.isEmpty()) {
+        // Received payment links not claimed yet sit above the transactions, now only (History shows the past).
+        val pendingLinks = if (asOf == null) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
+        if (recentTransactions.isEmpty() && pendingLinks.isEmpty()) {
             item(key = "recentEmpty") {
                 if (asOf != null) {
                     PastEmptyTransactionsCard()
@@ -469,12 +478,16 @@ fun WalletScreen(
                 }
             }
         } else {
+            items(items = pendingLinks, key = { "paymentLink-${it.id}" }) { link ->
+                PendingPaymentLinkRow(link, activeWallet?.name, walletViewModel::formatXmr)
+            }
             items(
                 items = recentTransactions,
                 key = { it.hash }
             ) { transaction ->
                 TransactionCard(
                     transaction = transaction,
+                    linkIndex = linkIndex,
                     onClick = { onTransactionClick(transaction) },
                     formatXmr = walletViewModel::formatXmr,
                     fiatMode = fiatMode,
@@ -1042,6 +1055,8 @@ private fun EmptyTransactionsCard(isSyncing: Boolean) {
 @Composable
 private fun TransactionCard(
     transaction: TransactionInfo,
+    /** Payment link transactions read "Payment link" and so on. */
+    linkIndex: PaymentLinkIndex,
     onClick: () -> Unit,
     formatXmr: (Long) -> String,
     fiatMode: Boolean,
@@ -1054,7 +1069,12 @@ private fun TransactionCard(
     val amountPrefix = if (isIncoming) "+" else "-"
 
     val date = formatRelativeTime(transaction.timestamp * 1000)
-    val label = TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
+    val link = linkRowText(
+        transaction, linkIndex, date,
+        TransactionHistoryLogic.rowAmount(transaction, fiatMode, fiatValue, receivedOn),
+        TransactionHistoryLogic.rowStatus(transaction)
+    )
+    val label = link?.spoken ?: TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
 
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -1075,12 +1095,16 @@ private fun TransactionCard(
                     .background(iconColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(20.dp).rotate(45f)
-                )
+                if (link != null) {
+                    Icon(Icons.Default.Link, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+                } else {
+                    Icon(
+                        imageVector = if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                        contentDescription = null,
+                        tint = iconColor,
+                        modifier = Modifier.size(20.dp).rotate(45f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -1088,15 +1112,18 @@ private fun TransactionCard(
             // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isIncoming) tr("Received") else tr("Sent"),
+                    text = link?.title ?: if (isIncoming) tr("Received") else tr("Sent"),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(2.dp))
+                // A link's status stays on one line beside the amount.
                 Text(
-                    text = date,
+                    text = link?.subtitle ?: date,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (link?.subtitleIsStatus == true) 1 else Int.MAX_VALUE,
+                    softWrap = link?.subtitleIsStatus != true
                 )
             }
 

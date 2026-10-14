@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -106,6 +107,7 @@ fun ClaimSheetHost(paymentLinks: PaymentLinksViewModel, walletViewModel: WalletV
             paymentLinks = paymentLinks,
             walletViewModel = walletViewModel,
             onDismiss = {
+                store.clearClaimWhenReady(id)
                 store.setPendingOpen(null)
                 paymentLinks.closeSession()
                 paymentLinks.clearSweep()
@@ -174,6 +176,15 @@ private fun ClaimSheet(
                 ClaimView.NoMoney -> ClaimUi.NoMoney
             }
         } ?: ClaimUi.Checking(amount)
+    }
+
+    // From a ready row at the top of Activity: claim once this sheet's own check finds the link ready.
+    val claimWhenReady by paymentLinks.store.claimWhenReady.collectAsState()
+    LaunchedEffect(ui, claimWhenReady, receiveAddress) {
+        if (ui is ClaimUi.Ready && !own && claimWhenReady == id && receiveAddress != null) {
+            paymentLinks.store.clearClaimWhenReady(id)
+            paymentLinks.sweepOpenEnvelope(SweepKind.CLAIM, receiveAddress, walletName)
+        }
     }
 
     val sheetState = rememberModalBottomSheetState(

@@ -52,11 +52,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
+import io.horizontalsystems.monerokit.model.TransactionInfo
 import kotlinx.coroutines.launch
+import one.monero.moneroone.core.wallet.WalletManager
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.SendState
@@ -80,6 +83,10 @@ object PaymentLinkRoutes {
     const val SENT = "sent"
     const val RECEIVED = "received"
     fun detail(kind: String, id: String) = "payment_link/$kind/$id"
+
+    /** A link's transaction, opened from the link's detail: the transaction itself, never the link again. */
+    const val TRANSACTION = "payment_link_tx/{txId}"
+    fun transaction(txId: String) = "payment_link_tx/$txId"
 }
 
 private fun nowSeconds() = System.currentTimeMillis() / 1000
@@ -93,13 +100,56 @@ internal fun statusLabel(status: LinkStatus): String = when (status) {
     LinkStatus.EXPIRED -> tr("Expired")
 }
 
-private fun receivedLabel(link: ReceivedLink): String = when {
-    link.state == ReceivedState.CLAIMED -> tr("Claimed")
-    else -> when (link.lastCheck?.let { LinkStatusRules.claimView(it) }) {
-        is ClaimView.Ready -> tr("Ready")
-        ClaimView.AlreadyClaimed -> tr("Claimed")
-        ClaimView.NoMoney -> tr("Not funded")
-        else -> tr("Pending")
+/** A link's status chip: its label and hue (iOS PaymentLinkDisplay). */
+internal class LinkDisplay(val label: String, val hue: LinkHue)
+
+/** Chip hues; yellow keeps the label color, as the brand rule asks. */
+internal enum class LinkHue { RED, BRAND, GREEN, GRAY, YELLOW }
+
+/**
+ * A sent link's chip. A pending link counts the confirmations of its funding
+ * transaction in the open wallet, and a link not checked yet whose funding
+ * is there reads Pending.
+ */
+internal fun sentDisplay(link: SentLink, transactions: List<TransactionInfo>, nowSeconds: Long = nowSeconds()): LinkDisplay {
+    val funding = link.fundingTxid?.let { txid ->
+        transactions.firstOrNull { it.hash == txid && it.direction == TransactionInfo.Direction.Direction_Out }
+    }
+    var status = LinkStatusRules.status(link, nowSeconds)
+    if (status == LinkStatus.NOT_FUNDED && link.lastCheck == null && funding != null) status = LinkStatus.PENDING
+    val confirmations = funding?.confirmations ?: link.lastCheck?.takeIf { it.fundingMined }?.confirmations
+    return when (status) {
+        LinkStatus.NOT_FUNDED -> LinkDisplay(statusLabel(status), LinkHue.RED)
+        LinkStatus.PENDING -> LinkDisplay(
+            confirmations?.let { tr("Pending %s/%s", it.coerceAtMost(LinkStatusRules.CONFIRMATIONS), LinkStatusRules.CONFIRMATIONS) }
+                ?: statusLabel(status),
+            LinkHue.BRAND
+        )
+        LinkStatus.READY -> LinkDisplay(statusLabel(status), LinkHue.GREEN)
+        LinkStatus.CLAIMED -> LinkDisplay(statusLabel(status), LinkHue.GREEN)
+        LinkStatus.RECLAIMED -> LinkDisplay(statusLabel(status), LinkHue.GRAY)
+        LinkStatus.EXPIRED -> LinkDisplay(statusLabel(status), LinkHue.YELLOW)
+    }
+}
+
+/** A received link's chip: Not checked, Pending n/10, Ready to claim, Claimed (here) or Already claimed. */
+internal fun receivedDisplay(link: ReceivedLink, daemonHeight: Long?, nowSeconds: Long = nowSeconds()): LinkDisplay {
+    if (link.state == ReceivedState.CLAIMED) return LinkDisplay(tr("Claimed"), LinkHue.GREEN)
+    val check = link.lastCheck ?: return LinkDisplay(tr("Not checked"), LinkHue.GRAY)
+    val view = LinkStatusRules.claimView(check)
+    val live = view is ClaimView.Waiting || view is ClaimView.Ready
+    if (live && link.expiry > 0 && nowSeconds > link.expiry) return LinkDisplay(tr("Expired"), LinkHue.YELLOW)
+    return when (view) {
+        ClaimView.AlreadyClaimed -> LinkDisplay(tr("Already claimed"), LinkHue.GRAY)
+        ClaimView.NoMoney -> LinkDisplay(tr("Not checked"), LinkHue.GRAY)
+        is ClaimView.Ready -> LinkDisplay(tr("Ready to claim"), LinkHue.GREEN)
+        is ClaimView.Waiting -> {
+            val confirmations = PaymentLinkActivityRules.receivedConfirmations(link, daemonHeight) ?: 0L
+            LinkDisplay(
+                tr("Pending %s/%s", confirmations.coerceAtMost(LinkStatusRules.CONFIRMATIONS), LinkStatusRules.CONFIRMATIONS),
+                LinkHue.BRAND
+            )
+        }
     }
 }
 
@@ -119,24 +169,12 @@ private fun StatusChip(label: String, hue: Color, labelInHue: Boolean = true) {
 }
 
 @Composable
-private fun SentStatusChip(status: LinkStatus) = when (status) {
-    LinkStatus.NOT_FUNDED -> StatusChip(statusLabel(status), ErrorRed)
-    LinkStatus.PENDING -> StatusChip(statusLabel(status), MoneroOrange)
-    LinkStatus.READY -> StatusChip(statusLabel(status), SuccessGreen)
-    LinkStatus.CLAIMED, LinkStatus.RECLAIMED -> StatusChip(statusLabel(status), MoneroTheme.colors.gray)
-    LinkStatus.EXPIRED -> StatusChip(statusLabel(status), WarningYellow, labelInHue = false)
-}
-
-@Composable
-private fun ReceivedStatusChip(link: ReceivedLink) {
-    val label = receivedLabel(link)
-    val hue = when (label) {
-        tr("Ready") -> SuccessGreen
-        tr("Claimed") -> MoneroTheme.colors.gray
-        tr("Not funded") -> MoneroTheme.colors.gray
-        else -> MoneroOrange
-    }
-    StatusChip(label, hue)
+internal fun LinkStatusChip(display: LinkDisplay) = when (display.hue) {
+    LinkHue.RED -> StatusChip(display.label, ErrorRed)
+    LinkHue.BRAND -> StatusChip(display.label, MoneroOrange)
+    LinkHue.GREEN -> StatusChip(display.label, SuccessGreen)
+    LinkHue.GRAY -> StatusChip(display.label, MoneroTheme.colors.gray)
+    LinkHue.YELLOW -> StatusChip(display.label, WarningYellow, labelInHue = false)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -218,6 +256,8 @@ fun PaymentLinksScreen(
 ) {
     val sent by paymentLinks.sent.collectAsState()
     val received by paymentLinks.received.collectAsState()
+    val transactions by WalletManager.transactionsFlow.collectAsState()
+    val daemonHeight = rememberDaemonHeight()
 
     // Checks each open link's envelope, one at a time, while the list is on screen. In the background
     // it stops, so no envelope holds the kit and the main wallet syncs.
@@ -252,14 +292,14 @@ fun PaymentLinksScreen(
                 Column {
                     val rows = sent.sortedByDescending { it.createdAtMillis }
                     rows.forEachIndexed { index, link ->
-                        val status = LinkStatusRules.status(link, nowSeconds())
+                        val display = sentDisplay(link, transactions)
                         val amount = "${formatXmr(link.amount)} XMR"
                         val date = formatRecordDate(link.createdAtMillis)
                         LinkRow(
                             amount = amount,
                             date = date,
-                            chip = { SentStatusChip(status) },
-                            spoken = tr("Sent %s, %s, %s", amount, date, statusLabel(status)),
+                            chip = { LinkStatusChip(display) },
+                            spoken = tr("Sent %s, %s, %s", amount, date, display.label),
                             onClick = { onOpen(PaymentLinkRoutes.SENT, link.id) },
                             divider = index < rows.lastIndex
                         )
@@ -276,11 +316,12 @@ fun PaymentLinksScreen(
                         // A received v2 link carries no amount: "Checking…" until a check sees the balance.
                         val amount = (link.claimedAmount ?: link.knownAmount)?.let { "${formatXmr(it)} XMR" } ?: tr("Checking…")
                         val date = formatRecordDate(link.receivedAtMillis)
+                        val display = receivedDisplay(link, daemonHeight)
                         LinkRow(
                             amount = amount,
                             date = date,
-                            chip = { ReceivedStatusChip(link) },
-                            spoken = tr("Received %s, %s, %s", amount, date, receivedLabel(link)),
+                            chip = { LinkStatusChip(display) },
+                            spoken = tr("Received %s, %s, %s", amount, date, display.label),
                             onClick = { onOpen(PaymentLinkRoutes.RECEIVED, link.id) },
                             divider = index < rows.lastIndex
                         )
@@ -301,6 +342,49 @@ private fun DetailRow(label: String, value: String, mono: Boolean = false) {
         Spacer(Modifier.weight(1f))
         Text(value, style = if (mono) MonoCaption else MaterialTheme.typography.bodyMedium)
     }
+}
+
+/** A transaction row: it opens the transaction when the open wallet has it. */
+@Composable
+private fun TransactionRow(
+    label: String,
+    txid: String,
+    incoming: Boolean,
+    transactions: List<TransactionInfo>,
+    onOpenTransaction: (String) -> Unit
+) {
+    val direction = if (incoming) TransactionInfo.Direction.Direction_In else TransactionInfo.Direction.Direction_Out
+    val known = transactions.any { it.hash == txid && it.direction == direction }
+    if (!known) {
+        DetailRow(label, truncateMiddle(txid), mono = true)
+        return
+    }
+    val open = { onOpenTransaction(txid) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = open)
+            .semantics(mergeDescendants = true) { onClick(label = tr("Shows the transaction")) { open(); true } }
+            .padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.weight(1f))
+        Text(truncateMiddle(txid), style = MonoCaption)
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MoneroTheme.colors.labelTertiary,
+            modifier = Modifier.padding(start = 4.dp).size(20.dp)
+        )
+    }
+}
+
+/** What Remove warns about (iOS removeMessage). */
+private fun removeMessage(settled: Boolean, received: Boolean): String = when {
+    settled -> tr("The link holds no money. This removes it from this list.")
+    received -> tr("If the link holds money, open the link again to claim it.")
+    else -> tr("If the link holds money, this phone can no longer take it back. Anyone who has the link can still claim it.")
 }
 
 @Composable
@@ -324,21 +408,32 @@ private fun ConfirmRemove(message: String, onConfirm: () -> Unit, onCancel: () -
     )
 }
 
-/** One link: its status and the actions the spec's status table gives it. */
+/**
+ * One link: its status, amount, transactions and the actions the spec's
+ * status table gives it. Opened from Your links and from the link's
+ * transactions in Activity; its transaction rows open the transaction.
+ */
 @Composable
 fun PaymentLinkDetailScreen(
     paymentLinks: PaymentLinksViewModel,
     walletViewModel: WalletViewModel,
     kind: String,
     id: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenTransaction: (String) -> Unit = {}
 ) {
-    if (kind == PaymentLinkRoutes.SENT) SentLinkDetail(paymentLinks, walletViewModel, id, onBack)
-    else ReceivedLinkDetail(paymentLinks, walletViewModel, id, onBack)
+    if (kind == PaymentLinkRoutes.SENT) SentLinkDetail(paymentLinks, walletViewModel, id, onBack, onOpenTransaction)
+    else ReceivedLinkDetail(paymentLinks, walletViewModel, id, onBack, onOpenTransaction)
 }
 
 @Composable
-private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel: WalletViewModel, id: String, onBack: () -> Unit) {
+private fun SentLinkDetail(
+    paymentLinks: PaymentLinksViewModel,
+    walletViewModel: WalletViewModel,
+    id: String,
+    onBack: () -> Unit,
+    onOpenTransaction: (String) -> Unit
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sentList by paymentLinks.sent.collectAsState()
@@ -406,7 +501,7 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(amount, style = MaterialTheme.typography.headlineMedium)
-                    SentStatusChip(status)
+                    LinkStatusChip(sentDisplay(link, walletState.transactions))
                 }
                 DetailDivider()
                 DetailRow(tr("Created"), formatRecordDate(link.createdAtMillis))
@@ -418,11 +513,11 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
                 }
                 link.fundingTxid?.let {
                     DetailDivider()
-                    DetailRow(tr("Funding"), truncateMiddle(it), mono = true)
+                    TransactionRow(tr("Funding transaction"), it, incoming = false, walletState.transactions, onOpenTransaction)
                 }
                 link.reclaimTxid?.takeIf { it.isNotEmpty() }?.let {
                     DetailDivider()
-                    DetailRow(tr("Reclaim"), truncateMiddle(it), mono = true)
+                    TransactionRow(tr("Reclaim transaction"), it, incoming = true, walletState.transactions, onOpenTransaction)
                 }
             }
         }
@@ -570,7 +665,8 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
         }
         if (confirmRemove) {
             ConfirmRemove(
-                message = tr("The link stops showing here."),
+                // Remove shows only for a link that holds nothing: settled, or checked and never funded.
+                message = removeMessage(settled = LinkStatusRules.isSettled(link) || status == LinkStatus.NOT_FUNDED, received = false),
                 onConfirm = {
                     confirmRemove = false
                     paymentLinks.removeSent(id)
@@ -604,58 +700,91 @@ private fun SentLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel:
     }
 }
 
+/**
+ * A received link (iOS receivedContent): the amount when known, the status,
+ * the time left, the claim transaction, Claim and Remove.
+ */
 @Composable
-private fun ReceivedLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewModel: WalletViewModel, id: String, onBack: () -> Unit) {
+private fun ReceivedLinkDetail(
+    paymentLinks: PaymentLinksViewModel,
+    walletViewModel: WalletViewModel,
+    id: String,
+    onBack: () -> Unit,
+    onOpenTransaction: (String) -> Unit
+) {
     val receivedList by paymentLinks.received.collectAsState()
+    val walletState by walletViewModel.walletState.collectAsState()
+    val daemonHeight = rememberDaemonHeight()
     val link = receivedList.firstOrNull { it.id == id }
     var confirmRemove by remember { mutableStateOf(false) }
 
     LinksScaffold(tr("Payment Link"), onBack) {
         if (link == null) return@LinksScaffold
-        val amount = (link.claimedAmount ?: link.knownAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" } ?: tr("Checking…")
+        val display = receivedDisplay(link, daemonHeight)
+        val canClaim = !link.isSettled && link.link != null
+        val waiting = link.lastCheck?.let { LinkStatusRules.claimView(it) } is ClaimView.Waiting
+        val confirmations = PaymentLinkActivityRules.receivedConfirmations(link, daemonHeight) ?: 0L
+        val amount = (link.claimedAmount ?: link.knownAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" } ?: tr("Payment link")
         Spacer(Modifier.height(16.dp))
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
             Column {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp).semantics(mergeDescendants = true) {},
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(amount, style = MaterialTheme.typography.headlineMedium)
-                    ReceivedStatusChip(link)
+                    LinkStatusChip(display)
+                    if (canClaim && waiting && confirmations < LinkStatusRules.CONFIRMATIONS) {
+                        Text(
+                            tr("Ready in about %s min", PaymentLinkActivityRules.minutesUntilReady(confirmations).coerceAtLeast(1)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 DetailDivider()
                 DetailRow(tr("Received"), formatRecordDate(link.receivedAtMillis))
-                if (link.state == ReceivedState.PENDING && link.expiry > 0) {
+                if (canClaim && link.expiry > 0) {
                     DetailDivider()
                     DetailRow(tr("Claim by"), formatLinkDate(link.expiry))
                 }
-                link.claimedTo?.let {
-                    DetailDivider()
-                    DetailRow(tr("Wallet"), it)
-                }
                 link.claimTxid?.let {
                     DetailDivider()
-                    DetailRow(tr("Transaction ID"), truncateMiddle(it), mono = true)
+                    TransactionRow(tr("Claim transaction"), it, incoming = true, walletState.transactions, onOpenTransaction)
+                }
+                link.claimedTo?.takeIf { link.claimTxid != null && it.isNotEmpty() }?.let {
+                    DetailDivider()
+                    DetailRow(tr("Claimed to"), it)
                 }
             }
         }
         Spacer(Modifier.height(28.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (link.state == ReceivedState.PENDING) {
-                PrimaryButton(onClick = { paymentLinks.store.setPendingOpen(id) }, modifier = Modifier.fillMaxWidth()) {
+            if (canClaim) {
+                PrimaryButton(
+                    onClick = { paymentLinks.store.openClaim(id) },
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        contentDescription = tr("Claim the money")
+                        onClick(label = tr("Opens the link and claims it when it is ready")) { paymentLinks.store.openClaim(id); true }
+                    }
+                ) {
                     Text(tr("Claim"))
                 }
             }
             RemoveButton(onClick = { confirmRemove = true })
+            if (canClaim && waiting) {
+                Text(
+                    tr("Claim opens when the link is ready, after 10 confirmations."),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
         }
         if (confirmRemove) {
             ConfirmRemove(
-                message = if (link.state == ReceivedState.PENDING) {
-                    tr("You can't claim it from here after you remove it. Open the link again to claim it.")
-                } else {
-                    tr("The link stops showing here.")
-                },
+                message = removeMessage(settled = link.isSettled, received = true),
                 onConfirm = {
                     confirmRemove = false
                     paymentLinks.removeReceived(id)

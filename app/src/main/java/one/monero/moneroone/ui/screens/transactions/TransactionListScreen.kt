@@ -39,6 +39,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -79,6 +80,11 @@ import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.PendingOrange
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.ErrorRed
+import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
+import one.monero.moneroone.paymentlinks.PaymentLinkIndex
+import one.monero.moneroone.paymentlinks.PendingPaymentLinkRow
+import one.monero.moneroone.paymentlinks.linkRowText
+import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -110,6 +116,7 @@ fun TransactionListScreen(
     var showAddresses by remember { mutableStateOf(false) }
     var selectedFilter by rememberSaveable(activeWallet?.id) { mutableStateOf(TransactionFilter.ALL) }
     var searchQuery by remember { mutableStateOf("") }
+    val linkIndex = rememberPaymentLinkIndex()
 
     // Opened from a past moment in History, the list stops there.
     val transactions = remember(walletState.transactions, asOf) { TransactionHistoryLogic.through(asOf, walletState.transactions) }
@@ -119,6 +126,11 @@ fun TransactionListScreen(
     val filteredTransactions = remember(transactions, selectedFilter, searchQuery, receivingIndex, addressRows) {
         TransactionHistoryLogic.filter(transactions, selectedFilter, receivingIndex, searchQuery, addressRows)
     }
+    // Received payment links not claimed yet, above the rows: now only, with no search, and under the
+    // filters that can hold an incoming payment still on its way.
+    val pendingLinks = if (asOf == null && searchQuery.isBlank() && receivingIndex == null &&
+        selectedFilter in setOf(TransactionFilter.ALL, TransactionFilter.RECEIVED, TransactionFilter.PENDING)
+    ) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
     val dates = rememberChartDateFormats()
     val totals = remember(filteredTransactions) { TransactionHistoryLogic.totals(filteredTransactions) }
     val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice) {
@@ -233,7 +245,7 @@ fun TransactionListScreen(
             }
             Spacer(Modifier.height(16.dp))
 
-            if (filteredTransactions.isEmpty()) {
+            if (filteredTransactions.isEmpty() && pendingLinks.isEmpty()) {
                 // Empty state
                 Box(
                     modifier = Modifier
@@ -264,12 +276,16 @@ fun TransactionListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f)
                 ) {
+                    items(items = pendingLinks, key = { "paymentLink-${it.id}" }) { link ->
+                        PendingPaymentLinkRow(link, activeWallet?.name, walletViewModel::formatXmr)
+                    }
                     items(
                         items = filteredTransactions,
                         key = { it.hash }
                     ) { transaction ->
                         TransactionListItem(
                             transaction = transaction,
+                            linkIndex = linkIndex,
                             formatXmr = walletViewModel::formatXmr,
                             fiatMode = fiatMode,
                             fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, currency),
@@ -288,6 +304,8 @@ fun TransactionListScreen(
 @Composable
 private fun TransactionListItem(
     transaction: TransactionInfo,
+    /** Payment link transactions read "Payment link" and so on. */
+    linkIndex: PaymentLinkIndex,
     formatXmr: (Long) -> String,
     fiatMode: Boolean,
     fiatValue: String?,
@@ -297,7 +315,12 @@ private fun TransactionListItem(
 ) {
     val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
     val date = formatDate(transaction.timestamp * 1000)
-    val label = TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
+    val link = linkRowText(
+        transaction, linkIndex, date,
+        TransactionHistoryLogic.rowAmount(transaction, fiatMode, fiatValue, receivedOn),
+        TransactionHistoryLogic.rowStatus(transaction)
+    )
+    val label = link?.spoken ?: TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
     val iconColor = if (isIncoming) SuccessGreen else MoneroOrange
     val amountPrefix = if (isIncoming) "+" else "-"
 
@@ -334,12 +357,16 @@ private fun TransactionListItem(
                     .background(iconColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(20.dp).rotate(45f)
-                )
+                if (link != null) {
+                    Icon(Icons.Default.Link, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+                } else {
+                    Icon(
+                        imageVector = if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                        contentDescription = null,
+                        tint = iconColor,
+                        modifier = Modifier.size(20.dp).rotate(45f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -347,15 +374,18 @@ private fun TransactionListItem(
             // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isIncoming) tr("Received") else tr("Sent"),
+                    text = link?.title ?: if (isIncoming) tr("Received") else tr("Sent"),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(2.dp))
+                // A link's status stays on one line beside the amount.
                 Text(
-                    text = date,
+                    text = link?.subtitle ?: date,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (link?.subtitleIsStatus == true) 1 else Int.MAX_VALUE,
+                    softWrap = link?.subtitleIsStatus != true
                 )
             }
 

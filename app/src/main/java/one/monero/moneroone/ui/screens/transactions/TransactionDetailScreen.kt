@@ -30,6 +30,8 @@ import one.monero.moneroone.data.util.MoneyFormat
 import one.monero.moneroone.ui.components.*
 import one.monero.moneroone.ui.theme.*
 import io.horizontalsystems.monerokit.model.TransactionInfo
+import one.monero.moneroone.paymentlinks.PaymentLinkTransactionRow
+import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import java.text.DateFormat
 import java.util.Date
 
@@ -64,8 +66,13 @@ fun TransactionDetailScreen(walletViewModel: WalletViewModel, txId: String, onBa
         Toast.makeText(context, tr("Copied to clipboard"), Toast.LENGTH_SHORT).show()
     }
 
+    // A payment link transaction takes the link's title and shows the link's status.
+    val linkIndex = rememberPaymentLinkIndex()
+    val link = transaction?.let(linkIndex::match)
     TransactionDetailsContent(
         transaction = transaction, fields = fields, onBack = onBack, onCopy = { copy(listOf(it)) },
+        title = link?.title,
+        linkRow = link?.let { { PaymentLinkTransactionRow(it) } },
         onCopyAll = { copy(fields) },
         onExplorer = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://xmrchain.net/tx/$txId"))) },
         keyLoading = keyLoading, keyUnavailable = keyUnavailable,
@@ -89,13 +96,14 @@ fun TransactionDetailScreen(walletViewModel: WalletViewModel, txId: String, onBa
 internal fun TransactionDetailsContent(
     transaction: TransactionInfo?, fields: List<TransactionDetailField>, onBack: () -> Unit,
     onCopy: (TransactionDetailField) -> Unit, onCopyAll: () -> Unit, onExplorer: () -> Unit,
-    keyLoading: Boolean, keyUnavailable: Boolean, onShowKey: () -> Unit
+    keyLoading: Boolean, keyUnavailable: Boolean, onShowKey: () -> Unit,
+    title: String? = null, linkRow: (@Composable () -> Unit)? = null
 ) {
     val incoming = transaction?.direction == TransactionInfo.Direction.Direction_In
     Scaffold(
         containerColor = MoneroTheme.colors.bgGrouped,
         topBar = { TopAppBar(
-            title = { Text(tr(if (incoming) "Received" else "Sent"), style = MaterialTheme.typography.titleMedium) },
+            title = { Text(title ?: tr(if (incoming) "Received" else "Sent"), style = MaterialTheme.typography.titleMedium) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MoneroTheme.colors.bgGrouped)
         ) }
@@ -122,6 +130,10 @@ internal fun TransactionDetailsContent(
                             }
                         }
                         if (index != fields.lastIndex) HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        if (field.label == tr("Status") && linkRow != null) {
+                            linkRow()
+                            HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        }
                     }
                 }
             }
