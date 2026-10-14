@@ -273,7 +273,8 @@ fun PaymentLinksScreen(
                 Column {
                     val rows = received.sortedByDescending { it.receivedAtMillis }
                     rows.forEachIndexed { index, link ->
-                        val amount = "${formatXmr(link.claimedAmount ?: link.amount)} XMR"
+                        // A received v2 link carries no amount: "Checking…" until a check sees the balance.
+                        val amount = (link.claimedAmount ?: link.knownAmount)?.let { "${formatXmr(it)} XMR" } ?: tr("Checking…")
                         val date = formatRecordDate(link.receivedAtMillis)
                         LinkRow(
                             amount = amount,
@@ -611,7 +612,7 @@ private fun ReceivedLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewMo
 
     LinksScaffold(tr("Payment Link"), onBack) {
         if (link == null) return@LinksScaffold
-        val amount = "${walletViewModel.formatXmr(link.claimedAmount ?: link.amount)} XMR"
+        val amount = (link.claimedAmount ?: link.knownAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" } ?: tr("Checking…")
         Spacer(Modifier.height(16.dp))
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
             Column {
@@ -625,7 +626,7 @@ private fun ReceivedLinkDetail(paymentLinks: PaymentLinksViewModel, walletViewMo
                 }
                 DetailDivider()
                 DetailRow(tr("Received"), formatRecordDate(link.receivedAtMillis))
-                if (link.state == ReceivedState.PENDING) {
+                if (link.state == ReceivedState.PENDING && link.expiry > 0) {
                     DetailDivider()
                     DetailRow(tr("Claim by"), formatLinkDate(link.expiry))
                 }

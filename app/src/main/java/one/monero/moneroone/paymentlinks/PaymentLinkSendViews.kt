@@ -185,7 +185,7 @@ fun PaymentLinkReview(
     sendInProgress: Boolean,
     onConfirm: (draft: EnvelopeDraft, feeReserve: Long) -> Unit
 ) {
-    var draft by remember { mutableStateOf(existingDraft?.takeIf { it.link.amount == amount }) }
+    var draft by remember { mutableStateOf(existingDraft?.takeIf { it.amount == amount }) }
     var reserve by remember { mutableLongStateOf(0L) }
     var networkFee by remember { mutableLongStateOf(0L) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -281,7 +281,7 @@ fun PaymentLinkReview(
                     Spacer(modifier = Modifier.height(12.dp))
                     ReviewRow(tr("Expires")) {
                         draft?.let {
-                            Text(formatLinkDate(it.link.expiry), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(formatLinkDate(it.expiry), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         }
                     }
 

@@ -34,17 +34,25 @@ data class EnvelopeSnapshot(
      */
     val spendSeen: Boolean = false,
     /** The envelope's outgoing transactions: a sweep this app started and lost track of is found by its hash. */
-    val spendTxids: List<String> = emptyList()
+    val spendTxids: List<String> = emptyList(),
+    /**
+     * Block height of the oldest mined incoming transaction; null while every
+     * funding waits in the pool. With the open wallet's daemon height it gives a
+     * live confirmation count without opening the envelope again.
+     */
+    val fundingHeight: Long? = null
 )
 
 /**
- * A link this device created. [words] is the envelope secret: the record lives
- * only in the app's encrypted store (SecurePrefs) and [toString] never prints it.
+ * A link this device created. [secret] (v2) or [words] (v1) is the envelope
+ * secret: the record lives only in the app's encrypted store (SecurePrefs) and
+ * [toString] never prints it.
  */
 @Serializable
 data class SentLink(
     val id: String,
-    val words: List<String>,
+    /** v1 links: the 25 words. Empty for v2 links, whose words derive from [secret]. */
+    val words: List<String> = emptyList(),
     val height: Long,
     val amount: Long,
     val expiry: Long,
@@ -62,9 +70,12 @@ data class SentLink(
     /** A reclaim began (saved before its broadcast), so one the app lost mid-flight is still found. */
     val reclaimStartedAt: Long? = null,
     /** The kit wallet that reclaim swept into (WalletManager.currentWalletId). */
-    val reclaimWallet: String? = null
+    val reclaimWallet: String? = null,
+    /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links. */
+    val secret: String? = null
 ) {
-    val link: PaymentLink get() = PaymentLink(words, height, amount, expiry, id)
+    /** The link to share and to open the envelope with. A v2 link carries no amount and no expiry: [amount] and [expiry] stay here. */
+    val link: PaymentLink get() = secret?.let { PaymentLink.v2(it, height) } ?: PaymentLink(words, height, amount, expiry, id)
 
     override fun toString(): String = "SentLink(id=$id, state=$state, a=$amount)"
 }
@@ -80,13 +91,15 @@ enum class ReceivedState {
 }
 
 /**
- * A link opened on this device. The words stay after this device claims it,
- * until the claim is in a block: a claim that never confirms leaves the money
- * in the envelope, and only the words reach it.
+ * A link opened on this device. The secret ([words] of a v1 link, [secret] of
+ * a v2 link) stays after this device claims it, until the claim is in a block:
+ * a claim that never confirms leaves the money in the envelope, and only the
+ * secret reaches it.
  */
 @Serializable
 data class ReceivedLink(
     val id: String,
+    /** v1 links: the 25 words. Null for v2 links, and once a claim from here is mined. */
     val words: List<String>?,
     val height: Long,
     val amount: Long,
@@ -101,10 +114,28 @@ data class ReceivedLink(
     val claimStartedAt: Long? = null,
     /** The wallet that claim went to: its name, and its kit wallet (WalletManager.currentWalletId). */
     val claimStartedTo: String? = null,
-    val claimWallet: String? = null
+    val claimWallet: String? = null,
+    /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links, and once a claim from here is mined. */
+    val secret: String? = null
 ) {
-    /** The link, while the words are still held. */
-    val link: PaymentLink? get() = words?.let { PaymentLink(it, height, amount, expiry, id) }
+    /** The link, while its secret is still held. */
+    val link: PaymentLink?
+        get() = secret?.let { PaymentLink.v2(it, height) } ?: words?.let { PaymentLink(it, height, amount, expiry, id) }
+
+    /** The link with its secret dropped (a claim from here is mined). */
+    fun forgettingSecret(): ReceivedLink = copy(words = null, secret = null)
+
+    /**
+     * What the link holds as far as this device knows, atomic units: the
+     * amount of a v1 link, else the balance the last check saw. Null when
+     * unknown (a v2 link not checked yet).
+     */
+    val knownAmount: Long?
+        get() = amount.takeIf { it > 0 } ?: lastCheck?.balance?.takeIf { it > 0 }
+
+    /** Nothing more can move here: claimed from this device, or seen empty after its funding. */
+    val isSettled: Boolean
+        get() = state == ReceivedState.CLAIMED || lastCheck?.let { LinkStatusRules.claimView(it) } == ClaimView.AlreadyClaimed
 
     override fun toString(): String = "ReceivedLink(id=$id, state=$state, a=$amount)"
 }
@@ -136,7 +167,7 @@ object LinkStatusRules {
      * open wallet's mined transactions): their words can go.
      */
     fun claimWordsToForget(received: List<ReceivedLink>, minedHashes: Set<String>): List<String> =
-        received.filter { it.state == ReceivedState.CLAIMED && it.words != null && it.claimTxid in minedHashes }.map { it.id }
+        received.filter { it.state == ReceivedState.CLAIMED && it.link != null && it.claimTxid in minedHashes }.map { it.id }
 
     /**
      * Reclaims the app started and lost (killed mid-flight) whose sweep now

@@ -1,10 +1,7 @@
 package one.monero.moneroone.paymentlinks
 
 import android.content.Context
-import io.horizontalsystems.hdwalletkit.Mnemonic
-import io.horizontalsystems.monerokit.Seed
 import io.horizontalsystems.monerokit.model.WalletManager as NativeWalletManager
-import io.horizontalsystems.monerokit.toElectrum
 import one.monero.moneroone.core.node.NodeCredentialStore
 import one.monero.moneroone.core.wallet.DefaultNodes
 import one.monero.moneroone.core.wallet.SecurePrefs
@@ -12,7 +9,6 @@ import one.monero.moneroone.core.wallet.SeedType
 import one.monero.moneroone.core.wallet.SeedValidation
 import timber.log.Timber
 import java.io.File
-import java.security.SecureRandom
 
 /**
  * Envelope wallet files: `no_backup/envelopes/<id>/`, outside the kit's
@@ -61,9 +57,20 @@ internal object EnvelopeNode {
 
 class EnvelopeMismatchException : IllegalStateException("The envelope did not restore to its address")
 
-/** A new envelope before funding: the link and the address the funding goes to. */
-class EnvelopeDraft(val link: PaymentLink, val address: String) {
-    override fun toString(): String = "EnvelopeDraft(n=${link.id})"
+/**
+ * A new envelope before funding: the link, the address the funding goes to,
+ * and what the sender's record keeps (a v2 link carries neither the amount nor
+ * the expiry).
+ */
+class EnvelopeDraft(
+    val link: PaymentLink,
+    val address: String,
+    /** The amount the recipient gets, atomic units. */
+    val amount: Long,
+    /** Unix seconds; kept in the sender's record only. */
+    val expiry: Long
+) {
+    override fun toString(): String = "EnvelopeDraft(n=${link.id}, a=$amount)"
 }
 
 object EnvelopeFactory {
@@ -74,34 +81,25 @@ object EnvelopeFactory {
     /** The restore height sits this many blocks under the sender's daemon height. */
     const val HEIGHT_MARGIN = 10L
 
-    private val random = SecureRandom()
-
-    fun newId(): String {
-        val bytes = ByteArray(8).also { random.nextBytes(it) }
-        return bytes.joinToString("") { "%02x".format(it.toInt() and 0xff) }
-    }
-
     fun restoreHeight(daemonHeight: Long): Long = (daemonHeight - HEIGHT_MARGIN).coerceAtLeast(0)
 
     /**
-     * Makes a random envelope: a BIP39 phrase as the new-wallet path makes one,
-     * then the kit's legacy 25 words for it. The words are restored through
-     * wallet2's legacy restore, and the address it gives must equal the address
-     * derived from the words, or nothing may be funded. Native code: call off Main.
+     * Makes a random envelope for a v2 link (new links are always v2): a random
+     * 16-byte secret, and the legacy 25 words of its spend key ([EnvelopeV2]).
+     * The words are restored through wallet2's legacy restore, and the address
+     * it gives must equal the address the kit derives from the words, or
+     * nothing may be funded. Native code: call off Main.
      */
     fun create(context: Context, amount: Long, daemonHeight: Long, nowSeconds: Long): EnvelopeDraft {
-        val bip39 = Mnemonic().generate(Mnemonic.EntropyStrength.VeryHigh)
-        val words = Seed.Bip39(bip39, "").toElectrum().mnemonic.map { it.lowercase() }
-        val validated = SeedValidation.validate(words, SeedType.ELECTRUM_25)
-        val id = newId()
         val height = restoreHeight(daemonHeight)
-        val restored = restoredAddress(context, id, words, height)
+        val link = PaymentLink.v2(EnvelopeV2.newSecret(), height) ?: throw EnvelopeMismatchException()
+        val validated = SeedValidation.validate(link.words, SeedType.ELECTRUM_25)
+        val restored = restoredAddress(context, link.id, link.words, height)
         if (restored != validated.primaryAddress) {
-            EnvelopeFiles.delete(context, id)
+            EnvelopeFiles.delete(context, link.id)
             throw EnvelopeMismatchException()
         }
-        val link = PaymentLink(words, height, amount, nowSeconds + EXPIRY_SECONDS, id)
-        return EnvelopeDraft(link, validated.primaryAddress)
+        return EnvelopeDraft(link, validated.primaryAddress, amount, nowSeconds + EXPIRY_SECONDS)
     }
 
     /** The address wallet2's legacy restore gives for [words]. Leaves no files behind. */

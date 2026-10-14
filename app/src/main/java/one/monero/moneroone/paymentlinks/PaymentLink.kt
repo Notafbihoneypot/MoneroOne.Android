@@ -4,36 +4,58 @@ import one.monero.moneroone.core.wallet.SeedValidation
 import java.net.URLDecoder
 
 /**
- * A payment link (envelope): the 25-word legacy seed of a one-time wallet plus
- * display hints. Format v1, the same bytes on iOS and Android
- * (docs/2026-10-03-payment-links-spec.md):
+ * A payment link (envelope): the secret of a one-time wallet plus hints for
+ * the claim. Both apps build and parse the same bytes
+ * (docs/2026-10-03-payment-links-spec.md). New links are v2 ([EnvelopeV2],
+ * about 48 characters):
+ *
+ *     https://monero.one/c#2<secret><height>
+ *
+ * v1 links still parse and claim (links funded before v2 must keep working):
  *
  *     https://monero.one/c#v=1&s=<words>&h=<height>&a=<atomic>&e=<expiry>&n=<id>
  *
  * The secret lives only in the fragment, so it never reaches a server.
- * [toString] never prints the words: the link is cash to whoever holds it.
+ * [toString] never prints the words or the secret: the link is cash to whoever holds it.
  */
-class PaymentLink(
-    /** 25 lowercase English legacy words. */
+class PaymentLink private constructor(
+    /** 25 lowercase English legacy words the envelope restores from. v1: from the link; v2: derived from the secret. */
     val words: List<String>,
     /** Restore height: the sender's daemon height at creation minus 10, floor 0. */
     val height: Long,
-    /** The amount the sender meant, in atomic units. A display hint: the chain is the truth. */
+    /** The amount the sender meant, in atomic units. A display hint: the chain is the truth. 0 in v2. */
     val amount: Long,
-    /** Advisory expiry, unix seconds. */
+    /** Advisory expiry, unix seconds. 0 in v2, which carries none. */
     val expiry: Long,
-    /** Envelope ID, 16 lowercase hex chars. The dedupe key on both sides. */
-    val id: String
+    /** Envelope ID, 16 lowercase hex chars. The dedupe key on both sides. v1: `n`; v2: derived. */
+    val id: String,
+    private val secretBytes: ByteArray?
 ) {
-    /** The link string. Keys in the order v, s, h, a, e, n. */
-    fun url(): String =
-        "$PREFIX#v=1&s=${words.joinToString("-")}&h=$height&a=$amount&e=$expiry&n=$id"
+    /** A v1 link. */
+    constructor(words: List<String>, height: Long, amount: Long, expiry: Long, id: String) :
+        this(words, height, amount, expiry, id, null)
 
-    override fun toString(): String = "PaymentLink(n=$id, h=$height, a=$amount, e=$expiry, s=<redacted>)"
+    /** 1 or 2. */
+    val version: Int get() = if (secretBytes == null) 1 else 2
+
+    /** The v2 secret (16 bytes), null for a v1 link. */
+    val secret: ByteArray? get() = secretBytes?.copyOf()
+
+    /** The v2 secret as lowercase hex, as records keep it; null for a v1 link. */
+    val secretHex: String? get() = secretBytes?.toHex()
+
+    /** The link string. v1 keys in the order v, s, h, a, e, n. */
+    fun url(): String = when (val s = secretBytes) {
+        null -> "$PREFIX#v=1&s=${words.joinToString("-")}&h=$height&a=$amount&e=$expiry&n=$id"
+        else -> "$PREFIX#" + EnvelopeV2.fragment(s, height).orEmpty()
+    }
+
+    override fun toString(): String = "PaymentLink(v=$version, n=$id, h=$height, a=$amount, e=$expiry, s=<redacted>)"
 
     override fun equals(other: Any?): Boolean =
         other is PaymentLink && other.words == words && other.height == height &&
-            other.amount == amount && other.expiry == expiry && other.id == id
+            other.amount == amount && other.expiry == expiry && other.id == id &&
+            (other.secretBytes?.contentEquals(secretBytes) ?: (secretBytes == null))
 
     override fun hashCode(): Int = id.hashCode()
 
@@ -43,6 +65,16 @@ class PaymentLink(
         private val ID = Regex("^[0-9a-f]{16}$")
 
         fun isValidId(id: String): Boolean = ID.matches(id)
+
+        /** A v2 link. Null when [secret] is not 16 bytes or [height] is negative. */
+        fun v2(secret: ByteArray, height: Long): PaymentLink? {
+            if (secret.size != EnvelopeV2.SECRET_BYTES || height < 0) return null
+            val words = EnvelopeV2.words(secret) ?: return null
+            return PaymentLink(words, height, 0, 0, EnvelopeV2.id(secret), secret.copyOf())
+        }
+
+        /** A v2 link from a record's hex secret. */
+        fun v2(secretHex: String, height: Long): PaymentLink? = hexToBytes(secretHex)?.let { v2(it, height) }
     }
 }
 
@@ -78,7 +110,10 @@ object PaymentLinkCodec {
         val rest = trimmed.substring(end)
         val hash = rest.indexOf('#')
         if (hash < 0) return PaymentLinkParse.Incomplete
-        val fields = readFields(rest.substring(hash + 1))
+        val fragment = rest.substring(hash + 1)
+        // A fragment with `=` is the v1 key-value format; one without is the short format.
+        if ('=' !in fragment) return parseShort(fragment)
+        val fields = readFields(fragment)
 
         // Only a whole version number above 1 asks for an update: "v=" alone is a link cut short.
         val version = fields["v"]?.let(::readDecimal) ?: return PaymentLinkParse.Incomplete
@@ -96,6 +131,21 @@ object PaymentLinkCodec {
         if (!PaymentLink.isValidId(id)) return PaymentLinkParse.Incomplete
 
         return PaymentLinkParse.Valid(PaymentLink(words, height, amount, expiry, id))
+    }
+
+    /**
+     * The short format, `2<secret><height>`. Its first character is the version:
+     * another ASCII letter or digit is a newer link; anything else, or nothing,
+     * is a link cut short or mangled.
+     */
+    private fun parseShort(fragment: String): PaymentLinkParse {
+        val first = fragment.firstOrNull() ?: return PaymentLinkParse.Incomplete
+        if (first != EnvelopeV2.VERSION) {
+            return if (first in 'a'..'z' || first in 'A'..'Z' || first in '0'..'9') PaymentLinkParse.NeedsUpdate
+            else PaymentLinkParse.Incomplete
+        }
+        val (secret, height) = EnvelopeV2.parseBody(fragment.substring(1)) ?: return PaymentLinkParse.Incomplete
+        return PaymentLink.v2(secret, height)?.let { PaymentLinkParse.Valid(it) } ?: PaymentLinkParse.Incomplete
     }
 
     /** Index just past `monero.one/c` when [text] starts with an accepted claim-link prefix. */

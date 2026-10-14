@@ -14,7 +14,7 @@ import timber.log.Timber
 
 /**
  * Sent and received links, in the app's encrypted store (SecurePrefs) only:
- * the words in them are cash. Writes are synchronous (commit) so a record is
+ * the secrets and words in them are cash. Writes are synchronous (commit) so a record is
  * on disk before the funding broadcast starts.
  */
 class PaymentLinkStore internal constructor(private val prefs: SharedPreferences) {
@@ -79,6 +79,25 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         _pendingOpen.value = id
     }
 
+    private val _claimWhenReady = MutableStateFlow<String?>(null)
+
+    /**
+     * A received link to claim as soon as its claim sheet finds it ready: the
+     * user tapped its Claim row in Activity. In memory only; once only.
+     */
+    val claimWhenReady: StateFlow<String?> = _claimWhenReady.asStateFlow()
+
+    /** Opens the claim sheet of a saved received link; [autoClaim] claims it once its check finds it ready. */
+    fun openClaim(id: String, autoClaim: Boolean = false) {
+        _claimWhenReady.value = if (autoClaim) id else null
+        setPendingOpen(id)
+    }
+
+    /** The claim sheet took the auto-claim of [id] (or closed): it does not run again. */
+    fun clearClaimWhenReady(id: String) {
+        if (_claimWhenReady.value == id) _claimWhenReady.value = null
+    }
+
     private val _intakeProblem = MutableStateFlow<PaymentLinkParse?>(null)
 
     /** A link that arrived and cannot open (incomplete, or a newer version). Not secret: no words. */
@@ -101,12 +120,16 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
                 // A link this phone sent opens from its sent record; it is not a received link.
                 val known = received(link.id)
                 if (sent(link.id) == null && known == null) {
+                    // A v2 link keeps only its secret (the words derive from it); it carries no amount or expiry.
                     putReceived(
-                        ReceivedLink(link.id, link.words, link.height, link.amount, link.expiry, System.currentTimeMillis())
+                        ReceivedLink(
+                            link.id, link.words.takeIf { link.version == 1 }, link.height, link.amount, link.expiry,
+                            System.currentTimeMillis(), secret = link.secretHex
+                        )
                     )
-                } else if (known != null && known.words == null) {
-                    // Opened again after its claim: the words come back until that claim is mined.
-                    updateReceived(link.id) { it.copy(words = link.words) }
+                } else if (known != null && known.link == null) {
+                    // Opened again after its claim: the secret comes back until that claim is mined.
+                    updateReceived(link.id) { it.copy(words = link.words.takeIf { link.version == 1 }, secret = link.secretHex) }
                 }
                 setPendingOpen(link.id)
             }
@@ -119,13 +142,14 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
     /** A sent link that may still hold money: Remove All warns that it will be lost. */
     fun hasUnsettledSentLinks(): Boolean = _sent.value.any { !LinkStatusRules.isSettled(it) }
 
-    /** Remove All (the full wipe): every record and its words leave the encrypted store. */
+    /** Remove All (the full wipe): every record and its secret leave the encrypted store. */
     @Synchronized
     fun removeAll() {
         prefs.edit().remove(KEY_SENT).remove(KEY_RECEIVED).remove(KEY_PENDING_OPEN).commit()
         _sent.value = emptyList()
         _received.value = emptyList()
         _pendingOpen.value = null
+        _claimWhenReady.value = null
         _intakeProblem.value = null
     }
 

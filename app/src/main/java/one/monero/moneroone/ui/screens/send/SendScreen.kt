@@ -454,7 +454,7 @@ fun SendScreen(
                 SendPhase.SUCCESS -> {
                     val draft = linkDraft
                     if (linkMode && draft != null) {
-                        PaymentLinkReadyPhase(draft.link, walletViewModel.formatXmr(draft.link.amount), onDone = onSent)
+                        PaymentLinkReadyPhase(draft.link, walletViewModel.formatXmr(draft.amount), onDone = onSent)
                     } else {
                         SuccessPhase(
                             txHash = (sendState as? SendState.Success)?.txHash ?: "",
@@ -511,7 +511,7 @@ fun SendScreen(
                                         phase = SendPhase.ERROR
                                         sendInProgress = false
                                     }
-                                    else -> walletViewModel.send(flow, draft.address, draft.link.amount + record.feeReserve, memo = "Payment link")
+                                    else -> walletViewModel.send(flow, draft.address, draft.amount + record.feeReserve, memo = "Payment link")
                                 }
                             }
                         }
@@ -522,7 +522,7 @@ fun SendScreen(
                         else -> walletViewModel.send(
                             flow,
                             draft.address,
-                            draft.link.amount + linkFeeReserve,
+                            draft.amount + linkFeeReserve,
                             memo = "Payment link"
                         )
                     }

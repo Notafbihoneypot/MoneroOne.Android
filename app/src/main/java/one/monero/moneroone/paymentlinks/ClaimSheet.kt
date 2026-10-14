@@ -61,7 +61,8 @@ private val CrossFade = tween<Float>(350, easing = CubicBezierEasing(0.42f, 0f, 
 
 /** What the claim sheet shows. */
 private sealed interface ClaimUi {
-    data class Checking(val amount: Long) : ClaimUi
+    /** [amount]: the v1 link's amount or the balance a check saw; null for a v2 link not checked yet. */
+    data class Checking(val amount: Long?) : ClaimUi
     data class Waiting(val confirmations: Long, val minutes: Long, val amount: Long) : ClaimUi
     data class Ready(val unlocked: Long) : ClaimUi
     object Claiming : ClaimUi
@@ -136,8 +137,9 @@ private fun ClaimSheet(
     val claimedBefore = received?.state == ReceivedState.CLAIMED && result == null
     val reclaimedBefore = own && sent?.reclaimTxid != null && result == null
     val hasWords = sent != null || received?.link != null
-    val amount = sent?.amount ?: received?.amount ?: 0L
-    val expiry = sent?.expiry ?: received?.expiry
+    val amount = sent?.amount ?: received?.knownAmount
+    // A received v2 link carries no expiry (0).
+    val expiry = (sent?.expiry ?: received?.expiry)?.takeIf { it > 0 }
     val walletName = activeWallet?.name.orEmpty()
     val receiveAddress = walletState.addressesOf(activeWallet?.id)?.shownAddress(walletState.receiveIndex)?.address
 
@@ -244,7 +246,7 @@ private fun ClaimBody(
         when (state) {
             is ClaimUi.Checking -> {
                 Spinner()
-                Amount(tr("about %s XMR", formatXmr(state.amount)))
+                state.amount?.let { Amount(tr("about %s XMR", formatXmr(it))) }
                 Secondary(tr("Checking the link…"))
             }
             is ClaimUi.Waiting -> {

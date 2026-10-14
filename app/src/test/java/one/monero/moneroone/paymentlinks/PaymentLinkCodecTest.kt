@@ -87,8 +87,10 @@ class PaymentLinkCodecTest {
     fun `another version asks for an update`() {
         assertSame(PaymentLinkParse.NeedsUpdate, PaymentLinkCodec.parse(vectorLink.replace("#v=1", "#v=2")))
         assertSame(PaymentLinkParse.NeedsUpdate, PaymentLinkCodec.parse("https://monero.one/c#v=2"))
-        // A version cut short or garbled is an incomplete link, not a newer one.
-        assertSame(PaymentLinkParse.Incomplete, PaymentLinkCodec.parse("https://monero.one/c#v"))
+        // Without `=` the fragment is the short format, whose first character is the version:
+        // "v" reads as a newer format, as on iOS.
+        assertSame(PaymentLinkParse.NeedsUpdate, PaymentLinkCodec.parse("https://monero.one/c#v"))
+        // A v1 version cut short or garbled is an incomplete link, not a newer one.
         assertSame(PaymentLinkParse.Incomplete, PaymentLinkCodec.parse("https://monero.one/c#v="))
         assertSame(PaymentLinkParse.Incomplete, PaymentLinkCodec.parse("https://monero.one/c#v=x"))
         assertSame(PaymentLinkParse.Incomplete, PaymentLinkCodec.parse("https://monero.one/c#v=0"))

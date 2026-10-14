@@ -82,7 +82,8 @@ class EnvelopeWallet private constructor(
             balance = balance.all,
             unlocked = balance.unlocked,
             spendSeen = spent,
-            spendTxids = outgoingHashes().sorted()
+            spendTxids = outgoingHashes().sorted(),
+            fundingHeight = mined.minOfOrNull { it.blockheight }
         )
     }
 

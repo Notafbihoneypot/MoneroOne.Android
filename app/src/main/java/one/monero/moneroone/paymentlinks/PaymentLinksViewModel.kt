@@ -73,13 +73,13 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch(Dispatchers.IO) {
             if (envelope == null) EnvelopeFiles.sweep(context, store.liveEnvelopeIds())
         }
-        // A claim's words go once the claim is in a block, as the open wallet's history shows it.
+        // A claim's secret goes once the claim is in a block, as the open wallet's history shows it.
         viewModelScope.launch {
             combine(WalletManager.transactionsFlow, store.received) { txs, received ->
                 val mined = txs.filter { !it.isPending && !it.isFailed && it.blockheight > 0 }.mapNotNull { it.hash }.toSet()
                 LinkStatusRules.claimWordsToForget(received, mined)
             }.collect { ids ->
-                ids.forEach { id -> store.updateReceived(id) { it.copy(words = null) } }
+                ids.forEach { id -> store.updateReceived(id) { it.forgettingSecret() } }
             }
         }
         // A sweep the app lost mid-flight (killed, swiped away): its envelope's spend shows up in the open wallet.
@@ -124,7 +124,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         val link = draft.link
         return store.putSent(
             SentLink(
-                id = link.id, words = link.words, height = link.height, amount = link.amount, expiry = link.expiry,
+                id = link.id, words = if (link.version == 1) link.words else emptyList(), secret = link.secretHex,
+                height = link.height, amount = draft.amount, expiry = draft.expiry,
                 createdAtMillis = System.currentTimeMillis(), walletId = walletId, envelopeAddress = draft.address,
                 feeReserve = feeReserve, state = SentState.CREATED
             )
@@ -381,7 +382,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             }
             SweepKind.CLAIM -> {
                 if (outcome is SweepOutcome.Failed) return
-                // The words stay until the claim is mined (see init): a claim that never confirms leaves the money
+                // The secret stays until the claim is mined (see init): a claim that never confirms leaves the money
                 // in the envelope.
                 val claimed: (ReceivedLink) -> ReceivedLink = {
                     if (outcome is SweepOutcome.Sent) {
