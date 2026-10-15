@@ -226,15 +226,20 @@ fun WalletScreen(
     val openLinks = remember(linkIndex, activeWallet?.id, daemonHeight) {
         OpenLinkRules.openLinks(linkIndex.sent, linkIndex.received, activeWallet?.id, System.currentTimeMillis() / 1000)
     }
-    // A look at the open sent links when the tab shows and as blocks arrive, so a claimed one leaves the line.
+    // A look at the open sent links when the tab shows, once the wallet is synced (after a launch or a
+    // switch) and as blocks arrive, so a claimed one leaves the line. The switch resets the sync state
+    // with the wallet, so a look never starts on the wallet before.
     if (paymentLinks != null && openLinks.sent.isNotEmpty()) {
         val walletId = activeWallet?.id
-        LifecycleStartEffect(paymentLinks, walletId) {
-            paymentLinks.checkOpenLinks(walletId)
+        val synced = walletState.syncState is SyncState.Synced
+        LifecycleStartEffect(paymentLinks, walletId, synced, daemonHeight) {
+            if (synced) paymentLinks.checkOpenLinks(walletId)
             onStopOrDispose { }
         }
-        LaunchedEffect(daemonHeight, walletId) { paymentLinks.checkOpenLinks(walletId) }
     }
+    // A link check stops the synced main wallet for a moment; the card keeps saying Synced meanwhile.
+    val heldWallet = paymentLinks?.holdSyncStatus?.collectAsState()?.value
+    val shownSyncState = if (heldWallet != null && heldWallet == activeWallet?.id) SyncState.Synced else walletState.syncState
     val claimOpenLink: () -> Unit = {
         val only = openLinks.received.singleOrNull()
         if (only == null) {
@@ -408,7 +413,7 @@ fun WalletScreen(
                                 liveFiat = liveFiat,
                                 formatFiat = formatFiat,
                                 fiatMode = fiatMode,
-                                syncState = walletState.syncState,
+                                syncState = shownSyncState,
                                 isOnline = isOnline,
                                 history = history,
                                 historicalPoint = historicalPoint,
@@ -533,8 +538,8 @@ fun WalletScreen(
                     PastEmptyTransactionsCard()
                 } else {
                     EmptyTransactionsCard(
-                        isSyncing = walletState.syncState is SyncState.Syncing ||
-                            walletState.syncState is SyncState.Connecting
+                        isSyncing = shownSyncState is SyncState.Syncing ||
+                            shownSyncState is SyncState.Connecting
                     )
                 }
             }
