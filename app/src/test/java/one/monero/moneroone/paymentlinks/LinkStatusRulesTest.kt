@@ -65,7 +65,7 @@ class LinkStatusRulesTest {
     fun `mined funding with no balance left is claimed`() {
         assertEquals(LinkStatus.CLAIMED, LinkStatusRules.status(sent(check = check(confirmations = 12)), before))
         assertEquals(LinkStatus.CLAIMED, LinkStatusRules.status(sent(lostRace = true), before))
-        assertFalse(LinkStatusRules.canReclaim(sent(check = check(confirmations = 12))))
+        assertFalse(LinkStatusRules.sentView(sent(check = check(confirmations = 12)), 30, null, before).canReclaim)
     }
 
     @Test
@@ -94,10 +94,63 @@ class LinkStatusRulesTest {
     }
 
     @Test
-    fun `reclaim needs an unlocked balance`() {
-        assertFalse(LinkStatusRules.canReclaim(sent()))
-        assertFalse(LinkStatusRules.canReclaim(sent(check = check(confirmations = 4, balance = 5))))
-        assertTrue(LinkStatusRules.canReclaim(sent(check = check(confirmations = 10, balance = 5, unlocked = 5))))
+    fun `reclaim needs an unlocked balance or 10 confirmations of the funding`() {
+        fun view(link: SentLink, funding: Long? = null, daemonHeight: Long? = null, now: Long = before) =
+            LinkStatusRules.sentView(link, funding, daemonHeight, now)
+        assertFalse(view(sent()).canReclaim)
+        assertFalse(view(sent(check = check(confirmations = 4, balance = 5))).canReclaim)
+        assertTrue(view(sent(check = check(confirmations = 10, balance = 5, unlocked = 5))).canReclaim)
+    }
+
+    /**
+     * The founder's bug (iOS 3319a9e): the funding had 10 confirmations, the record still said pending (no
+     * check had seen the unlock), and the row said "Ready to claim" while the detail said "Pending 10/10"
+     * with Reclaim off. The row, the detail and Reclaim now read one status.
+     */
+    @Test
+    fun `a sent link is ready at the unlock depth whatever the last check`() {
+        fun view(link: SentLink, funding: Long?, daemonHeight: Long? = null, now: Long = before) =
+            LinkStatusRules.sentView(link, funding, daemonHeight, now)
+        val row = { v: SentView -> PaymentLinkActivityRules.fundingStatusLine(v.status) }
+        val stale = sent(check = check(confirmations = 1, balance = 5))
+
+        val ready = view(stale, funding = 10)
+        assertEquals(LinkStatus.READY, ready.status)
+        assertEquals("Ready to claim", row(ready))
+        assertEquals("Ready", sentDisplay(ready).label)
+        assertTrue(ready.canReclaim)
+
+        val young = view(stale, funding = 9)
+        assertEquals(LinkStatus.PENDING, young.status)
+        assertEquals("Waiting to be claimed", row(young))
+        assertEquals("Pending 9/10", sentDisplay(young).label)
+        assertFalse(young.canReclaim)
+
+        // Another wallet funded it: the funding height of the last check and the daemon height give the count.
+        val elsewhere = sent(check = check(confirmations = 1, balance = 5).copy(fundingHeight = 1_000))
+        assertTrue(view(elsewhere, funding = null, daemonHeight = 1_010).canReclaim)
+        assertFalse(view(elsewhere, funding = null, daemonHeight = 1_009).canReclaim)
+
+        // Past its expiry it reads Expired, and Reclaim is on.
+        val expired = view(stale, funding = 12, now = after)
+        assertEquals(LinkStatus.EXPIRED, expired.status)
+        assertEquals("Expired", row(expired))
+        assertTrue(expired.canReclaim)
+
+        // A check that saw the claim, or our reclaim, wins over the count.
+        val claimed = view(sent(check = check(confirmations = 12)), funding = 30)
+        assertEquals(LinkStatus.CLAIMED, claimed.status)
+        assertFalse(claimed.canReclaim)
+        assertFalse(view(sent(check = check(confirmations = 12), reclaimTxid = "ab"), funding = 30).canReclaim)
+        assertFalse(view(sent(lostRace = true), funding = 30).canReclaim)
+
+        // Not checked yet, with its funding in the open wallet: pending, then ready at 10.
+        assertEquals(LinkStatus.PENDING, view(sent(SentState.NOT_FUNDED), funding = 2).status)
+        assertEquals(LinkStatus.READY, view(sent(SentState.CREATED), funding = 10).status)
+        // A check that found no funding stays not funded, and its row waits.
+        val unseen = view(sent(check = check(seen = false, mined = false)), funding = 12)
+        assertEquals(LinkStatus.NOT_FUNDED, unseen.status)
+        assertEquals("Waiting to be claimed", row(unseen))
     }
 
     @Test

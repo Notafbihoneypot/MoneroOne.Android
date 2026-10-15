@@ -242,6 +242,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     /** Opens the envelope of [id] (sent or received) and keeps its state current until [closeSession]. */
     fun openSession(id: String) {
         if (_session.value?.id == id && _session.value?.phase != EnvelopeSession.Phase.ERROR) return
+        if (pendingReclaim?.id != id) dropReclaim()
         _sweep.value = null
         refreshJob?.cancel()
         openLookJob?.cancel()
@@ -265,6 +266,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 } catch (e: Exception) {
                     Timber.w(e, "PaymentLinks: envelope open failed")
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = e.message)
+                    dropReclaim(id)
                     return@withLock
                 }
                 envelope = opened
@@ -276,6 +278,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                     // Retry opens it anew.
                     closeEnvelopeLocked()
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = message)
+                    dropReclaim(id)
                     return@withLock
                 }
                 publish(id, if (estimatesClaim) first.copy(sweepFee = opened.sweepFee(first.balance)) else first)
@@ -316,14 +319,68 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         openSession(id)
     }
 
-    private fun publish(id: String, snapshot: EnvelopeSnapshot) {
+    private fun logCheck(snapshot: EnvelopeSnapshot) {
         Timber.d(
-            "PaymentLinks: envelope check seen=%b mined=%b conf=%d unlocked=%b spent=%b",
-            snapshot.fundingSeen, snapshot.fundingMined, snapshot.confirmations, snapshot.unlocked > 0, snapshot.spendSeen
+            "PaymentLinks: envelope check seen=%b mined=%b conf=%d balance=%s unlocked=%s spent=%b",
+            snapshot.fundingSeen, snapshot.fundingMined, snapshot.confirmations,
+            if (snapshot.balance > 0) "yes" else "none", if (snapshot.unlocked > 0) "yes" else "none", snapshot.spendSeen
         )
+    }
+
+    private fun publish(id: String, snapshot: EnvelopeSnapshot) {
+        logCheck(snapshot)
         store.updateSent(id) { it.copy(lastCheck = snapshot) }
         store.updateReceived(id) { it.noting(snapshot) }
         _session.value = EnvelopeSession(id, EnvelopeSession.Phase.LIVE, snapshot)
+        pendingReclaim?.takeIf { it.id == id }?.let { reclaimIfReady(it, snapshot) }
+    }
+
+    private class PendingReclaim(val id: String, val address: String, val walletName: String)
+
+    private var pendingReclaim: PendingReclaim? = null
+    private val _reclaimPending = MutableStateFlow<String?>(null)
+
+    /** The sent link whose Reclaim waits for its envelope's check. */
+    val reclaimPending: StateFlow<String?> = _reclaimPending.asStateFlow()
+
+    /**
+     * Reclaim of a sent link that reads ready ([LinkStatusRules.sentView]: a check, or 10 confirmations of
+     * its funding). The sweep runs only once the open envelope's own check sees the money unlocked; a
+     * check that sees it claimed moves nothing. With no live check (it failed, or none ran), the envelope
+     * is checked again first.
+     */
+    fun reclaim(id: String, address: String, walletName: String) {
+        if (sweeping) return
+        val request = PendingReclaim(id, address, walletName)
+        pendingReclaim = request
+        _reclaimPending.value = id
+        val current = _session.value?.takeIf { it.id == id }
+        when (current?.phase) {
+            EnvelopeSession.Phase.LIVE -> current.snapshot?.let { reclaimIfReady(request, it) }
+            EnvelopeSession.Phase.CHECKING -> {}
+            else -> recheck(id)
+        }
+    }
+
+    private fun reclaimIfReady(request: PendingReclaim, snapshot: EnvelopeSnapshot) {
+        when (LinkStatusRules.claimView(snapshot)) {
+            is ClaimView.Ready -> {
+                dropReclaim(request.id)
+                sweepOpenEnvelope(SweepKind.RECLAIM, request.address, request.walletName)
+            }
+            // Still locked by the envelope's count (it trails the chain by a block): the next check sweeps.
+            is ClaimView.Waiting -> {}
+            ClaimView.AlreadyClaimed, ClaimView.NoMoney -> {
+                Timber.d("PaymentLinks: reclaim skipped: the envelope check saw %s", LinkStatusRules.claimView(snapshot))
+                dropReclaim(request.id)
+            }
+        }
+    }
+
+    private fun dropReclaim(id: String? = null) {
+        if (id != null && pendingReclaim?.id != id) return
+        pendingReclaim = null
+        _reclaimPending.value = null
     }
 
     fun closeSession() {
@@ -335,6 +392,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         sessionJob?.cancel()
         sessionJob = null
         _session.value = null
+        dropReclaim()
         viewModelScope.launch(NonCancellable) { sessionLock.withLock { closeEnvelopeLocked() } }
         if (refreshWanted) refreshSent()
     }
@@ -471,7 +529,10 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
      * [refreshSent] covers that filter.
      */
     suspend fun lookAtOpenLinks(walletId: String) = coroutineScope {
-        if (refreshJob?.isActive == true || _session.value != null) return@coroutineScope
+        if (refreshJob?.isActive == true || _session.value != null) {
+            Timber.d("PaymentLinks: open link check skipped: the envelope runtime is busy")
+            return@coroutineScope
+        }
         fillNetAmounts()
         val now = System.currentTimeMillis()
         val due = store.sent.value.filter {
@@ -538,7 +599,10 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                     return@withLock
                 }
                 try {
-                    opened.awaitSnapshot()?.let { snapshot -> store.updateSent(link.id) { it.copy(lastCheck = snapshot) } }
+                    opened.awaitSnapshot()?.let { snapshot ->
+                        logCheck(snapshot)
+                        store.updateSent(link.id) { it.copy(lastCheck = snapshot) }
+                    }
                 } finally {
                     withContext(NonCancellable) { opened.close() }
                 }

@@ -100,19 +100,20 @@ internal class LinkDisplay(val label: String, val hue: LinkHue)
 /** Chip hues; yellow keeps the label color, as the brand rule asks. */
 internal enum class LinkHue { RED, BRAND, GREEN, GRAY, YELLOW }
 
-/**
- * A sent link's chip. A pending link counts the confirmations of its funding
- * transaction in the open wallet, and a link not checked yet whose funding
- * is there reads Pending.
- */
-internal fun sentDisplay(link: SentLink, transactions: List<TransactionInfo>, nowSeconds: Long = nowSeconds()): LinkDisplay {
-    val funding = link.fundingTxid?.let { txid ->
+/** The live confirmations of [link]'s funding in the open wallet's history; null when that wallet did not fund it. */
+internal fun fundingConfirmations(link: SentLink, transactions: List<TransactionInfo>): Long? =
+    link.fundingTxid?.let { txid ->
         transactions.firstOrNull { it.hash == txid && it.direction == TransactionInfo.Direction.Direction_Out }
-    }
-    var status = LinkStatusRules.status(link, nowSeconds)
-    if (status == LinkStatus.NOT_FUNDED && link.lastCheck == null && funding != null) status = LinkStatus.PENDING
-    // The open wallet's count stalls while an envelope holds the kit: the higher count wins.
-    val confirmations = listOfNotNull(funding?.confirmations, link.lastCheck?.takeIf { it.fundingMined }?.confirmations).maxOrNull()
+    }?.confirmations
+
+/** [LinkStatusRules.sentView] with the open wallet's history and daemon height. */
+internal fun sentView(link: SentLink, transactions: List<TransactionInfo>, daemonHeight: Long?, nowSeconds: Long = nowSeconds()): SentView =
+    LinkStatusRules.sentView(link, fundingConfirmations(link, transactions), daemonHeight, nowSeconds)
+
+/** A sent link's chip, from the same view as its Activity row and Reclaim ([LinkStatusRules.sentView]). */
+internal fun sentDisplay(view: SentView): LinkDisplay {
+    val status = view.status
+    val confirmations = view.confirmations
     return when (status) {
         LinkStatus.NOT_FUNDED -> LinkDisplay(statusLabel(status), LinkHue.RED)
         LinkStatus.PENDING -> LinkDisplay(
@@ -318,6 +319,8 @@ private fun SentLinkDetail(
     val link = sentList.firstOrNull { it.id == id }
     val session by paymentLinks.session.collectAsState()
     val sweep by paymentLinks.sweep.collectAsState()
+    val reclaimPending by paymentLinks.reclaimPending.collectAsState()
+    val daemonHeight = rememberDaemonHeight()
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     val walletState by walletViewModel.walletState.collectAsState()
     val sharedSendState by walletViewModel.sendState.collectAsState()
@@ -363,7 +366,8 @@ private fun SentLinkDetail(
 
     LinksScaffold(tr("Payment Link"), onBack) {
         if (link == null) return@LinksScaffold
-        val status = LinkStatusRules.status(link, nowSeconds())
+        val view = sentView(link, walletState.transactions, daemonHeight)
+        val status = view.status
         val current = session?.takeIf { it.id == id }
         val checking = current == null || current.phase == EnvelopeSession.Phase.CHECKING
         val result = sweep?.takeIf { it.id == id }
@@ -379,15 +383,16 @@ private fun SentLinkDetail(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(amount, style = MaterialTheme.typography.headlineMedium)
-                    LinkStatusChip(sentDisplay(link, walletState.transactions))
+                    LinkStatusChip(sentDisplay(view))
                 }
                 DetailDivider()
                 DetailRow(tr("Created"), formatRecordDate(link.createdAtMillis))
                 DetailDivider()
                 DetailRow(tr("Expires"), formatLinkDate(link.expiry))
-                link.lastCheck?.takeIf { status == LinkStatus.PENDING && it.fundingMined }?.let {
+                // Pending is under 10 confirmations: at 10 the link reads Ready.
+                view.confirmations?.takeIf { status == LinkStatus.PENDING }?.let {
                     DetailDivider()
-                    DetailRow(tr("Confirmations"), tr("%s/10", it.confirmations.coerceAtMost(LinkStatusRules.CONFIRMATIONS - 1)))
+                    DetailRow(tr("Confirmations"), tr("%s/10", it.coerceAtMost(LinkStatusRules.CONFIRMATIONS - 1)))
                 }
                 link.fundingTxid?.let {
                     DetailDivider()
@@ -419,7 +424,7 @@ private fun SentLinkDetail(
                     Icon(Icons.Default.Refresh, contentDescription = tr("Retry"), tint = MoneroOrange)
                 }
             }
-            current?.phase == EnvelopeSession.Phase.SWEEPING -> Row(
+            current?.phase == EnvelopeSession.Phase.SWEEPING || reclaimPending == id -> Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(horizontal = 16.dp)
@@ -447,9 +452,11 @@ private fun SentLinkDetail(
 
         Spacer(Modifier.height(16.dp))
         val live = current?.phase == EnvelopeSession.Phase.LIVE
-        val canReclaim = live && LinkStatusRules.canReclaim(link) && receiveAddress != null
+        // Ready by the funding's count or by a check; the envelope's own check runs before anything moves.
+        val canReclaim = view.canReclaim && receiveAddress != null && reclaimPending != id &&
+            current?.phase != EnvelopeSession.Phase.SWEEPING
         val reclaim = {
-            receiveAddress?.let { paymentLinks.sweepOpenEnvelope(SweepKind.RECLAIM, it, activeWallet?.name.orEmpty()) }
+            receiveAddress?.let { paymentLinks.reclaim(id, it, activeWallet?.name.orEmpty()) }
             Unit
         }
         val share = { shareLink(context, walletViewModel.formatXmr(link.amount), link.link) }

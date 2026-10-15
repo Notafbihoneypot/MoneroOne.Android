@@ -89,13 +89,12 @@ class PaymentLinkActivityTest {
     @Test
     fun `funding status line`() {
         val line = PaymentLinkActivityRules::fundingStatusLine
-        assertEquals("Waiting to be claimed", line(LinkStatus.NOT_FUNDED, null))
-        assertEquals("Waiting to be claimed", line(LinkStatus.PENDING, 3))
-        assertEquals("Ready to claim", line(LinkStatus.PENDING, 10))
-        assertEquals("Ready to claim", line(LinkStatus.READY, 12))
-        assertEquals("Expired", line(LinkStatus.EXPIRED, 12))
-        assertEquals("Claimed", line(LinkStatus.CLAIMED, null))
-        assertEquals("Reclaimed", line(LinkStatus.RECLAIMED, null))
+        assertEquals("Waiting to be claimed", line(LinkStatus.NOT_FUNDED))
+        assertEquals("Waiting to be claimed", line(LinkStatus.PENDING))
+        assertEquals("Ready to claim", line(LinkStatus.READY))
+        assertEquals("Expired", line(LinkStatus.EXPIRED))
+        assertEquals("Claimed", line(LinkStatus.CLAIMED))
+        assertEquals("Reclaimed", line(LinkStatus.RECLAIMED))
     }
 
     @Test

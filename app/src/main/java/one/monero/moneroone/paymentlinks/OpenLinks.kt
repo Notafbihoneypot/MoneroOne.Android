@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import one.monero.moneroone.core.locale.pluralTr
 import one.monero.moneroone.core.locale.tr
+import one.monero.moneroone.core.wallet.WalletManager
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.theme.MoneroOrange
@@ -275,14 +277,16 @@ fun OpenReceivedLinkRow(link: ReceivedLink, walletName: String?, formatXmr: (Lon
 @Composable
 fun OpenSentLinkRow(link: SentLink, nowSeconds: Long, formatXmr: (Long) -> String, onOpen: () -> Unit) {
     val context = LocalContext.current
-    val status = LinkStatusRules.status(link, nowSeconds)
+    val transactions by WalletManager.transactionsFlow.collectAsState()
+    val daemonHeight = rememberDaemonHeight()
+    val status = sentView(link, transactions, daemonHeight, nowSeconds).status
     val expired = status == LinkStatus.EXPIRED
     OpenLinkRow(
         id = link.id,
         incoming = false,
         amount = formatXmr(link.amount),
         amountSpoken = "${formatXmr(link.amount)} XMR",
-        status = PaymentLinkActivityRules.fundingStatusLine(status, null),
+        status = PaymentLinkActivityRules.fundingStatusLine(status),
         statusColor = MaterialTheme.colorScheme.onSurfaceVariant,
         hint = tr("Opens the link"),
         onOpen = onOpen,

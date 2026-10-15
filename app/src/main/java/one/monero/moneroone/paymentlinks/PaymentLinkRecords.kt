@@ -184,6 +184,12 @@ data class ReceivedLink(
 /** The status a sent link shows (spec "Status"). [EXPIRED] is a label over pending or ready. */
 enum class LinkStatus { NOT_FUNDED, PENDING, READY, CLAIMED, RECLAIMED, EXPIRED }
 
+/**
+ * A sent link as its row, detail and Reclaim read it ([LinkStatusRules.sentView]). [confirmations]: the
+ * funding's live count, null when unknown. [canReclaim]: ready (expired or not), not claimed or reclaimed.
+ */
+data class SentView(val status: LinkStatus, val confirmations: Long?, val canReclaim: Boolean)
+
 /** What the claim sheet shows for an envelope sync. */
 sealed class ClaimView {
     /** Funding seen, not spendable yet. */
@@ -255,10 +261,28 @@ object LinkStatusRules {
         return if (live && nowSeconds > link.expiry) LinkStatus.EXPIRED else base
     }
 
-    /** Reclaim needs spendable money in the envelope. */
-    fun canReclaim(link: SentLink): Boolean {
-        val check = link.lastCheck ?: return false
-        return link.reclaimTxid == null && !link.reclaimLostRace && check.unlocked > 0L
+    /**
+     * What a sent link's Activity row, detail and Reclaim read, so all three agree (iOS PaymentLinkDisplay).
+     * [fundingConfirmations]: its funding transaction in the open wallet's history, a live count; null when
+     * that wallet did not fund it, and then the last check's funding height and [daemonHeight] give the count.
+     *
+     * A pending link unlocks with its funding: at 10 confirmations it is ready, whatever the last check said
+     * (one that failed, or ran before the unlock). Reclaim still opens the envelope and tells ready from
+     * claimed before anything moves, and the next check corrects the record.
+     */
+    fun sentView(link: SentLink, fundingConfirmations: Long?, daemonHeight: Long?, nowSeconds: Long): SentView {
+        var base = baseStatus(link)
+        // Not checked yet, and its funding is in the open wallet's history: it waits to be claimed.
+        if (base == LinkStatus.NOT_FUNDED && link.lastCheck == null && fundingConfirmations != null) base = LinkStatus.PENDING
+        val checked = link.lastCheck?.takeIf { it.fundingMined }?.confirmations
+        val byHeight = link.lastCheck?.fundingHeight?.takeIf { fundingConfirmations == null }
+            ?.let { height -> daemonHeight?.takeIf { it > height }?.minus(height) }
+        // The open wallet's count stalls while an envelope holds the kit: the higher count wins.
+        val confirmations = listOfNotNull(fundingConfirmations, checked, byHeight).maxOrNull()
+        if (base == LinkStatus.PENDING && (confirmations ?: 0) >= CONFIRMATIONS) base = LinkStatus.READY
+        val live = base == LinkStatus.PENDING || base == LinkStatus.READY
+        val status = if (live && nowSeconds > link.expiry) LinkStatus.EXPIRED else base
+        return SentView(status, confirmations, canReclaim = base == LinkStatus.READY)
     }
 
     /** The sender's link has settled: nothing more can move (its files can go). */

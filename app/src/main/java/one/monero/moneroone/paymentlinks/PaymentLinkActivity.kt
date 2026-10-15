@@ -87,16 +87,16 @@ object PaymentLinkActivityRules {
     }
 
     /**
-     * A funding row's second line, in place of the date. The row is the funding
-     * transaction itself, so "not funded" never shows: until a check sees the
-     * money, the link waits to be claimed.
+     * A funding row's second line, in place of the date, from [LinkStatusRules.sentView]'s status (ready at
+     * 10 confirmations), so the row, the detail and Reclaim agree. The row is the funding transaction
+     * itself, so "not funded" never shows: until a check sees the money, the link waits to be claimed.
      */
-    fun fundingStatusLine(status: LinkStatus, confirmations: Long?): String = when {
-        status == LinkStatus.CLAIMED -> tr("Claimed")
-        status == LinkStatus.RECLAIMED -> tr("Reclaimed")
-        status == LinkStatus.EXPIRED -> tr("Expired")
-        status == LinkStatus.READY || (confirmations ?: 0) >= LinkStatusRules.CONFIRMATIONS -> tr("Ready to claim")
-        else -> tr("Waiting to be claimed")
+    fun fundingStatusLine(status: LinkStatus): String = when (status) {
+        LinkStatus.CLAIMED -> tr("Claimed")
+        LinkStatus.RECLAIMED -> tr("Reclaimed")
+        LinkStatus.EXPIRED -> tr("Expired")
+        LinkStatus.READY -> tr("Ready to claim")
+        LinkStatus.NOT_FUNDED, LinkStatus.PENDING -> tr("Waiting to be claimed")
     }
 
     /** TalkBack: "Sent by Link, minus 0.5 XMR, Waiting to be claimed, 2 hours ago, Confirmed". */
@@ -204,7 +204,8 @@ fun linkRowText(
 ): LinkRowText? {
     val activity = index.match(tx) ?: return null
     val statusLine = activity.sent?.takeIf { activity.kind == LinkActivityKind.FUNDING }?.let {
-        PaymentLinkActivityRules.fundingStatusLine(LinkStatusRules.status(it, nowSeconds), tx.confirmations)
+        // The row is the funding transaction: its count is the live one the detail and Reclaim read too.
+        PaymentLinkActivityRules.fundingStatusLine(LinkStatusRules.sentView(it, tx.confirmations, null, nowSeconds).status)
     }
     val incoming = tx.direction == TransactionInfo.Direction.Direction_In
     return LinkRowText(
@@ -223,7 +224,7 @@ fun linkRowText(
 fun PaymentLinkTransactionRow(activity: LinkActivity) {
     val transactions by WalletManager.transactionsFlow.collectAsState()
     val daemonHeight = rememberDaemonHeight()
-    val display = activity.sent?.let { sentDisplay(it, transactions) } ?: activity.received?.let { receivedDisplay(it, daemonHeight) }
+    val display = activity.sent?.let { sentDisplay(sentView(it, transactions, daemonHeight)) } ?: activity.received?.let { receivedDisplay(it, daemonHeight) }
         ?: return
     Row(
         modifier = Modifier
