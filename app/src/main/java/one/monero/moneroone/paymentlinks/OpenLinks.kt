@@ -73,9 +73,9 @@ class OpenLinks(
     /** What the sent links hold: the amount each link's detail shows. */
     val sentAmount: Long get() = sent.sumOf { it.amount }
 
-    /** What the received links hold as far as this device knows; null when no amount is known. */
+    /** What claiming the received links delivers as far as this device knows ([ReceivedLink.claimAmount]); null when no amount is known. */
     val receivedAmount: Long?
-        get() = received.mapNotNull { it.knownAmount }.takeIf { it.isNotEmpty() }?.sum()
+        get() = received.mapNotNull { it.claimAmount }.takeIf { it.isNotEmpty() }?.sum()
 
     val isEmpty: Boolean get() = sent.isEmpty() && received.isEmpty()
 }
@@ -258,8 +258,8 @@ fun OpenReceivedLinkRow(link: ReceivedLink, walletName: String?, formatXmr: (Lon
     OpenLinkRow(
         id = link.id,
         incoming = true,
-        amount = link.knownAmount?.let { "+${formatXmr(it)}" },
-        amountSpoken = link.knownAmount?.let { tr("plus %s", "${formatXmr(it)} XMR") },
+        amount = link.claimAmount?.let { "+${formatXmr(it)}" },
+        amountSpoken = link.claimAmount?.let { tr("plus %s", "${formatXmr(it)} XMR") },
         status = PaymentLinkActivityRules.pendingLabel(state),
         statusColor = if (ready) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
         hint = tr("Opens the link to claim it"),

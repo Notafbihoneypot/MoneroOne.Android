@@ -66,8 +66,10 @@ private val CrossFade = tween<Float>(350, easing = CubicBezierEasing(0.42f, 0f, 
 private sealed interface ClaimUi {
     /** [amount]: the v1 link's amount or the balance a check saw; null for a v2 link not checked yet. */
     data class Checking(val amount: Long?) : ClaimUi
-    data class Waiting(val confirmations: Long, val minutes: Long, val amount: Long) : ClaimUi
-    data class Ready(val unlocked: Long) : ClaimUi
+
+    /** [estimated]: [amount] is what a claim delivers (the balance less the sweep's fee estimate), shown with "~". */
+    data class Waiting(val confirmations: Long, val minutes: Long, val amount: Long, val estimated: Boolean = false) : ClaimUi
+    data class Ready(val amount: Long, val estimated: Boolean = false) : ClaimUi
     object Claiming : ClaimUi
     data class Done(val amount: Long?, val txid: String?, val wallet: String?, val reclaim: Boolean) : ClaimUi
     object AlreadyClaimed : ClaimUi
@@ -141,7 +143,10 @@ private fun ClaimSheet(
     val claimedBefore = received?.state == ReceivedState.CLAIMED && result == null
     val reclaimedBefore = own && sent?.reclaimTxid != null && result == null
     val hasWords = sent != null || received?.link != null
-    val amount = sent?.amount ?: received?.knownAmount
+    // Ours: the amount sent. Sent to us: what a claim delivers, else the v1 link's amount or the balance.
+    val amount = sent?.amount ?: received?.claimAmount
+    // Sent to us and checked: the balance less the claim sweep's fee estimate.
+    val net = received?.netAmount?.takeIf { !own && sent == null && it > 0 }
     // A received v2 link carries no expiry (0).
     val expiry = (sent?.expiry ?: received?.expiry)?.takeIf { it > 0 }
     val walletName = activeWallet?.name.orEmpty()
@@ -172,8 +177,8 @@ private fun ClaimSheet(
         current.phase == EnvelopeSession.Phase.SWEEPING -> ClaimUi.Claiming
         else -> current.snapshot?.let { snapshot ->
             when (val view = LinkStatusRules.claimView(snapshot)) {
-                is ClaimView.Waiting -> ClaimUi.Waiting(view.confirmations, view.minutesLeft, snapshot.balance)
-                is ClaimView.Ready -> ClaimUi.Ready(view.unlocked)
+                is ClaimView.Waiting -> ClaimUi.Waiting(view.confirmations, view.minutesLeft, net ?: snapshot.balance, estimated = net != null)
+                is ClaimView.Ready -> ClaimUi.Ready(net ?: view.unlocked, estimated = net != null)
                 ClaimView.AlreadyClaimed -> ClaimUi.AlreadyClaimed
                 ClaimView.NoMoney -> ClaimUi.NoMoney
             }
@@ -260,13 +265,13 @@ private fun ClaimBody(
         when (state) {
             is ClaimUi.Checking -> {
                 Spinner()
-                // An estimate: "~" on screen, "About" for TalkBack (it would read "tilde").
-                state.amount?.let { Amount(tr("~%s XMR", formatXmr(it)), spoken = tr("About %s XMR", formatXmr(it))) }
+                state.amount?.let { EstimatedAmount(formatXmr(it)) }
                 Secondary(tr("Checking the link…"))
             }
             is ClaimUi.Waiting -> {
                 Disc(Icons.Default.HourglassTop, MoneroOrange)
-                Amount("${formatXmr(if (state.amount > 0) state.amount else 0)} XMR")
+                val shown = formatXmr(if (state.amount > 0) state.amount else 0)
+                if (state.estimated) EstimatedAmount(shown) else Amount("$shown XMR")
                 Text(
                     tr("%s/10 confirmations", state.confirmations),
                     style = MaterialTheme.typography.titleMedium,
@@ -279,7 +284,7 @@ private fun ClaimBody(
             }
             is ClaimUi.Ready -> {
                 Disc(Icons.Default.Link, MoneroOrange)
-                Amount("${formatXmr(state.unlocked)} XMR")
+                if (state.estimated) EstimatedAmount(formatXmr(state.amount)) else Amount("${formatXmr(state.amount)} XMR")
                 Secondary(tr("To %s", walletName))
                 expiry?.let { Secondary(tr("Claim by %s", formatLinkDate(it))) }
                 Spacer(Modifier.height(8.dp))
@@ -363,6 +368,12 @@ private fun Amount(text: String, spoken: String? = null) {
         textAlign = TextAlign.Center,
         modifier = Modifier.semantics { if (spoken != null) contentDescription = spoken }
     )
+}
+
+/** An estimate: "~" on screen, "About" for TalkBack (it would read "tilde"). */
+@Composable
+private fun EstimatedAmount(xmr: String) {
+    Amount(tr("~%s XMR", xmr), spoken = tr("About %s XMR", xmr))
 }
 
 @Composable

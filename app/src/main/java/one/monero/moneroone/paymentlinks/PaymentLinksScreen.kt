@@ -602,7 +602,7 @@ private fun ReceivedLinkDetail(
         val canClaim = !link.isSettled && link.link != null
         val waiting = link.lastCheck?.let { LinkStatusRules.claimView(it) } is ClaimView.Waiting
         val confirmations = PaymentLinkActivityRules.receivedConfirmations(link, daemonHeight) ?: 0L
-        val amount = (link.claimedAmount ?: link.knownAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" } ?: tr("Payment link")
+        val amount = (link.claimedAmount ?: link.claimAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" } ?: tr("Payment link")
         Spacer(Modifier.height(16.dp))
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
             Column {

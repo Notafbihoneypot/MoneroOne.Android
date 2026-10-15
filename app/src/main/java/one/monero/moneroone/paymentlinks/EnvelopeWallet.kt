@@ -4,6 +4,7 @@ import android.content.Context
 import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.Seed
 import io.horizontalsystems.monerokit.SyncState
+import io.horizontalsystems.monerokit.model.PendingTransaction
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -93,6 +94,23 @@ class EnvelopeWallet private constructor(
     }
 
     /**
+     * wallet2's fee estimate for the claim sweep of [balance]: one input, two outputs (a
+     * sweep to one address adds a dummy change output), at [SWEEP_PRIORITY], the priority
+     * [sweepTo] uses. Nothing is built or sent. Null when empty or the estimate failed.
+     */
+    suspend fun sweepFee(balance: Long): Long? {
+        if (balance <= 0) return null
+        return withContext(Dispatchers.IO) {
+            try {
+                kit.estimateFee(0, kit.receiveAddress, null, sweepAll = true, priority = SWEEP_PRIORITY).takeIf { it > 0 }
+            } catch (e: Exception) {
+                Timber.w(e, "PaymentLinks: sweep fee estimate failed")
+                null
+            }
+        }
+    }
+
+    /**
      * Sweeps every unlocked output to [address]. Returns the sweep's txid and
      * the amount that arrives (fee paid), or null when the kit's history did not
      * show it in time. Throws [AlreadyClaimedException] when the node rejects a
@@ -101,7 +119,7 @@ class EnvelopeWallet private constructor(
     suspend fun sweepTo(address: String): TransactionInfo? {
         val before = outgoingHashes()
         try {
-            withContext(Dispatchers.IO) { kit.send(0, address, null, sweepAll = true) }
+            withContext(Dispatchers.IO) { kit.send(0, address, null, sweepAll = true, priority = SWEEP_PRIORITY) }
         } catch (e: Exception) {
             val message = e.message.orEmpty().lowercase()
             if ("double spend" in message || "double_spend" in message || "already spent" in message) {
@@ -150,6 +168,13 @@ class EnvelopeWallet private constructor(
     }
 
     companion object {
+        /**
+         * Claims and reclaims, as on iOS: wallet2's default, which it lowers to Low while the
+         * pool is quiet. The sender's claim fee reserve is estimated at Medium, so the spare
+         * part of the reserve reaches the recipient.
+         */
+        val SWEEP_PRIORITY: PendingTransaction.Priority = PendingTransaction.Priority.Priority_Default
+
         private const val SYNC_TIMEOUT_MS = 120_000L
         private const val TXID_WAIT_MS = 30_000L
         private const val SLOT_WAIT_MS = 1_500L

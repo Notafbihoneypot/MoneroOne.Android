@@ -40,7 +40,12 @@ data class EnvelopeSnapshot(
      * funding waits in the pool. With the open wallet's daemon height it gives a
      * live confirmation count without opening the envelope again.
      */
-    val fundingHeight: Long? = null
+    val fundingHeight: Long? = null,
+    /**
+     * wallet2's fee estimate for the claim sweep of [balance], atomic units. Null when
+     * the check did not ask for one (sent links), the envelope is empty or the estimate failed.
+     */
+    val sweepFee: Long? = null
 )
 
 /**
@@ -116,7 +121,13 @@ data class ReceivedLink(
     val claimStartedTo: String? = null,
     val claimWallet: String? = null,
     /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links, and once a claim from here is mined. */
-    val secret: String? = null
+    val secret: String? = null,
+    /**
+     * What a claim delivers, atomic units: the last balance less wallet2's fee estimate
+     * for the claim sweep. Null until a check (or the active wallet's estimate, for a
+     * record checked before this field) saw the link funded.
+     */
+    val netAmount: Long? = null
 ) {
     /** The link, while its secret is still held. */
     val link: PaymentLink?
@@ -133,11 +144,41 @@ data class ReceivedLink(
     val knownAmount: Long?
         get() = amount.takeIf { it > 0 } ?: lastCheck?.balance?.takeIf { it > 0 }
 
+    /**
+     * What a claim delivers, atomic units: the net amount when known, else the v1
+     * link's amount (the sender put the claim fee on top), else the last balance.
+     * Null when unknown.
+     */
+    val claimAmount: Long?
+        get() = netAmount?.takeIf { it > 0 } ?: knownAmount
+
+    /**
+     * The record with [check] as its last check. A check with a sweep fee sets the net
+     * amount; one without keeps the old net amount only while the balance holds.
+     */
+    fun noting(check: EnvelopeSnapshot): ReceivedLink {
+        val net = when {
+            check.sweepFee != null -> net(check.balance, check.sweepFee)
+            check.balance != lastCheck?.balance -> null
+            else -> netAmount
+        }
+        return copy(lastCheck = check, netAmount = net)
+    }
+
+    /** Checked before records had a net amount: the active wallet's fee estimate stands in for the envelope's. */
+    val needsNetAmount: Boolean
+        get() = !isSettled && link != null && netAmount == null && amount == 0L && (lastCheck?.balance ?: 0) > 0
+
     /** Nothing more can move here: claimed from this device, or seen empty after its funding. */
     val isSettled: Boolean
         get() = state == ReceivedState.CLAIMED || lastCheck?.let { LinkStatusRules.claimView(it) } == ClaimView.AlreadyClaimed
 
     override fun toString(): String = "ReceivedLink(id=$id, state=$state, a=$amount)"
+
+    companion object {
+        /** The balance less the claim sweep's fee; null when the fee takes it all. */
+        fun net(balance: Long, fee: Long): Long? = if (balance > fee) balance - fee else null
+    }
 }
 
 /** The status a sent link shows (spec "Status"). [EXPIRED] is a label over pending or ready. */

@@ -247,6 +247,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         openLookJob?.cancel()
         sessionJob?.cancel()
         sessionJob = viewModelScope.launch {
+            var estimatesClaim = false
             sessionLock.withLock {
                 closeEnvelopeLocked()
                 val link = store.sent(id)?.link ?: store.received(id)?.link
@@ -254,6 +255,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                     _session.value = null
                     return@withLock
                 }
+                // A link sent to us: its checks carry the claim's fee estimate (what a claim delivers).
+                estimatesClaim = store.sent(id) == null
                 _session.value = EnvelopeSession(id, EnvelopeSession.Phase.CHECKING)
                 val opened = try {
                     EnvelopeWallet.open(context, link)
@@ -275,17 +278,31 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = message)
                     return@withLock
                 }
-                publish(id, first)
+                publish(id, if (estimatesClaim) first.copy(sweepFee = opened.sweepFee(first.balance)) else first)
             }
-            // Live: confirmations and balance as blocks arrive.
+            // Live: confirmations and balance as blocks arrive. A received link's claim fee is
+            // estimated again when the balance moves, and every FEE_EVERY_MS.
+            var feeAt = System.currentTimeMillis()
             while (true) {
                 delay(LIVE_INTERVAL_MS)
                 val open = envelope ?: break
                 val current = _session.value ?: break
                 if (current.id != id || current.phase == EnvelopeSession.Phase.SWEEPING) continue
                 if (open.syncState.value is SyncState.Synced) {
-                    val next = open.snapshot()
-                    if (next.copy(checkedAt = 0) != current.snapshot?.copy(checkedAt = 0)) publish(id, next)
+                    val seen = open.snapshot()
+                    val last = current.snapshot
+                    val moved = seen.copy(checkedAt = 0, sweepFee = null) != last?.copy(checkedAt = 0, sweepFee = null)
+                    val now = System.currentTimeMillis()
+                    val next = if (estimatesClaim && (moved || now - feeAt >= FEE_EVERY_MS)) {
+                        feeAt = now
+                        seen.copy(sweepFee = open.sweepFee(seen.balance))
+                    } else {
+                        seen.copy(sweepFee = last?.sweepFee)
+                    }
+                    // The estimate suspends: a claim may have started meanwhile.
+                    val still = _session.value
+                    if (sweeping || still?.id != id || still.phase == EnvelopeSession.Phase.SWEEPING) continue
+                    if (next.copy(checkedAt = 0) != last?.copy(checkedAt = 0)) publish(id, next)
                 }
             }
         }
@@ -305,7 +322,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             snapshot.fundingSeen, snapshot.fundingMined, snapshot.confirmations, snapshot.unlocked > 0, snapshot.spendSeen
         )
         store.updateSent(id) { it.copy(lastCheck = snapshot) }
-        store.updateReceived(id) { it.copy(lastCheck = snapshot) }
+        store.updateReceived(id) { it.noting(snapshot) }
         _session.value = EnvelopeSession(id, EnvelopeSession.Phase.LIVE, snapshot)
     }
 
@@ -455,6 +472,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
      */
     suspend fun lookAtOpenLinks(walletId: String) = coroutineScope {
         if (refreshJob?.isActive == true || _session.value != null) return@coroutineScope
+        fillNetAmounts()
         val now = System.currentTimeMillis()
         val due = store.sent.value.filter {
             it.walletId == walletId && OpenLinkRules.isOpen(it, now / 1000) &&
@@ -475,6 +493,35 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         }
         openLookJob = look
         look.join()
+    }
+
+    private var lastNetFillAt = 0L
+
+    /**
+     * Received links checked before records had a net amount: their last balance less the
+     * active wallet's fee estimate for the claim sweep (one input, two outputs, at the
+     * sweep's priority). The claim sheet's next check replaces it with the envelope's own
+     * estimate. At most every 10 minutes.
+     */
+    private suspend fun fillNetAmounts() {
+        val balance = store.received.value.firstOrNull { it.needsNetAmount }?.lastCheck?.balance ?: return
+        if (WalletManager.syncStateFlow.value !is SyncState.Synced) return
+        val now = System.currentTimeMillis()
+        if (now - lastNetFillAt < NET_FILL_EVERY_MS) return
+        lastNetFillAt = now
+        val kit = WalletManager.kit ?: return
+        val fee = withContext(Dispatchers.IO) {
+            try {
+                kit.estimateFee(balance, kit.receiveAddress, null, sweepAll = true, priority = EnvelopeWallet.SWEEP_PRIORITY)
+            } catch (e: Exception) {
+                Timber.w(e, "PaymentLinks: claim fee estimate failed (old links)")
+                0L
+            }
+        }
+        if (fee <= 0) return
+        for (link in store.received.value.filter { it.needsNetAmount }) {
+            store.updateReceived(link.id) { it.copy(netAmount = ReceivedLink.net(it.lastCheck?.balance ?: 0, fee)) }
+        }
     }
 
     private suspend fun checkSent(due: List<SentLink>) {
@@ -526,6 +573,12 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     companion object {
         private const val LIVE_INTERVAL_MS = 3_000L
+
+        /** A received link's claim fee estimate, again while its sheet stays open (iOS polls every 15 s). */
+        private const val FEE_EVERY_MS = 15_000L
+
+        /** Old received records with no net amount: the active wallet's estimate, at most this often. */
+        private const val NET_FILL_EVERY_MS = 10 * 60_000L
         private const val REFRESH_AFTER_MS = 20_000L
         private const val REFRESH_INTERVAL_MS = 30_000L
         /** A little under a block (about 2 minutes). */
