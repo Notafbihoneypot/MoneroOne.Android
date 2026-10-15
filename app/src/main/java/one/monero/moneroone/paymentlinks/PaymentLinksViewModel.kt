@@ -9,6 +9,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,10 +69,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     private var envelope: EnvelopeWallet? = null
     private var sessionJob: Job? = null
     private var refreshJob: Job? = null
-    private var openCheckJob: Job? = null
-    private var lastOpenCheckAt = 0L
-    private var openCheckWallet: String? = null
-    private var openCheckRunning = false
+    private var openLookJob: Job? = null
     private val _holdSyncStatus = MutableStateFlow<String?>(null)
 
     /**
@@ -245,7 +243,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         if (_session.value?.id == id && _session.value?.phase != EnvelopeSession.Phase.ERROR) return
         _sweep.value = null
         refreshJob?.cancel()
-        openCheckJob?.cancel()
+        openLookJob?.cancel()
         sessionJob?.cancel()
         sessionJob = viewModelScope.launch {
             sessionLock.withLock {
@@ -447,32 +445,22 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     /**
      * The Wallet tab's look at the open sent links of [walletId] (spec Round 3), so the balance
-     * card's line drops a claimed link: when the tab shows and as blocks arrive, at most once per
-     * [OPEN_CHECK_EVERY_MS] (about a block). A look stops the main wallet for a moment, so it waits
-     * until the main wallet is synced (after a launch, a switch or a reconnect). The Links filter's
-     * [refreshSent] covers it there.
+     * card's line drops a claimed link. A look stops the main wallet for a moment, so the tab asks
+     * for one only when it appears, comes back to the foreground or shows another wallet, then every
+     * [WALLET_TAB_LOOK_EVERY_MS], and only while the wallet is synced, no send runs and History shows
+     * now. Links looked at in the last [LOOK_AGAIN_AFTER_MS] wait. Runs in the caller's scope: the
+     * look stops when the tab goes; a claim sheet that opens stops it too. The Links filter's
+     * [refreshSent] covers that filter.
      */
-    fun checkOpenLinks(walletId: String?) {
-        if (walletId == null || refreshJob?.isActive == true || _session.value != null) return
-        if (openCheckJob?.isActive == true) {
-            // A look waiting for another wallet to sync gives way to the wallet shown now.
-            if (openCheckRunning || openCheckWallet == walletId) return
-            openCheckJob?.cancel()
+    suspend fun lookAtOpenLinks(walletId: String) = coroutineScope {
+        if (refreshJob?.isActive == true || _session.value != null) return@coroutineScope
+        val now = System.currentTimeMillis()
+        val due = store.sent.value.filter {
+            it.walletId == walletId && OpenLinkRules.isOpen(it, now / 1000) &&
+                now - (it.lastCheck?.checkedAt ?: 0) > LOOK_AGAIN_AFTER_MS
         }
-        if (System.currentTimeMillis() - lastOpenCheckAt < OPEN_CHECK_EVERY_MS) return
-        openCheckWallet = walletId
-        openCheckRunning = false
-        openCheckJob = viewModelScope.launch {
-            withTimeoutOrNull(SYNC_WAIT_MS) { WalletManager.syncStateFlow.first { it is SyncState.Synced } } ?: return@launch
-            if (_session.value != null || refreshJob?.isActive == true) return@launch
-            val now = System.currentTimeMillis()
-            val due = store.sent.value.filter {
-                it.walletId == walletId && OpenLinkRules.isOpen(it, now / 1000) &&
-                    now - (it.lastCheck?.checkedAt ?: 0) > OPEN_CHECK_EVERY_MS
-            }
-            if (due.isEmpty()) return@launch
-            lastOpenCheckAt = now
-            openCheckRunning = true
+        if (due.isEmpty()) return@coroutineScope
+        val look = launch {
             _holdSyncStatus.value = walletId
             try {
                 checkSent(due)
@@ -482,9 +470,10 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 }
             } finally {
                 _holdSyncStatus.value = null
-                openCheckRunning = false
             }
         }
+        openLookJob = look
+        look.join()
     }
 
     private suspend fun checkSent(due: List<SentLink>) {
@@ -525,7 +514,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         super.onCleared()
         sessionJob?.cancel()
         refreshJob?.cancel()
-        openCheckJob?.cancel()
+        openLookJob?.cancel()
         val open = envelope
         envelope = null
         if (open != null) {
@@ -538,11 +527,13 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         private const val REFRESH_AFTER_MS = 20_000L
         private const val REFRESH_INTERVAL_MS = 30_000L
         /** A little under a block (about 2 minutes). */
-        private const val OPEN_CHECK_EVERY_MS = 100_000L
+        /** A link the Wallet tab looked at this recently is not looked at again (a tab switch back and forth). */
+        private const val LOOK_AGAIN_AFTER_MS = 120_000L
         /** How long after a check the Wallet tab may keep showing Synced while the main wallet reconnects. */
         private const val HOLD_AFTER_MS = 45_000L
-        /** How long a Wallet-tab look waits for the main wallet to be synced. */
-        private const val SYNC_WAIT_MS = 120_000L
+
+        /** How often the Wallet tab looks at open links while it shows. */
+        const val WALLET_TAB_LOOK_EVERY_MS = 10 * 60_000L
         private const val FUNDING_TXID_WAIT_MS = 60_000L
     }
 }

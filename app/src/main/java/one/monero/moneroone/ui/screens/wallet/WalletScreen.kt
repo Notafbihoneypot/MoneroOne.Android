@@ -72,6 +72,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -105,7 +106,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.R
@@ -120,6 +123,7 @@ import one.monero.moneroone.paymentlinks.linkRowText
 import one.monero.moneroone.paymentlinks.rememberDaemonHeight
 import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import one.monero.moneroone.core.wallet.ReceiveAddressLogic
+import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.core.wallet.addressesOf
 import one.monero.moneroone.ui.components.rememberChartDateFormats
@@ -147,6 +151,7 @@ import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.SystemFill
 import one.monero.moneroone.ui.theme.SuccessGreen
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -226,15 +231,26 @@ fun WalletScreen(
     val openLinks = remember(linkIndex, activeWallet?.id, daemonHeight) {
         OpenLinkRules.openLinks(linkIndex.sent, linkIndex.received, activeWallet?.id, System.currentTimeMillis() / 1000)
     }
-    // A look at the open sent links when the tab shows, once the wallet is synced (after a launch or a
-    // switch) and as blocks arrive, so a claimed one leaves the line. The switch resets the sync state
-    // with the wallet, so a look never starts on the wallet before.
+    // A look at the open sent links, so a claimed one leaves the line: when the tab appears, comes
+    // back to the foreground or shows another wallet, then every 10 minutes while it shows. A look
+    // stops the main wallet for a moment, so it waits until the wallet is synced, no send runs and
+    // History shows now, and never runs per block.
     if (paymentLinks != null && openLinks.sent.isNotEmpty()) {
         val walletId = activeWallet?.id
-        val synced = walletState.syncState is SyncState.Synced
-        LifecycleStartEffect(paymentLinks, walletId, synced, daemonHeight) {
-            if (synced) paymentLinks.checkOpenLinks(walletId)
-            onStopOrDispose { }
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
+        val sendState by walletViewModel.sendState.collectAsState()
+        val canLook by rememberUpdatedState(
+            walletState.syncState is SyncState.Synced && sendState !is SendState.Sending && asOf == null
+        )
+        LaunchedEffect(paymentLinks, walletId) {
+            if (walletId == null) return@LaunchedEffect
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    snapshotFlow { canLook }.first { it }
+                    paymentLinks.lookAtOpenLinks(walletId)
+                    delay(PaymentLinksViewModel.WALLET_TAB_LOOK_EVERY_MS)
+                }
+            }
         }
     }
     // A link check stops the synced main wallet for a moment; the card keeps saying Synced meanwhile.
