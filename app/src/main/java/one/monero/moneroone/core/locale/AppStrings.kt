@@ -58,5 +58,8 @@ private val englishSingular = mapOf(
     "%s sent transactions" to "%s sent transaction",
     "%s locations" to "%s location",
     "%s words" to "%s word",
-    "%s payments" to "%s payment"
+    "%s payments" to "%s payment",
+    "%s payment links" to "%s payment link",
+    "%s link transactions" to "%s link transaction",
+    "in %s open links" to "in %s open link"
 )

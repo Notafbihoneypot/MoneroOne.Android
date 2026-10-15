@@ -53,6 +53,7 @@ import one.monero.moneroone.ui.screens.settings.SettingsScreen
 import one.monero.moneroone.ui.screens.wallet.BalanceHistoryModel
 import one.monero.moneroone.ui.screens.wallet.WalletScreen
 import one.monero.moneroone.ui.screens.wallet.rememberBalanceHistoryState
+import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import one.monero.moneroone.ui.navigation.Screen
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.floatShadow
@@ -71,7 +72,8 @@ fun MainScreen(
     navController: NavHostController,
     chartViewModel: ChartViewModel,
     onNavigateToSend: () -> Unit = {},
-    onNavigateToReceive: () -> Unit = {}
+    onNavigateToReceive: () -> Unit = {},
+    paymentLinks: PaymentLinksViewModel? = null
 ) {
     // Saveable: Main leaves composition while a settings sub-page is up, so
     // plain remember reset the tab to Wallet and Back from Security/Sync/etc.
@@ -194,6 +196,10 @@ fun MainScreen(
                         },
                         onSeeAllTransactionsClick = { asOf ->
                             navController.navigate(Screen.TransactionList.createRoute(asOf))
+                        },
+                        paymentLinks = paymentLinks,
+                        onOpenLinks = {
+                            navController.navigate(Screen.TransactionList.createRoute(links = true))
                         },
                         history = history,
                         historyModel = historyModel,

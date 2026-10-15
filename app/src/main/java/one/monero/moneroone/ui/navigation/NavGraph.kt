@@ -51,6 +51,7 @@ import one.monero.moneroone.ui.screens.receive.ReceiveScreen
 import one.monero.moneroone.ui.screens.send.QRScannerScreen
 import one.monero.moneroone.ui.screens.send.SendScreen
 import one.monero.moneroone.ui.screens.transactions.TransactionDetailScreen
+import one.monero.moneroone.ui.screens.transactions.TransactionFilter
 import one.monero.moneroone.ui.screens.transactions.TransactionListScreen
 import one.monero.moneroone.ui.screens.unlock.UnlockScreen
 import one.monero.moneroone.ui.screens.wallet.AddWalletScreen
@@ -104,9 +105,12 @@ sealed class Screen(val route: String) {
     data object TransactionDetail : Screen("transaction/{txId}") {
         fun createRoute(txId: String) = "transaction/$txId"
     }
-    data object TransactionList : Screen("transaction_list?asOf={asOf}") {
-        /** [asOf] (epoch ms) lists only what had happened by then; null lists everything. */
-        fun createRoute(asOf: Long? = null) = if (asOf != null) "transaction_list?asOf=$asOf" else "transaction_list"
+    data object TransactionList : Screen("transaction_list?asOf={asOf}&filter={filter}") {
+        /** [asOf] (epoch ms) lists only what had happened by then; null lists everything. [links] opens the Links filter. */
+        fun createRoute(asOf: Long? = null, links: Boolean = false): String {
+            val args = listOfNotNull(asOf?.let { "asOf=$it" }, "filter=links".takeIf { links })
+            return if (args.isEmpty()) "transaction_list" else "transaction_list?" + args.joinToString("&")
+        }
     }
     data object AddressPicker : Screen("address_picker")
     data object Settings : Screen("settings")
@@ -397,7 +401,8 @@ fun MoneroOneNavHost(
                     navController = navController,
                     chartViewModel = chartViewModel,
                     onNavigateToSend = { navController.navigate(Screen.Send.createRoute()) },
-                    onNavigateToReceive = { navController.navigate(Screen.Receive.route) }
+                    onNavigateToReceive = { navController.navigate(Screen.Receive.route) },
+                    paymentLinks = paymentLinks
                 )
             }
 
@@ -519,6 +524,11 @@ fun MoneroOneNavHost(
                     navArgument("asOf") {
                         type = NavType.LongType
                         defaultValue = -1L
+                    },
+                    navArgument("filter") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { backStackEntry ->
@@ -526,6 +536,7 @@ fun MoneroOneNavHost(
                     walletViewModel = walletViewModel,
                     paymentLinks = paymentLinks,
                     asOf = backStackEntry.arguments?.getLong("asOf")?.takeIf { it >= 0 },
+                    initialFilter = if (backStackEntry.arguments?.getString("filter") == "links") TransactionFilter.LINKS else TransactionFilter.ALL,
                     onBack = { navController.popBackStack() },
                     onTransactionClick = { txId ->
                         navController.navigate(Screen.TransactionDetail.createRoute(txId))

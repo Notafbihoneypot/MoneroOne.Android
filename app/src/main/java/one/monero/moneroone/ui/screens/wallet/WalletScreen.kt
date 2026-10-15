@@ -84,6 +84,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -104,13 +105,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.R
 import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
 import one.monero.moneroone.paymentlinks.PaymentLinkIndex
-import one.monero.moneroone.paymentlinks.PendingPaymentLinkRow
+import one.monero.moneroone.paymentlinks.OpenLinkRules
+import one.monero.moneroone.paymentlinks.OpenLinksLines
+import one.monero.moneroone.paymentlinks.PaymentLinkStore
+import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
+import one.monero.moneroone.paymentlinks.PendingLinkState
 import one.monero.moneroone.paymentlinks.linkRowText
+import one.monero.moneroone.paymentlinks.rememberDaemonHeight
 import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import one.monero.moneroone.core.wallet.ReceiveAddressLogic
 import one.monero.moneroone.core.wallet.WalletViewModel
@@ -165,7 +172,11 @@ fun WalletScreen(
     historyModel: BalanceHistoryModel,
     historyPrices: HistoryPrices,
     onFetchHistoryRange: (TimeRange) -> Unit,
-    onAddWalletClick: () -> Unit = {}
+    onAddWalletClick: () -> Unit = {},
+    /** Checks open sent links so the balance card's line stays true. */
+    paymentLinks: PaymentLinksViewModel? = null,
+    /** Opens Activity with the Links filter on. */
+    onOpenLinks: () -> Unit = {}
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val currentPrice by walletViewModel.currentPrice.collectAsState()
@@ -207,6 +218,31 @@ fun WalletScreen(
     val recentTransactions = remember(sortedTransactions, asOf) {
         if (asOf == null) sortedTransactions.take(5)
         else sortedTransactions.asSequence().filter { it.timestamp * 1000 <= asOf }.take(5).toList()
+    }
+
+    // Links that still hold money: a line in the balance card (spec Round 3). A new block can expire one.
+    val linkStore = PaymentLinkStore.get(LocalContext.current)
+    val daemonHeight = rememberDaemonHeight()
+    val openLinks = remember(linkIndex, activeWallet?.id, daemonHeight) {
+        OpenLinkRules.openLinks(linkIndex.sent, linkIndex.received, activeWallet?.id, System.currentTimeMillis() / 1000)
+    }
+    // A look at the open sent links when the tab shows and as blocks arrive, so a claimed one leaves the line.
+    if (paymentLinks != null && openLinks.sent.isNotEmpty()) {
+        val walletId = activeWallet?.id
+        LifecycleStartEffect(paymentLinks, walletId) {
+            paymentLinks.checkOpenLinks(walletId)
+            onStopOrDispose { }
+        }
+        LaunchedEffect(daemonHeight, walletId) { paymentLinks.checkOpenLinks(walletId) }
+    }
+    val claimOpenLink: () -> Unit = {
+        val only = openLinks.received.singleOrNull()
+        if (only == null) {
+            onOpenLinks()
+        } else {
+            val ready = PaymentLinkActivityRules.pendingState(only, daemonHeight, System.currentTimeMillis()) == PendingLinkState.Ready
+            linkStore.openClaim(only.id, autoClaim = ready)
+        }
     }
 
     val refreshState = rememberPullToRefreshState()
@@ -375,7 +411,32 @@ fun WalletScreen(
                                 syncState = walletState.syncState,
                                 isOnline = isOnline,
                                 history = history,
-                                historicalPoint = historicalPoint
+                                historicalPoint = historicalPoint,
+                                openLinks = { isPast ->
+                                    // Kept in place, hidden, while History shows the past.
+                                    AnimatedVisibility(
+                                        visible = !openLinks.isEmpty,
+                                        enter = fadeIn(Motion.snappy()) + expandVertically(Motion.snappy(), expandFrom = Alignment.Top),
+                                        exit = fadeOut(Motion.snappy()) + shrinkVertically(Motion.snappy(), shrinkTowards = Alignment.Top)
+                                    ) {
+                                        // The last links shown stay while the line leaves.
+                                        val shown = remember { mutableStateOf(openLinks) }
+                                        if (!openLinks.isEmpty) shown.value = openLinks
+                                        Box(
+                                            modifier = Modifier
+                                                .graphicsLayer { alpha = if (isPast) 0f else 1f }
+                                                .then(if (isPast) Modifier.clearAndSetSemantics {} else Modifier)
+                                        ) {
+                                            OpenLinksLines(
+                                                open = shown.value,
+                                                formatXmr = walletViewModel::formatXmr,
+                                                enabled = !isPast,
+                                                onOpenLinks = { history.timestamp = null; onOpenLinks() },
+                                                onClaim = claimOpenLink
+                                            )
+                                        }
+                                    }
+                                }
                             ) { isActive ->
                                 BalanceHistoryChart(
                                     balance = walletState.balance.all,
@@ -465,9 +526,8 @@ fun WalletScreen(
             }
         }
 
-        // Received payment links not claimed yet sit above the transactions, now only (History shows the past).
-        val pendingLinks = if (asOf == null) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
-        if (recentTransactions.isEmpty() && pendingLinks.isEmpty()) {
+        // Open links live in the balance card and the Links filter, not here (spec Round 3).
+        if (recentTransactions.isEmpty()) {
             item(key = "recentEmpty") {
                 if (asOf != null) {
                     PastEmptyTransactionsCard()
@@ -479,9 +539,6 @@ fun WalletScreen(
                 }
             }
         } else {
-            items(items = pendingLinks, key = { "paymentLink-${it.id}" }) { link ->
-                PendingPaymentLinkRow(link, activeWallet?.name, walletViewModel::formatXmr)
-            }
             items(
                 items = recentTransactions,
                 key = { it.hash }
@@ -558,6 +615,8 @@ internal fun BalanceCard(
     history: BalanceHistoryState,
     /** The past moment picked on the chart; null is now. */
     historicalPoint: PortfolioPoint?,
+    /** The open payment links line, last in the card; told when History shows the past. */
+    openLinks: @Composable (isPast: Boolean) -> Unit = {},
     historyChart: @Composable (isActive: Boolean) -> Unit
 ) {
     val dates = rememberChartDateFormats()
@@ -820,6 +879,8 @@ internal fun BalanceCard(
                     textAlign = TextAlign.Center
                 )
             }
+
+            openLinks(isPast)
         }
     }
 }

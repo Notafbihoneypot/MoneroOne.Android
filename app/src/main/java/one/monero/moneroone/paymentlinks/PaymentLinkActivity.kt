@@ -1,22 +1,8 @@
 package one.monero.moneroone.paymentlinks
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,23 +11,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.WalletManager
-import one.monero.moneroone.ui.components.GlassCard
-import one.monero.moneroone.ui.theme.MoneroOrange
-import one.monero.moneroone.ui.theme.MoneroTheme
-import one.monero.moneroone.ui.theme.SuccessGreen
 
 /** What a wallet transaction did for a payment link on this device. */
 enum class LinkActivityKind {
@@ -93,8 +69,7 @@ sealed interface PendingLinkState {
  * - received record, incoming tx == claimTxid: "Received by Link"
  * Every other transaction keeps "Received" / "Sent". A link row shows a link
  * glyph in the disc of its direction and opens the link's detail. Activity's
- * Links filter shows these rows only, under the received links still waiting
- * to be claimed.
+ * Links filter shows these rows only, under the Open Links group ([OpenLinks]).
  */
 object PaymentLinkActivityRules {
 
@@ -238,90 +213,6 @@ fun linkRowText(
         subtitleIsStatus = statusLine != null,
         spoken = PaymentLinkActivityRules.spokenLabel(activity.title, incoming, amountSpoken, statusLine, date, transactionStatus)
     )
-}
-
-/**
- * One received link at the top of Activity: "Payment link", its state, the
- * amount when known, and a Claim chip once it is ready. A tap opens the claim
- * sheet; when ready, the sheet claims as soon as its own check confirms it.
- */
-@Composable
-fun PendingPaymentLinkRow(link: ReceivedLink, walletName: String?, formatXmr: (Long) -> String) {
-    val store = PaymentLinkStore.get(LocalContext.current)
-    val daemonHeight = rememberDaemonHeight()
-    val state = PaymentLinkActivityRules.pendingState(link, daemonHeight, System.currentTimeMillis())
-    val ready = state == PendingLinkState.Ready
-    val label = PaymentLinkActivityRules.pendingLabel(state)
-    val amount = link.knownAmount
-    val spoken = listOfNotNull(tr("Payment link"), amount?.let { tr("plus %s", "${formatXmr(it)} XMR") }, label).joinToString(", ")
-    val hint = if (ready && !walletName.isNullOrEmpty()) tr("Claims the money to %s", walletName) else tr("Opens the link to claim it")
-    val open = { store.openClaim(link.id, autoClaim = ready) }
-
-    // One TalkBack node, as a transaction card: the card's click (with the hint as its label) and the row's text.
-    GlassCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("activity.paymentLink.${link.id}")
-            .semantics { onClick(label = hint) { open(); true } },
-        onClick = open
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clearAndSetSemantics { contentDescription = spoken }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).background(SuccessGreen.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Link, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(20.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(tr("Payment link"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, maxLines = 1)
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    label,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (ready) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                amount?.let {
-                    Text(
-                        "+${formatXmr(it)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = SuccessGreen,
-                        maxLines = 1
-                    )
-                }
-                if (ready) {
-                    Text(
-                        tr("Claim"),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MoneroOrange,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(MoneroOrange.copy(alpha = 0.15f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MoneroTheme.colors.labelTertiary,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-    }
 }
 
 /**

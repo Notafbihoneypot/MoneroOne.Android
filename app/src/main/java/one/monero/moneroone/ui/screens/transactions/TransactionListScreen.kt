@@ -87,10 +87,12 @@ import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.PendingOrange
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.ErrorRed
-import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
 import one.monero.moneroone.paymentlinks.PaymentLinkIndex
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
-import one.monero.moneroone.paymentlinks.PendingPaymentLinkRow
+import one.monero.moneroone.paymentlinks.OpenLinkRules
+import one.monero.moneroone.paymentlinks.OpenLinksHeader
+import one.monero.moneroone.paymentlinks.OpenReceivedLinkRow
+import one.monero.moneroone.paymentlinks.OpenSentLinkRow
 import one.monero.moneroone.paymentlinks.linkRowText
 import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import java.text.SimpleDateFormat
@@ -117,7 +119,9 @@ fun TransactionListScreen(
     /** Checks sent links' envelopes while the Links filter shows. */
     paymentLinks: PaymentLinksViewModel? = null,
     /** From History: only transactions up to this moment (ms); null for all. */
-    asOf: Long? = null
+    asOf: Long? = null,
+    /** The filter it opens on: Links from the balance card's open-links line. */
+    initialFilter: TransactionFilter = TransactionFilter.ALL
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val fiatMode by walletViewModel.fiatMode.collectAsState()
@@ -127,7 +131,7 @@ fun TransactionListScreen(
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     var receivingIndex by rememberSaveable(activeWallet?.id) { mutableStateOf<Int?>(null) }
     var showAddresses by remember { mutableStateOf(false) }
-    var selectedFilter by rememberSaveable(activeWallet?.id) { mutableStateOf(TransactionFilter.ALL) }
+    var selectedFilter by rememberSaveable(activeWallet?.id) { mutableStateOf(initialFilter) }
     var searchQuery by remember { mutableStateOf("") }
     val linkIndex = rememberPaymentLinkIndex()
 
@@ -139,11 +143,14 @@ fun TransactionListScreen(
     val filteredTransactions = remember(transactions, selectedFilter, searchQuery, receivingIndex, addressRows, linkIndex) {
         TransactionHistoryLogic.filter(transactions, selectedFilter, receivingIndex, searchQuery, addressRows) { linkIndex.match(it) != null }
     }
-    // Received payment links not claimed yet, above the rows: now only, with no search, and under the
-    // filters that can hold an incoming payment still on its way (Links too).
-    val pendingLinks = if (asOf == null && searchQuery.isBlank() && receivingIndex == null &&
-        selectedFilter != TransactionFilter.SENT
-    ) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
+    // Under Links (now only, no search), the links that still hold money head the list: received
+    // links to claim, then this wallet's sent links (spec Round 3). No other filter shows them.
+    val nowSeconds = System.currentTimeMillis() / 1000
+    val openLinks = if (asOf == null && searchQuery.isBlank() && receivingIndex == null &&
+        selectedFilter == TransactionFilter.LINKS
+    ) OpenLinkRules.openLinks(linkIndex.sent, linkIndex.received, activeWallet?.id, nowSeconds) else null
+    val openSent = openLinks?.let { OpenLinkRules.sentInGroupOrder(it, nowSeconds) }.orEmpty()
+    val openReceived = openLinks?.received.orEmpty()
 
     // Under Links (now only), look at sent links someone could have claimed, so their rows say so. A look
     // holds the wallet runtime for a moment, so no other filter runs it; it stops in the background.
@@ -158,6 +165,27 @@ fun TransactionListScreen(
     val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice) {
         TransactionHistoryLogic.fiatTotals(filteredTransactions) {
             PriceHistory.priceAt(it, priceHistory, currentPrice?.price, System.currentTimeMillis() / 1000)
+        }
+    }
+
+    // Totals of what the list shows. Under Links it follows the Open Links group.
+    val summaryCard: @Composable () -> Unit = {
+        GlassCard(Modifier.fillMaxWidth(), shadow = false, cornerRadius = 16.dp) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (selectedFilter == TransactionFilter.LINKS) pluralTr("%s link transactions", totals.count) else pluralTr("%s transactions", totals.count), style = MaterialTheme.typography.titleSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    listOf(Triple(tr("Received"), totals.received, fiatTotals?.received), Triple(tr("Sent"), totals.sent, fiatTotals?.sent)).forEach { (title, amount, fiat) ->
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            val fiatValue = fiat?.let { MoneyFormat.format(it.toDouble(), currency, fractionDigits = 2) }
+                            ShrinkToFitText(if (fiatMode && fiatValue != null) fiatValue else "${XmrFormat.format(amount)} XMR",
+                                style = MaterialTheme.typography.titleMedium, minScale = 0.5f)
+                            if (fiatMode && fiatValue != null) Text("${XmrFormat.format(amount)} XMR", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                Text(tr("Sent total includes fees"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 
@@ -252,26 +280,9 @@ fun TransactionListScreen(
                     modifier = Modifier.padding(bottom = 8.dp).testTag("transactions.asOf")
                 )
             }
-            GlassCard(Modifier.fillMaxWidth(), shadow = false, cornerRadius = 16.dp) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(pluralTr("%s transactions", totals.count), style = MaterialTheme.typography.titleSmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        listOf(Triple(tr("Received"), totals.received, fiatTotals?.received), Triple(tr("Sent"), totals.sent, fiatTotals?.sent)).forEach { (title, amount, fiat) ->
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                val fiatValue = fiat?.let { MoneyFormat.format(it.toDouble(), currency, fractionDigits = 2) }
-                                ShrinkToFitText(if (fiatMode && fiatValue != null) fiatValue else "${XmrFormat.format(amount)} XMR",
-                                    style = MaterialTheme.typography.titleMedium, minScale = 0.5f)
-                                if (fiatMode && fiatValue != null) Text("${XmrFormat.format(amount)} XMR", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
-                    Text(tr("Sent total includes fees"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-
-            if (filteredTransactions.isEmpty() && pendingLinks.isEmpty()) {
+            if (filteredTransactions.isEmpty() && openReceived.isEmpty() && openSent.isEmpty()) {
+                summaryCard()
+                Spacer(Modifier.height(16.dp))
                 // Empty state
                 Box(
                     modifier = Modifier
@@ -313,8 +324,21 @@ fun TransactionListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    items(items = pendingLinks, key = { "paymentLink-${it.id}" }) { link ->
-                        PendingPaymentLinkRow(link, activeWallet?.name, walletViewModel::formatXmr)
+                    if (openReceived.isNotEmpty() || openSent.isNotEmpty()) {
+                        item(key = "openLinksHeader") { OpenLinksHeader() }
+                        items(items = openReceived, key = { "openReceived-${it.id}" }) { link ->
+                            OpenReceivedLinkRow(link, activeWallet?.name, walletViewModel::formatXmr)
+                        }
+                        items(items = openSent, key = { "openSent-${it.id}" }) { link ->
+                            OpenSentLinkRow(link, nowSeconds, walletViewModel::formatXmr) {
+                                link.fundingTxid?.let(onTransactionClick)
+                            }
+                        }
+                        item(key = "openLinksGap") { Spacer(Modifier.height(8.dp)) }
+                    }
+                    item(key = "summary") {
+                        summaryCard()
+                        Spacer(Modifier.height(8.dp))
                     }
                     items(
                         items = filteredTransactions,

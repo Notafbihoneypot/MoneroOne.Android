@@ -67,6 +67,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     private var envelope: EnvelopeWallet? = null
     private var sessionJob: Job? = null
     private var refreshJob: Job? = null
+    private var openCheckJob: Job? = null
+    private var lastOpenCheckAt = 0L
 
     init {
         // Files of settled or removed links go; live envelopes keep theirs.
@@ -232,6 +234,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         if (_session.value?.id == id && _session.value?.phase != EnvelopeSession.Phase.ERROR) return
         _sweep.value = null
         refreshJob?.cancel()
+        openCheckJob?.cancel()
         sessionJob?.cancel()
         sessionJob = viewModelScope.launch {
             sessionLock.withLock {
@@ -426,9 +429,32 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     private suspend fun checkDueSent() {
         val now = System.currentTimeMillis()
-        val due = store.sent.value.filter {
+        checkSent(store.sent.value.filter {
             !LinkStatusRules.isSettled(it) && now - (it.lastCheck?.checkedAt ?: 0) > REFRESH_AFTER_MS
+        })
+    }
+
+    /**
+     * The Wallet tab's look at the open sent links of [walletId] (spec Round 3), so the balance
+     * card's line drops a claimed link: when the tab shows and as blocks arrive, at most once per
+     * [OPEN_CHECK_EVERY_MS] (about a block), and only while the main wallet is synced, because a
+     * look stops the main wallet for a moment. The Links filter's [refreshSent] covers it there.
+     */
+    fun checkOpenLinks(walletId: String?) {
+        if (walletId == null || refreshJob?.isActive == true || openCheckJob?.isActive == true || _session.value != null) return
+        if (WalletManager.syncStateFlow.value !is SyncState.Synced) return
+        val now = System.currentTimeMillis()
+        if (now - lastOpenCheckAt < OPEN_CHECK_EVERY_MS) return
+        val due = store.sent.value.filter {
+            it.walletId == walletId && OpenLinkRules.isOpen(it, now / 1000) &&
+                now - (it.lastCheck?.checkedAt ?: 0) > OPEN_CHECK_EVERY_MS
         }
+        if (due.isEmpty()) return
+        lastOpenCheckAt = now
+        openCheckJob = viewModelScope.launch { checkSent(due) }
+    }
+
+    private suspend fun checkSent(due: List<SentLink>) {
         for (link in due) {
             // A claim sheet or detail screen has the envelope runtime: leave it alone.
             if (_session.value != null) return
@@ -466,6 +492,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         super.onCleared()
         sessionJob?.cancel()
         refreshJob?.cancel()
+        openCheckJob?.cancel()
         val open = envelope
         envelope = null
         if (open != null) {
@@ -477,6 +504,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         private const val LIVE_INTERVAL_MS = 3_000L
         private const val REFRESH_AFTER_MS = 20_000L
         private const val REFRESH_INTERVAL_MS = 30_000L
+        /** A little under a block (about 2 minutes). */
+        private const val OPEN_CHECK_EVERY_MS = 100_000L
         private const val FUNDING_TXID_WAIT_MS = 60_000L
     }
 }
