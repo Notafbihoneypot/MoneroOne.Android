@@ -52,7 +52,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingPaymentLink.value = savedInstanceState?.getString("pending_payment_link")
-        acceptPaymentLink(intent)
+        // A restore after process death gets the launch Intent back with its link (clearing data
+        // only changed this process's copy): it was taken on the first launch, so it must not
+        // queue the claim sheet again. A new link while the app is up comes through onNewIntent.
+        if (savedInstanceState == null) acceptPaymentLink(intent)
         // A language change recreates this activity: rename the channels to match.
         (application as MoneroOneApp).createNotificationChannels()
 

@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -187,11 +188,12 @@ private fun ClaimSheet(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        // The sweep's kit stays open until the node answers.
-        confirmValueChange = { it != SheetValue.Hidden || ui != ClaimUi.Claiming }
-    )
+    // The sweep's kit stays open until the node answers. The sheet state is keyed on its
+    // confirmValueChange: a lambda that captured [ui] made a new, hidden state on each
+    // recomposition, and the sheet slid in again (twice after a claim). One lambda, read through State.
+    val claiming by rememberUpdatedState(ui == ClaimUi.Claiming)
+    val keepWhileClaiming = remember { { value: SheetValue -> value != SheetValue.Hidden || !claiming } }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = keepWhileClaiming)
     ModalBottomSheet(
         onDismissRequest = { if (ui != ClaimUi.Claiming) dismiss() },
         sheetState = sheetState,
