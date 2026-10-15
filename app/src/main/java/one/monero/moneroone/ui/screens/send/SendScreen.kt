@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -26,6 +27,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -52,6 +54,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
@@ -82,7 +85,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.drawBehind
@@ -93,7 +95,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -102,6 +107,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.MoneroKit
@@ -114,10 +120,10 @@ import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.paymentlinks.EnvelopeDraft
-import one.monero.moneroone.paymentlinks.LinkRecipientCard
 import one.monero.moneroone.paymentlinks.PaymentLinkCodec
 import one.monero.moneroone.paymentlinks.PaymentLinkParse
 import one.monero.moneroone.paymentlinks.PaymentLinkReadyPhase
+import one.monero.moneroone.paymentlinks.PaymentLinkRecipientToken
 import one.monero.moneroone.paymentlinks.PaymentLinkReview
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import one.monero.moneroone.ui.components.AuthGateDialog
@@ -125,7 +131,6 @@ import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
-import one.monero.moneroone.ui.components.GlassSegmentedPicker
 import one.monero.moneroone.ui.components.MoneroTextField
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ShrinkToFitText
@@ -166,7 +171,7 @@ fun SendScreen(
     onBack: () -> Unit,
     onScanQr: () -> Unit,
     onSent: () -> Unit,
-    // Payment links: the Link segment, and claim links pasted into the recipient field.
+    // Payment links: the Link capsule, and claim links pasted into the recipient field.
     paymentLinks: PaymentLinksViewModel? = null,
     onClaimLink: (String) -> Unit = {}
 ) {
@@ -371,7 +376,7 @@ fun SendScreen(
                     onScanQr = onScanQr,
                     onContinue = { goForward(SendPhase.AMOUNT) },
                     linkMode = linkMode,
-                    showModePicker = canSendWithLink,
+                    showLinkButton = canSendWithLink,
                     onLinkModeChange = { on ->
                         linkMode = on
                         linkDraft = null
@@ -558,8 +563,8 @@ private fun AddressPhase(
     onScanQr: () -> Unit,
     onContinue: () -> Unit,
     linkMode: Boolean = false,
-    /** The Address | Link control: any wallet that can send (view-only wallets do not see it). */
-    showModePicker: Boolean = false,
+    /** The Link capsule: any wallet that can send (view-only wallets do not see it). */
+    showLinkButton: Boolean = false,
     onLinkModeChange: (Boolean) -> Unit = {}
 ) {
     val isValid = linkMode || address.isNotEmpty() && isValidMoneroAddress(address)
@@ -585,162 +590,178 @@ private fun AddressPhase(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp)
+            .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() }
     ) {
-        // A link is a way to send, so it is a segment of Send (iOS send.modePicker). It stays put
-        // while the step below it fades in.
-        if (showModePicker) {
-            Spacer(modifier = Modifier.height(8.dp))
-            SendModePicker(linkMode = linkMode, onLinkModeChange = onLinkModeChange)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // iOS ErrorBanner(.offline) at the top of the step: gray tint, label
+        // text, 24 above the field. It appears without an animation, as on iOS.
+        if (!isOnline) {
+            val gray = MoneroTheme.colors.gray
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(gray.copy(alpha = 0.1f))
+                    .padding(16.dp)
+                    .clearAndSetSemantics { contentDescription = tr("Offline: no internet connection") },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiOff,
+                    contentDescription = null,
+                    tint = gray,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = tr("No internet connection. Cannot send."),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() }
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = tr("Recipient"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
-            // iOS ErrorBanner(.offline) at the top of the step: gray tint, label
-            // text, 24 above the field. It appears without an animation, as on iOS.
-            if (!isOnline) {
-                val gray = MoneroTheme.colors.gray
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(gray.copy(alpha = 0.1f))
-                        .padding(16.dp)
-                        .clearAndSetSemantics { contentDescription = tr("Offline: no internet connection") },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.WifiOff,
-                        contentDescription = null,
-                        tint = gray,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = tr("No internet connection. Cannot send."),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // The segment's content cross-fades in place, no slide (iOS: opacity, easeInOut 0.2 s).
-            Crossfade(
-                targetState = linkMode,
-                animationSpec = tween(200, easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)),
-                label = "sendMode"
-            ) { link ->
+        // Only the field changes: it cross-fades with the payment-link token in
+        // place (iOS: opacity, easeInOut 0.2 s), and the buttons below follow its height.
+        val fieldMotion = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+        Crossfade(
+            targetState = linkMode,
+            animationSpec = tween(200, easing = fieldMotion),
+            modifier = Modifier.animateContentSize(tween(200, easing = fieldMotion)),
+            label = "recipient"
+        ) { link ->
+            if (link) {
+                PaymentLinkRecipientToken(onClear = { onLinkModeChange(false) })
+            } else {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = if (link) tr("Recipient") else tr("Recipient Address"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                    // Addresses are mono caption, as on iOS.
+                    MoneroTextField(
+                        value = address,
+                        onValueChange = onAddressChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
+                        textStyle = MonoCaption,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                        singleLine = true
                     )
 
-                    if (link) {
-                        LinkRecipientCard()
-                    } else {
-                        // Addresses are mono caption, as on iOS.
-                        MoneroTextField(
-                            value = address,
-                            onValueChange = onAddressChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
-                            textStyle = MonoCaption,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
-                            singleLine = true
-                        )
-
-                        // Inline validation indicator
-                        if (address.isNotEmpty()) {
-                            val valid = isValidMoneroAddress(address)
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(top = 6.dp)
-                            ) {
-                                Icon(
-                                    if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                                    contentDescription = null,
-                                    tint = if (valid) SuccessGreen else ErrorRed,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    if (valid) tr("Valid address") else tr("Invalid address"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (valid) SuccessGreen else ErrorRed
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Scan QR + Paste buttons
+                    // Inline validation indicator
+                    if (address.isNotEmpty()) {
+                        val valid = isValidMoneroAddress(address)
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 6.dp)
                         ) {
-                            PrimaryButton(
-                                onClick = onScanQr,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Text(tr("Scan QR"))
-                            }
-                            PrimaryButton(
-                                onClick = {
-                                    clipboardManager.getText()?.text?.let { onAddressChange(it.trim()) }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Text(tr("Paste"))
-                            }
+                            Icon(
+                                if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                contentDescription = null,
+                                tint = if (valid) SuccessGreen else ErrorRed,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                if (valid) tr("Valid address") else tr("Invalid address"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (valid) SuccessGreen else ErrorRed
+                            )
                         }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Continue button
-            PrimaryButton(
-                onClick = onContinue,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = isValid && isOnline
-            ) {
-                Text(tr("Continue"))
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Scan QR, Paste and Link fill the recipient. Scan QR and Paste leave a link
+        // for the address they bring. Three capsules stack at large text (iOS AX sizes).
+        val linkHint = tr("Sends the money as a link anyone can claim")
+        val narrow = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+        RecipientButtons(stack = LocalDensity.current.fontScale >= 1.5f) {
+            PrimaryButton(onClick = onScanQr, contentPadding = narrow) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(20.dp))
+                Text(tr("Scan QR"))
+            }
+            PrimaryButton(
+                onClick = {
+                    clipboardManager.getText()?.text?.let {
+                        if (linkMode) onLinkModeChange(false)
+                        onAddressChange(it.trim())
+                    }
+                },
+                contentPadding = narrow
+            ) {
+                Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(20.dp))
+                Text(tr("Paste"))
+            }
+            if (showLinkButton) {
+                // TalkBack and Voice Access use the visible "Link"; the action label explains it.
+                PrimaryButton(
+                    onClick = { onLinkModeChange(true) },
+                    enabled = !linkMode,
+                    contentPadding = narrow,
+                    modifier = if (linkMode) Modifier else Modifier.semantics {
+                        onClick(label = linkHint) { onLinkModeChange(true); true }
+                    }
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Text(tr("Link"))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Continue button
+        PrimaryButton(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = isValid && isOnline
+        ) {
+            Text(tr("Continue"))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
+        }
+
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 
 /**
- * Send's Address | Link control (iOS `send.modePicker`): the app's segmented
- * picker (tokens.json components.segmented). TalkBack reads each segment's
- * label; Link adds the hint iOS gives it as its action label.
+ * The recipient buttons: equal capsules 12 apart in one row, or one under
+ * another when [stack] is set or a label would not fit its share of the row
+ * (like iOS ViewThatFits).
  */
 @Composable
-private fun SendModePicker(linkMode: Boolean, onLinkModeChange: (Boolean) -> Unit) {
-    val linkHint = tr("Send money as a link anyone can claim")
-    GlassSegmentedPicker(
-        options = listOf(false, true),
-        selectedOption = linkMode,
-        onOptionSelected = { link -> if (link != linkMode) onLinkModeChange(link) },
-        modifier = Modifier.fillMaxWidth().testTag("send.modePicker"),
-        onClickLabel = { link -> if (link) linkHint else null },
-        segmentTestTag = { link -> if (link) "send.mode.link" else "send.mode.address" },
-        labelSelector = { link -> if (link) tr("Link") else tr("Address") }
-    )
+private fun RecipientButtons(stack: Boolean, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = Modifier.fillMaxWidth()) { measurables, constraints ->
+        val gap = 12.dp.roundToPx()
+        val count = measurables.size.coerceAtLeast(1)
+        val width = constraints.maxWidth
+        val cell = (width - gap * (count - 1)) / count
+        val inRow = !stack && measurables.all { it.maxIntrinsicWidth(constraints.maxHeight) <= cell }
+        if (inRow) {
+            val placeables = measurables.map { it.measure(Constraints(minWidth = cell, maxWidth = cell)) }
+            val height = placeables.maxOfOrNull { it.height } ?: 0
+            layout(width, height) {
+                placeables.forEachIndexed { i, p -> p.placeRelative(i * (cell + gap), (height - p.height) / 2) }
+            }
+        } else {
+            val placeables = measurables.map { it.measure(Constraints(minWidth = width, maxWidth = width)) }
+            val height = placeables.sumOf { it.height } + gap * (placeables.size - 1).coerceAtLeast(0)
+            layout(width, height) {
+                var y = 0
+                placeables.forEach { p -> p.placeRelative(0, y); y += p.height + gap }
+            }
+        }
+    }
 }
 
 // ============================================================

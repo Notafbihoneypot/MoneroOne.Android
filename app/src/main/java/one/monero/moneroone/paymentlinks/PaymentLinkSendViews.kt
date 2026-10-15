@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
@@ -33,6 +35,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,8 +64,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.ui.components.GlassCard
+import one.monero.moneroone.ui.components.FieldHeight
+import one.monero.moneroone.ui.components.FieldShape
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.ErrorRed
+import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.WarningYellow
@@ -91,34 +97,57 @@ internal fun shareLink(context: Context, amountXmr: String, link: PaymentLink) {
 }
 
 /**
- * Send's Link segment: who gets the money and how a link works (iOS
- * PaymentLinkAddressStep). One TalkBack node with the visible text.
+ * The recipient field's payment-link token (iOS PaymentLinkRecipientToken):
+ * Link puts it in the field's place, with the field's fill and radius. A 40
+ * brand disc, "Payment link" over "Anyone with the link can claim it", and a
+ * clear button that brings the field back with the address typed before.
  */
 @Composable
-fun LinkRecipientCard(modifier: Modifier = Modifier) {
+fun PaymentLinkRecipientToken(onClear: () -> Unit, modifier: Modifier = Modifier) {
+    val spoken = tr("Recipient, payment link. Anyone with the link can claim it")
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .heightIn(min = FieldHeight)
+            .clip(FieldShape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(16.dp)
-            .semantics(mergeDescendants = true) {},
+            .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(40.dp).clip(CircleShape).background(MoneroOrange.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clearAndSetSemantics { contentDescription = spoken },
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Link, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
+            Box(
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(MoneroOrange.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Link, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            // iOS subheadline semibold over caption secondary.
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    tr("Payment link"),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    tr("Anyone with the link can claim it"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            // iOS headline over subheadline secondary.
-            Text(tr("Anyone with the link"), style = MaterialTheme.typography.titleMedium)
-            Text(
-                tr("You get a link to send in a chat. The first person to open it can claim the money."),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        IconButton(onClick = onClear) {
+            Icon(
+                Icons.Default.Cancel,
+                contentDescription = tr("Remove payment link"),
+                tint = MoneroTheme.colors.labelTertiary,
+                modifier = Modifier.size(20.dp)
             )
         }
     }

@@ -219,12 +219,13 @@ fun GlassButton(
 @Composable
 private fun ButtonLabel(
     contentColor: Color,
+    contentPadding: PaddingValues = ButtonContentPadding,
     content: @Composable RowScope.() -> Unit
 ) {
     CompositionLocalProvider(LocalContentColor provides contentColor) {
         ProvideTextStyle(MaterialTheme.typography.labelLarge.copy(color = contentColor)) {
             Row(
-                modifier = Modifier.padding(ButtonContentPadding),
+                modifier = Modifier.padding(contentPadding),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
                 content = content
@@ -280,7 +281,9 @@ fun ProminentButton(
  * labels turn gray. Pass [contentColor] for the few label-color or green
  * cases iOS has (Welcome Restore, Receive). On a card or sheet, pass
  * `colorScheme.surfaceContainerHigh` as [containerColor] so the capsule still
- * shows on the dark #1C1C1E surface.
+ * shows on the dark #1C1C1E surface. Narrow capsules side by side (three in
+ * a row) pass a smaller [contentPadding], as iOS glass buttons have no fixed
+ * side inset.
  */
 @Composable
 fun PrimaryButton(
@@ -289,6 +292,7 @@ fun PrimaryButton(
     enabled: Boolean = true,
     contentColor: Color = MoneroOrange,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    contentPadding: PaddingValues = ButtonContentPadding,
     content: @Composable RowScope.() -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -314,6 +318,7 @@ fun PrimaryButton(
     ) {
         ButtonLabel(
             contentColor = if (enabled) contentColor else MoneroTheme.colors.gray,
+            contentPadding = contentPadding,
             content = content
         )
     }
