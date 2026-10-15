@@ -64,6 +64,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -75,6 +76,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import one.monero.moneroone.core.node.CustomNodeNames
 import one.monero.moneroone.core.node.NodeBenchmark
 import one.monero.moneroone.core.node.NodeCredentialStore
 import one.monero.moneroone.core.node.NodeCredentials
@@ -104,7 +106,8 @@ data class NodeInfo(
 
 /** What the user typed in the Add or Edit Node dialog. */
 @Stable
-internal class NodeDraft(uri: String, credentials: NodeCredentials?) {
+internal class NodeDraft(name: String, uri: String, credentials: NodeCredentials?) {
+    var name by mutableStateOf(name)
     var nodeUri by mutableStateOf(uri)
     var username by mutableStateOf(credentials?.username ?: "")
     var password by mutableStateOf(credentials?.password ?: "")
@@ -141,6 +144,7 @@ fun NodeSettingsScreen(
     val credentialStore = remember {
         NodeCredentialStore(SecurePrefs.open(context)).also { it.migrateInline(prefs) }
     }
+    val nodeNames = remember { CustomNodeNames(prefs) }
     var benchmarkAttempt by remember { mutableIntStateOf(0) }
     val torConfig by TorNetwork.config.collectAsState()
     val json = remember { Json { ignoreUnknownKeys = true } }
@@ -173,14 +177,17 @@ fun NodeSettingsScreen(
         try {
             val nodes = json.decodeFromString<List<String>>(customJson ?: "[]")
             customNodes.clear()
-            customNodes.addAll(nodes.map { NodeInfo(it, tr("Custom Node"), false, credentialStore.has(it)) })
+            customNodes.addAll(nodes.map {
+                NodeInfo(it, nodeNames.displayName(it, tr("Custom Node")), false, credentialStore.has(it))
+            })
         } catch (e: Exception) {
             // Ignore parse errors
         }
     }
 
-    // Benchmark all nodes on screen entry
-    LaunchedEffect(customNodes.toList(), torConfig, benchmarkAttempt) {
+    // Benchmark all nodes on screen entry. Keyed on what a measurement uses, not
+    // the names: a rename must not re-run auto-select, which can switch nodes.
+    LaunchedEffect(customNodes.map { it.uri to it.hasCredentials }, torConfig, benchmarkAttempt) {
         isBenchmarking = true
         latencyMap.clear()
         val allNodes = (DEFAULT_NODES + DefaultNodes.TOR.map { NodeInfo(it.uri, it.name, true) } + customNodes)
@@ -326,7 +333,7 @@ fun NodeSettingsScreen(
         SettingsSectionHeader(
             title = tr("Custom Nodes"),
             trailing = {
-                IconButton(onClick = { dialogs.open = OpenNodeDialog(null, null, NodeDraft("", null)) }) {
+                IconButton(onClick = { dialogs.open = OpenNodeDialog(null, null, NodeDraft("", "", null)) }) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = tr("Add Node"),
@@ -374,12 +381,14 @@ fun NodeSettingsScreen(
                         },
                         onEdit = {
                             val previous = credentialStore.load(node.uri)
-                            dialogs.open = OpenNodeDialog(node, previous, NodeDraft(node.uri, previous))
+                            // The name the row shows, so a node from before names can be saved as is.
+                            dialogs.open = OpenNodeDialog(node, previous, NodeDraft(node.name, node.uri, previous))
                         },
                         onDelete = {
                             customNodes.remove(node)
                             latencyMap.remove(node.uri)
                             credentialStore.remove(node.uri)
+                            nodeNames.remove(node.uri)
                             persistCustomNodes()
 
                             if (selectedNode == node.uri) {
@@ -416,10 +425,11 @@ fun NodeSettingsScreen(
             draft = openDialog.draft,
             takenUris = (customNodes.map { it.uri } + (DefaultNodes.ALL + DefaultNodes.TOR).map { it.uri }).toSet(),
             torEnabled = torConfig.enabled,
-            onConfirm = { uri, credentials ->
+            onConfirm = { name, uri, credentials ->
                 credentialStore.save(uri, credentials)
+                nodeNames.save(uri, name)
                 benchmarkAttempt++
-                customNodes.add(NodeInfo(uri, tr("Custom Node"), false, credentials != null))
+                customNodes.add(NodeInfo(uri, name, false, credentials != null))
                 persistCustomNodes()
                 dialogs.open = null
             },
@@ -436,15 +446,18 @@ fun NodeSettingsScreen(
             draft = openDialog.draft,
             takenUris = (customNodes.map { it.uri } + (DefaultNodes.ALL + DefaultNodes.TOR).map { it.uri }).toSet() - node.uri,
             torEnabled = torConfig.enabled,
-            onConfirm = { uri, credentials ->
+            onConfirm = { name, uri, credentials ->
                 val uriChanged = uri != node.uri
+                val loginChanged = credentials != previous
                 if (uriChanged) {
                     credentialStore.remove(node.uri)
                     latencyMap.remove(node.uri)
                 }
                 credentialStore.save(uri, credentials)
-                benchmarkAttempt++
-                val updated = NodeInfo(uri, tr("Custom Node"), false, credentials != null)
+                nodeNames.update(node.uri, uri, name, tr("Custom Node"))
+                // A rename alone changes no connection, so nothing is measured again.
+                if (uriChanged || loginChanged) benchmarkAttempt++
+                val updated = NodeInfo(uri, name, false, credentials != null)
                 val index = customNodes.indexOf(node)
                 if (index >= 0) customNodes[index] = updated else customNodes.add(updated)
                 persistCustomNodes()
@@ -455,8 +468,9 @@ fun NodeSettingsScreen(
                     prefs.edit().putString("selected_node", uri).apply()
                 }
                 // The kit only reads credentials at start, so a change to the
-                // live node needs a restart just like a node switch does.
-                if (wasSelected && (uriChanged || credentials != previous)) onNodeChanged()
+                // live node needs a restart just like a node switch does. A
+                // rename alone keeps the wallet on its connection.
+                if (wasSelected && (uriChanged || loginChanged)) onNodeChanged()
                 dialogs.open = null
             },
             onDismiss = { dialogs.open = null }
@@ -611,8 +625,9 @@ private fun LatencyBadge(latencyMs: Long) {
 }
 
 /**
- * Add / edit sheet for a custom node: URI plus an optional RPC login, the
- * same shape as the iOS AddCustomNodeView (Name, URL, Authentication group).
+ * Add / edit sheet for a custom node: a name, the URI and an optional RPC
+ * login, the same shape as the iOS AddCustomNodeView (Name, URL,
+ * Authentication group). As on iOS, the name is required.
  */
 @VisibleForTesting
 @Composable
@@ -622,10 +637,11 @@ internal fun NodeDialog(
     draft: NodeDraft,
     takenUris: Set<String>,
     torEnabled: Boolean,
-    onConfirm: (String, NodeCredentials?) -> Unit,
+    onConfirm: (name: String, uri: String, credentials: NodeCredentials?) -> Unit,
     onDismiss: () -> Unit
 ) {
     // The state lives in [draft], never here, so it outlives this composition.
+    var name by draft::name
     var nodeUri by draft::nodeUri
     var username by draft::username
     var password by draft::password
@@ -634,6 +650,7 @@ internal fun NodeDialog(
     var error by draft::error
     var credentialError by draft::credentialError
     val parsed = parseNodeInput(nodeUri)
+    val hasName = name.isNotBlank()
     // tokens.json: a field in a dialog (fillElevated) is #F2F2F7 light and
     // #3A3A3C dark, so it never matches the dialog and sits one step above
     // it in dark mode, as fields do on cards.
@@ -647,6 +664,17 @@ internal fun NodeDialog(
         title = { Text(title) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                MoneroTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(tr("Name")) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    colors = fieldColors,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                // Wider than the gap under the hint, so the URI hint reads with the URI field below it.
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     text = tr("Enter the node URI (e.g., node.example.com:18081)"),
                     style = MaterialTheme.typography.bodyMedium,
@@ -802,15 +830,17 @@ internal fun NodeDialog(
                                     } else {
                                         val credentials = parsed.credentials
                                             ?: if (typed) NodeCredentials(typedUsername, typedPassword) else null
-                                        onConfirm(parsed.uri, credentials)
+                                        onConfirm(name.trim(), parsed.uri, credentials)
                                     }
                                 }
                             }
                         }
                     }
-                }
+                },
+                // As on iOS, Add and Save stay off until the node has a name.
+                enabled = hasName
             ) {
-                Text(confirmLabel, color = MoneroOrange)
+                Text(confirmLabel, color = if (hasName) MoneroOrange else MoneroTheme.colors.gray)
             }
         },
         dismissButton = {
