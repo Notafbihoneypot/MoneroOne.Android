@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -259,7 +260,8 @@ private fun ClaimBody(
         when (state) {
             is ClaimUi.Checking -> {
                 Spinner()
-                state.amount?.let { Amount(tr("about %s XMR", formatXmr(it))) }
+                // An estimate: "~" on screen, "About" for TalkBack (it would read "tilde").
+                state.amount?.let { Amount(tr("~%s XMR", formatXmr(it)), spoken = tr("About %s XMR", formatXmr(it))) }
                 Secondary(tr("Checking the link…"))
             }
             is ClaimUi.Waiting -> {
@@ -354,8 +356,13 @@ private fun Disc(icon: ImageVector, hue: Color) {
 }
 
 @Composable
-private fun Amount(text: String) {
-    Text(text, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.semantics {})
+private fun Amount(text: String, spoken: String? = null) {
+    Text(
+        text,
+        style = MaterialTheme.typography.headlineMedium,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.semantics { if (spoken != null) contentDescription = spoken }
+    )
 }
 
 @Composable
