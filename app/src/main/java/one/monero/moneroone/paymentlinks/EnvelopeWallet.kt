@@ -56,7 +56,12 @@ class EnvelopeWallet private constructor(
         val state = withTimeoutOrNull(timeoutMs) {
             kit.syncStateFlow.first { it is SyncState.Synced || it is SyncState.NotSynced && it.error !is MoneroKit.SyncError.NotStarted }
         }
-        if (state !is SyncState.Synced) return null
+        if (state !is SyncState.Synced) {
+            // The kit keeps only the message of what failed: log it, with the state, for the bug report.
+            val error = (state as? SyncState.NotSynced)?.error
+            if (error != null) Timber.w(error, "PaymentLinks: envelope check failed: %s", state) else Timber.w("PaymentLinks: envelope check timed out (%s)", kit.syncStateFlow.value)
+            return null
+        }
         // The kit publishes Synced, then the balance, in the same pass: let the balance land.
         delay(BALANCE_SETTLE_MS)
         return snapshot()
@@ -230,7 +235,9 @@ class EnvelopeWallet private constructor(
     }
 
     private fun startKit() {
-        val start: Job = scope.launch { kit.start() }
+        // Off the main thread: the start resolves the node's name and opens the wallet file, and the
+        // system refuses network on the main thread (NetworkOnMainThreadException with a host name).
+        val start: Job = scope.launch(Dispatchers.IO) { kit.start() }
         // A resume can start the main kit again between its stop and this start; then this kit waits for
         // the running slot. Stopping the main kit hands the slot over (KitManager promotes the waiting kit).
         scope.launch {

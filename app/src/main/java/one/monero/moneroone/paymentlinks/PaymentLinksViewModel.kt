@@ -196,6 +196,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                Timber.w(e, "PaymentLinks: envelope open failed (funding check)")
                 return@withLock null
             }
             try {
@@ -259,7 +260,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Timber.w("PaymentLinks: envelope open failed (%s)", e.javaClass.simpleName)
+                    Timber.w(e, "PaymentLinks: envelope open failed")
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = e.message)
                     return@withLock
                 }
@@ -370,7 +371,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             } catch (e: AlreadyClaimedException) {
                 SweepOutcome.AlreadyClaimed
             } catch (e: Exception) {
-                Timber.w("PaymentLinks: sweep failed (%s)", e.javaClass.simpleName)
+                Timber.w(e, "PaymentLinks: sweep failed")
                 SweepOutcome.Failed(e.message ?: "")
             }
             record(id, kind, outcome, (outcome as? SweepOutcome.Sent)?.amount ?: amount, walletName, earlierAttempt)
@@ -486,6 +487,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    Timber.w(e, "PaymentLinks: envelope open failed (sent link check)")
                     return@withLock
                 }
                 try {
