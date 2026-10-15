@@ -111,7 +111,9 @@ fun PaymentLinkRecipientToken(onClear: () -> Unit, modifier: Modifier = Modifier
             .heightIn(min = FieldHeight)
             .clip(FieldShape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            // No vertical padding: the 48 clear button and the 40 disc fit the
+            // 54 field height, so the buttons below do not move (iOS: same height).
+            .padding(start = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
