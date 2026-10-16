@@ -458,12 +458,7 @@ fun WalletScreen(
                                                 },
                                                 enabled = !isPast,
                                                 onOpenLinks = { history.timestamp = null; onOpenLinks() },
-                                                onClaim = claimOpenLink,
-                                                onOpenLink = { link ->
-                                                    history.timestamp = null
-                                                    walletState.transactions.firstOrNull { it.hash == link.fundingTxid }
-                                                        ?.let(onTransactionClick) ?: onOpenLinks()
-                                                }
+                                                onClaim = claimOpenLink
                                             )
                                         }
                                     }

@@ -87,12 +87,6 @@ object OpenLinkRules {
     }
 
     /**
-     * The sent line's tap: one open link opens its detail (through its funding transaction); null
-     * (two or more, or a funding not found yet) opens Activity's Links filter.
-     */
-    fun singleOpenLink(open: OpenLinks): SentLink? = open.sent.singleOrNull()?.takeIf { !it.fundingTxid.isNullOrEmpty() }
-
-    /**
      * "0.15 XMR" (or in fiat mode "$83.40") + "in 2 open links · 1 expired";
      * TalkBack reads "0.15 XMR in 2 open links, 1 expired". [amount] carries its unit.
      */
@@ -121,9 +115,8 @@ object OpenLinkRules {
 /**
  * The balance card's open-link lines, under a separator: "0.15 XMR in 2 open
  * links · 1 expired ›" for sent links, and "~0.03 XMR to claim  Claim" for
- * received ones. The amounts follow fiat mode like the balance. The sent line opens the one open
- * link's detail, or Activity's Links filter when there are more; the claim line opens the Links
- * filter; Claim claims the one received link, or opens the Links filter when there are more.
+ * received ones. The amounts follow fiat mode like the balance. A line opens Activity's Links filter; Claim claims the one
+ * received link, or opens the Links filter when there are more.
  */
 @Composable
 fun OpenLinksLines(
@@ -132,14 +125,9 @@ fun OpenLinksLines(
     formatAmount: (Long) -> String,
     enabled: Boolean,
     onOpenLinks: () -> Unit,
-    onClaim: () -> Unit,
-    /** Opens one link's detail: the sent line's tap when only one link is open. */
-    onOpenLink: ((SentLink) -> Unit)? = null
+    onClaim: () -> Unit
 ) {
     val hint = tr("Shows your payment links")
-    val single = OpenLinkRules.singleOpenLink(open)?.takeIf { onOpenLink != null }
-    val openSent: () -> Unit = if (single != null && onOpenLink != null) ({ onOpenLink(single) }) else onOpenLinks
-    val sentHint = single?.let { tr("Opens %s", it.name) } ?: hint
     Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag("wallet.openLinks")) {
         HorizontalDivider(color = MoneroTheme.colors.separator)
         if (open.sent.isNotEmpty()) {
@@ -148,12 +136,12 @@ fun OpenLinksLines(
                 line = line,
                 glyphTint = MaterialTheme.colorScheme.onSurfaceVariant,
                 enabled = enabled,
-                onClick = openSent,
+                onClick = onOpenLinks,
                 // One button: the line, with its own words for TalkBack.
                 modifier = Modifier.clearAndSetSemantics {
                     contentDescription = line.spoken
                     role = Role.Button
-                    onClick(label = sentHint) { if (enabled) openSent(); enabled }
+                    onClick(label = hint) { if (enabled) onOpenLinks(); enabled }
                 }
             ) {
                 Icon(

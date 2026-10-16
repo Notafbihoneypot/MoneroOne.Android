@@ -3,8 +3,6 @@ package one.monero.moneroone.paymentlinks
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.ui.screens.transactions.TransactionHistoryLogic
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
 import org.junit.Test
 import java.math.BigInteger
 
@@ -86,14 +84,5 @@ class LinkListRulesTest {
         assertEquals(BigInteger.valueOf(19_000_000_000), totals.received)
         val fiat = TransactionHistoryLogic.fiatTotals(listOf(funding)) { 100.0 }!!
         assertEquals(0, fiat.sent.compareTo(java.math.BigDecimal("2.034")))
-    }
-
-    @Test
-    fun `the sent line opens the one open link, else the Links filter`() {
-        val one = sent("a")
-        assertSame(one, OpenLinkRules.singleOpenLink(OpenLinks(listOf(one), 0, emptyList())))
-        assertNull(OpenLinkRules.singleOpenLink(OpenLinks(listOf(one, sent("b")), 0, emptyList())))
-        // Its funding transaction is not known yet: the Links filter.
-        assertNull(OpenLinkRules.singleOpenLink(OpenLinks(listOf(sent("c", fundingTxid = null)), 0, emptyList())))
     }
 }
