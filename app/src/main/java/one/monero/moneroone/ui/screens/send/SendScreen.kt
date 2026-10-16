@@ -159,6 +159,30 @@ class OpenSendLink(val address: String, val amount: String?)
 internal fun acceptsPaymentLink(phase: SendPhase, confirmed: Boolean): Boolean =
     !confirmed && phase in listOf(SendPhase.ADDRESS, SendPhase.AMOUNT, SendPhase.REVIEW)
 
+/** What system back does on a Send step. */
+internal sealed interface SendBack {
+    /** Leave Send. */
+    object Close : SendBack
+
+    /** Go back one step. */
+    data class Step(val to: SendPhase) : SendBack
+
+    /** Nothing: the step has no back. */
+    object Blocked : SendBack
+}
+
+/**
+ * System back on each Send step (iOS SendFlowView). Address closes Send; Amount and Review go
+ * back one step. Sending, Success and Error have no back: back must never leave a broadcast in
+ * flight, and Success and Error leave only through their own buttons (Done, Try Again, Close).
+ */
+internal fun sendBack(phase: SendPhase): SendBack = when (phase) {
+    SendPhase.ADDRESS -> SendBack.Close
+    SendPhase.AMOUNT -> SendBack.Step(SendPhase.ADDRESS)
+    SendPhase.REVIEW -> SendBack.Step(SendPhase.AMOUNT)
+    SendPhase.SENDING, SendPhase.SUCCESS, SendPhase.ERROR -> SendBack.Blocked
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendScreen(
@@ -290,12 +314,13 @@ fun SendScreen(
         onIncomingLink(link, accepted)
     }
 
-    // Handle system back button/gesture
+    // System back button and gesture. Always enabled, so on Sending, Success and Error it
+    // takes the back and does nothing, as iOS (the Send screen must not close mid-broadcast).
     BackHandler {
-        when (phase) {
-            SendPhase.AMOUNT -> goBack(SendPhase.ADDRESS)
-            SendPhase.REVIEW -> goBack(SendPhase.AMOUNT)
-            else -> onBack()
+        when (val back = sendBack(phase)) {
+            SendBack.Close -> onBack()
+            is SendBack.Step -> goBack(back.to)
+            SendBack.Blocked -> {}
         }
     }
 
