@@ -87,26 +87,65 @@ class PaymentLinkActivityTest {
     }
 
     @Test
-    fun `funding status line`() {
-        val line = PaymentLinkActivityRules::fundingStatusLine
-        assertEquals("Waiting to be claimed", line(LinkStatus.NOT_FUNDED))
-        assertEquals("Waiting to be claimed", line(LinkStatus.PENDING))
-        assertEquals("Ready to claim", line(LinkStatus.READY))
-        assertEquals("Expired", line(LinkStatus.EXPIRED))
-        assertEquals("Claimed", line(LinkStatus.CLAIMED))
-        assertEquals("Reclaimed", line(LinkStatus.RECLAIMED))
+    fun `a funding row shows the link state, never not funded`() {
+        val state = PaymentLinkActivityRules::fundingRowState
+        assertEquals(LinkRowState.WAITING, state(LinkStatus.NOT_FUNDED))
+        assertEquals(LinkRowState.WAITING, state(LinkStatus.PENDING))
+        assertEquals(LinkRowState.READY, state(LinkStatus.READY))
+        assertEquals(LinkRowState.EXPIRED, state(LinkStatus.EXPIRED))
+        assertEquals(LinkRowState.CLAIMED, state(LinkStatus.CLAIMED))
+        assertEquals(LinkRowState.RECLAIMED, state(LinkStatus.RECLAIMED))
+        assertEquals(
+            listOf("Waiting", "Ready", "Claimed", "Reclaimed", "Expired"),
+            LinkRowState.entries.map(PaymentLinkActivityRules::stateLabel)
+        )
     }
 
     @Test
-    fun `spoken label`() {
-        assertEquals(
-            "Sent by Link, minus 0.5 XMR, Waiting to be claimed, 2 hours ago, Confirmed",
-            PaymentLinkActivityRules.spokenLabel("Sent by Link", false, "0.5 XMR", "Waiting to be claimed", "2 hours ago", "Confirmed")
+    fun `a received link not claimed yet is Ready or Waiting`() {
+        assertEquals(LinkRowState.READY, PaymentLinkActivityRules.pendingRowState(PendingLinkState.Ready))
+        assertEquals(LinkRowState.WAITING, PaymentLinkActivityRules.pendingRowState(PendingLinkState.Waiting(4)))
+        assertEquals(LinkRowState.WAITING, PaymentLinkActivityRules.pendingRowState(PendingLinkState.NoMoney))
+        assertEquals(LinkRowState.WAITING, PaymentLinkActivityRules.pendingRowState(PendingLinkState.Unchecked))
+    }
+
+    private fun row(activity: LinkActivity, txAmount: Long = 520_000_000_000, confirmations: Long = 3, fiatMode: Boolean = false) =
+        PaymentLinkActivityRules.transactionRow(
+            activity, txAmount, confirmations, incoming = activity.kind != LinkActivityKind.FUNDING, date = "Oct 16",
+            fiatMode = fiatMode, fiatOf = { "\$" + it / 10_000_000_000 }, transactionStatus = "Locked", nowSeconds = 1_800_000_000
         )
-        assertEquals(
-            "Received by Link, plus 0.25 XMR, 1 minute ago, Pending",
-            PaymentLinkActivityRules.spokenLabel("Received by Link", true, "0.25 XMR", null, "1 minute ago", "Pending")
-        )
+
+    @Test
+    fun `a funding row is the link's name, its one amount and its state`() {
+        val link = sent().copy(number = 4, note = "Dinner")
+        val text = row(LinkActivity(LinkActivityKind.FUNDING, link, null))
+        assertEquals("Dinner", text.title)
+        // The link's amount (what the recipient gets), not the funding tx's amount with the claim fee reserve.
+        assertEquals("\u22120.5000 XMR", text.amount)
+        assertEquals("\$50", text.secondary)
+        assertEquals(LinkRowState.WAITING, text.state)
+        assertEquals("Sent by Link, Dinner, minus 0.5000 XMR, Waiting, Oct 16", text.spoken)
+    }
+
+    @Test
+    fun `a claim or reclaim row shows its own amount and the transaction status`() {
+        val claim = row(LinkActivity(LinkActivityKind.CLAIM, null, received().copy(number = 2)), txAmount = 490_000_000_000)
+        assertEquals("Link 2", claim.title)
+        assertEquals("+0.4900 XMR", claim.amount)
+        assertNull(claim.state)
+        assertEquals("Received by Link, Link 2, plus 0.4900 XMR, Locked, Oct 16", claim.spoken)
+
+        val reclaim = row(LinkActivity(LinkActivityKind.RECLAIM, sent().copy(number = 1), null), txAmount = 499_000_000_000)
+        assertEquals("Link 1", reclaim.title)
+        assertEquals("Reclaimed by Link, Link 1, plus 0.4990 XMR, Locked, Oct 16", reclaim.spoken)
+    }
+
+    @Test
+    fun `in fiat mode a link row leads with fiat`() {
+        val text = row(LinkActivity(LinkActivityKind.FUNDING, sent().copy(number = 4), null), fiatMode = true)
+        assertEquals("\u2212\$50", text.amount)
+        assertEquals("0.5000 XMR", text.secondary)
+        assertEquals("Sent by Link, Link 4, minus \$50, 0.5000 XMR, Waiting, Oct 16", text.spoken)
     }
 
     @Test
@@ -182,31 +221,34 @@ class PaymentLinkActivityTest {
     }
 
     @Test
-    fun `a received link's Activity row shows the claim estimate in XMR over fiat`() {
-        val row = PaymentLinkActivityRules.pendingRowText(49_186_000_000, fiatMode = false, fiatValue = "\$12.35", status = "Ready to claim")
-        assertEquals("Payment link", row.title)
+    fun `a received link's row shows its name and the claim estimate in XMR over fiat`() {
+        val link = received(check = ready).copy(number = 7, netAmount = 49_186_000_000)
+        val row = PaymentLinkActivityRules.pendingRow(link, PendingLinkState.Ready, "Thu, 8:12 PM", fiatMode = false, fiatValue = "\$12.35")
+        assertEquals("Link 7", row.title)
         assertEquals("+~0.049186 XMR", row.amount)
         assertEquals("~\$12.35", row.secondary)
-        assertEquals("Payment link, plus about 0.049186 XMR, Ready to claim", row.spoken)
+        assertEquals(LinkRowState.READY, row.state)
+        assertEquals("Payment link, Link 7, plus about 0.049186 XMR, Ready, Thu, 8:12 PM", row.spoken)
     }
 
     @Test
-    fun `in fiat mode a received link's Activity row leads with fiat`() {
-        val row = PaymentLinkActivityRules.pendingRowText(49_186_000_000, fiatMode = true, fiatValue = "\$12.35", status = "Ready in about 4 min")
+    fun `in fiat mode a received link's row leads with fiat`() {
+        val link = received(check = waiting).copy(number = 7, netAmount = 49_186_000_000)
+        val row = PaymentLinkActivityRules.pendingRow(link, PendingLinkState.Waiting(4), "Oct 16", fiatMode = true, fiatValue = "\$12.35")
         assertEquals("+~\$12.35", row.amount)
         assertEquals("~0.04918 XMR", row.secondary)
-        assertEquals("Payment link, plus about \$12.35, 0.04918 XMR, Ready in about 4 min", row.spoken)
+        assertEquals("Payment link, Link 7, plus about \$12.35, 0.04918 XMR, Waiting, Oct 16", row.spoken)
         // With no price yet, fiat mode falls back to XMR like every row.
-        val noPrice = PaymentLinkActivityRules.pendingRowText(49_186_000_000, fiatMode = true, fiatValue = null, status = "Ready to claim")
+        val noPrice = PaymentLinkActivityRules.pendingRow(link, PendingLinkState.Ready, "Oct 16", fiatMode = true, fiatValue = null)
         assertEquals("+~0.049186 XMR", noPrice.amount)
         assertNull(noPrice.secondary)
     }
 
     @Test
     fun `a received link with no known amount shows no amount`() {
-        val row = PaymentLinkActivityRules.pendingRowText(null, fiatMode = true, fiatValue = null, status = "Tap to check")
+        val row = PaymentLinkActivityRules.pendingRow(received().copy(number = 3), PendingLinkState.Unchecked, "Oct 16", fiatMode = true, fiatValue = null)
         assertNull(row.amount)
         assertNull(row.secondary)
-        assertEquals("Payment link, Tap to check", row.spoken)
+        assertEquals("Payment link, Link 3, Waiting, Oct 16", row.spoken)
     }
 }

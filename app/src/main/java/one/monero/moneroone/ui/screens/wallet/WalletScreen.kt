@@ -120,6 +120,8 @@ import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import one.monero.moneroone.paymentlinks.PendingLinkState
 import one.monero.moneroone.paymentlinks.linkRowText
+import one.monero.moneroone.paymentlinks.LinkRowAmounts
+import one.monero.moneroone.ui.components.ActivityRow
 import one.monero.moneroone.paymentlinks.rememberDaemonHeight
 import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import one.monero.moneroone.core.wallet.ReceiveAddressLogic
@@ -571,9 +573,9 @@ fun WalletScreen(
                     transaction = transaction,
                     linkIndex = linkIndex,
                     onClick = { onTransactionClick(transaction) },
-                    formatXmr = walletViewModel::formatXmr,
                     fiatMode = fiatMode,
                     fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, selectedCurrency),
+                    fiatOf = { one.monero.moneroone.ui.components.amountFiat(it, transaction.timestamp, priceHistory, currentPrice?.price, selectedCurrency) },
                     receivedOn = TransactionHistoryLogic.receivedOnName(transaction, addressRows)
                 )
             }
@@ -1141,94 +1143,31 @@ private fun EmptyTransactionsCard(isSyncing: Boolean) {
 @Composable
 private fun TransactionCard(
     transaction: TransactionInfo,
-    /** Payment link transactions read "Sent by Link" and so on. */
+    /** Payment link rows show the link's name, amount and status. */
     linkIndex: PaymentLinkIndex,
     onClick: () -> Unit,
-    formatXmr: (Long) -> String,
     fiatMode: Boolean,
     fiatValue: String?,
+    /** An amount's value at the time of [transaction]. */
+    fiatOf: (Long) -> String?,
     /** The subaddress an incoming payment arrived on, spoken only; null for sends and the main address. */
     receivedOn: String?
 ) {
     val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
-    val iconColor = if (isIncoming) SuccessGreen else MoneroOrange
-    val amountPrefix = if (isIncoming) "+" else "-"
-
     val date = formatRelativeTime(transaction.timestamp * 1000)
-    val link = linkRowText(
-        transaction, linkIndex, date,
-        TransactionHistoryLogic.rowAmount(transaction, fiatMode, fiatValue, receivedOn),
-        TransactionHistoryLogic.rowStatus(transaction)
-    )
-    val label = link?.spoken ?: TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
-
-    GlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick
+    val link = linkRowText(transaction, linkIndex, date, fiatMode, fiatOf, TransactionHistoryLogic.rowStatus(transaction))
+    ActivityRow(
+        incoming = isIncoming,
+        title = link?.title ?: if (isIncoming) tr("Received") else tr("Sent"),
+        subtitle = date,
+        spoken = link?.spoken ?: TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn),
+        onClick = onClick,
+        linkBadge = link != null
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clearAndSetSemantics { contentDescription = label }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Direction icon
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (link != null) {
-                    Icon(Icons.Default.Link, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
-                } else {
-                    Icon(
-                        imageVector = if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                        contentDescription = null,
-                        tint = iconColor,
-                        modifier = Modifier.size(20.dp).rotate(45f)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Details
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = link?.title ?: if (isIncoming) tr("Received") else tr("Sent"),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                // A link's status stays on one line beside the amount.
-                Text(
-                    text = link?.subtitle ?: date,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (link?.subtitleIsStatus == true) 1 else Int.MAX_VALUE,
-                    softWrap = link?.subtitleIsStatus != true,
-                    // At a large font scale a cut status ends in "…", not mid-letter.
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            one.monero.moneroone.ui.components.TransactionAmounts(
-                transaction = transaction,
-                fiatMode = fiatMode,
-                fiatValue = fiatValue
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MoneroTheme.colors.labelTertiary,
-                modifier = Modifier.size(16.dp)
-            )
+        if (link != null) {
+            LinkRowAmounts(link, one.monero.moneroone.ui.components.transactionStatus(transaction))
+        } else {
+            one.monero.moneroone.ui.components.TransactionAmounts(transaction = transaction, fiatMode = fiatMode, fiatValue = fiatValue)
         }
     }
 }

@@ -111,18 +111,18 @@ class LinkStatusRulesTest {
     fun `a sent link is ready at the unlock depth whatever the last check`() {
         fun view(link: SentLink, funding: Long?, daemonHeight: Long? = null, now: Long = before) =
             LinkStatusRules.sentView(link, funding, daemonHeight, now)
-        val row = { v: SentView -> PaymentLinkActivityRules.fundingStatusLine(v.status) }
+        val row = { v: SentView -> PaymentLinkActivityRules.stateLabel(PaymentLinkActivityRules.fundingRowState(v.status)) }
         val stale = sent(check = check(confirmations = 1, balance = 5))
 
         val ready = view(stale, funding = 10)
         assertEquals(LinkStatus.READY, ready.status)
-        assertEquals("Ready to claim", row(ready))
+        assertEquals("Ready", row(ready))
         assertEquals("Ready", sentDisplay(ready).label)
         assertTrue(ready.canReclaim)
 
         val young = view(stale, funding = 9)
         assertEquals(LinkStatus.PENDING, young.status)
-        assertEquals("Waiting to be claimed", row(young))
+        assertEquals("Waiting", row(young))
         assertEquals("Pending 9/10", sentDisplay(young).label)
         assertFalse(young.canReclaim)
 
@@ -150,7 +150,7 @@ class LinkStatusRulesTest {
         // A check that found no funding stays not funded, and its row waits.
         val unseen = view(sent(check = check(seen = false, mined = false)), funding = 12)
         assertEquals(LinkStatus.NOT_FUNDED, unseen.status)
-        assertEquals("Waiting to be claimed", row(unseen))
+        assertEquals("Waiting", row(unseen))
     }
 
     @Test

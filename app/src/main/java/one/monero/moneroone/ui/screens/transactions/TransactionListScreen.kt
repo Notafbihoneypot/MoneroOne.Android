@@ -92,6 +92,12 @@ import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
 import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.paymentlinks.ReceivedLink
+import one.monero.moneroone.ui.components.ActivityRow
+import one.monero.moneroone.ui.components.TransactionAmounts
+import one.monero.moneroone.ui.components.amountFiat
+import one.monero.moneroone.ui.components.fiatAt
+import one.monero.moneroone.ui.components.transactionStatus
+import one.monero.moneroone.paymentlinks.LinkRowAmounts
 import one.monero.moneroone.paymentlinks.linkRowText
 import one.monero.moneroone.paymentlinks.rememberDaemonHeight
 import one.monero.moneroone.data.model.Currency
@@ -348,9 +354,9 @@ fun TransactionListScreen(
                         TransactionListItem(
                             transaction = transaction,
                             linkIndex = linkIndex,
-                            formatXmr = walletViewModel::formatXmr,
                             fiatMode = fiatMode,
                             fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, currency),
+                            fiatOf = { amountFiat(it, transaction.timestamp, priceHistory, currentPrice?.price, currency) },
                             receivedOn = TransactionHistoryLogic.receivedOnName(transaction, addressRows),
                             onClick = { onTransactionClick(transaction.hash) }
                         )
@@ -366,62 +372,40 @@ fun TransactionListScreen(
 @Composable
 private fun TransactionListItem(
     transaction: TransactionInfo,
-    /** Payment link transactions read "Sent by Link" and so on. */
+    /** Payment link rows show the link's name, amount and status. */
     linkIndex: PaymentLinkIndex,
-    formatXmr: (Long) -> String,
     fiatMode: Boolean,
     fiatValue: String?,
+    /** An amount's value at the time of [transaction]. */
+    fiatOf: (Long) -> String?,
     /** The subaddress an incoming payment arrived on, spoken only; null for sends and the main address. */
     receivedOn: String?,
     onClick: () -> Unit
 ) {
     val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
     val date = formatDate(transaction.timestamp * 1000)
-    val link = linkRowText(
-        transaction, linkIndex, date,
-        TransactionHistoryLogic.rowAmount(transaction, fiatMode, fiatValue, receivedOn),
-        TransactionHistoryLogic.rowStatus(transaction)
-    )
-    val label = link?.spoken ?: TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
-    val iconColor = if (isIncoming) SuccessGreen else MoneroOrange
-    val amountPrefix = if (isIncoming) "+" else "-"
-
-    val status = when {
-        transaction.isFailed -> TransactionStatus.Failed
-        transaction.confirmations == 0L -> TransactionStatus.Pending
-        transaction.confirmations < 10 -> TransactionStatus.Locked
-        else -> TransactionStatus.Confirmed
-    }
-
-    val statusColor = when (status) {
-        TransactionStatus.Pending -> PendingOrange
-        TransactionStatus.Locked -> MoneroOrange
-        TransactionStatus.Confirmed -> SuccessGreen
-        TransactionStatus.Failed -> ErrorRed
-    }
-
+    val link = linkRowText(transaction, linkIndex, date, fiatMode, fiatOf, TransactionHistoryLogic.rowStatus(transaction))
     ActivityRow(
-        hue = iconColor,
-        glyph = if (link != null) Icons.Default.Link else if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-        glyphTurned = link == null,
+        incoming = isIncoming,
         title = link?.title ?: if (isIncoming) tr("Received") else tr("Sent"),
-        subtitle = link?.subtitle ?: date,
-        subtitleIsStatus = link?.subtitleIsStatus == true,
-        spoken = label,
-        onClick = onClick
+        subtitle = date,
+        spoken = link?.spoken ?: TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn),
+        onClick = onClick,
+        linkBadge = link != null
     ) {
-        one.monero.moneroone.ui.components.TransactionAmounts(
-            transaction = transaction,
-            fiatMode = fiatMode,
-            fiatValue = fiatValue
-        )
+        if (link != null) {
+            LinkRowAmounts(link, transactionStatus(transaction))
+        } else {
+            TransactionAmounts(transaction = transaction, fiatMode = fiatMode, fiatValue = fiatValue)
+        }
     }
 }
 
 /**
- * A received link not claimed yet, under Links: the transaction row with the
- * link glyph in a green disc, "Payment link", its claim status and the amount
- * a claim delivers as an estimate. Its tap opens the claim sheet.
+ * A received link not claimed yet, under Links: the row of a received
+ * payment (green ↙ disc with the link badge), its name over the date it was
+ * opened, the amount a claim delivers as an estimate and Ready or Waiting.
+ * Its tap opens the claim sheet.
  */
 @Composable
 private fun ReceivedLinkListItem(
@@ -433,130 +417,22 @@ private fun ReceivedLinkListItem(
     onOpen: () -> Unit
 ) {
     val daemonHeight = rememberDaemonHeight()
-    val status = PaymentLinkActivityRules.pendingLabel(
-        PaymentLinkActivityRules.pendingState(link, daemonHeight, System.currentTimeMillis())
-    )
-    val fiatValue = link.claimAmount?.let { amount ->
-        price?.let { MoneyFormat.format(amount / 1_000_000_000_000.0 * it, currency, fractionDigits = 2) }
-    }
-    val text = PaymentLinkActivityRules.pendingRowText(link.claimAmount, fiatMode, fiatValue, status)
+    val state = PaymentLinkActivityRules.pendingState(link, daemonHeight, System.currentTimeMillis())
+    val date = formatDate(link.receivedAtMillis)
+    val text = PaymentLinkActivityRules.pendingRow(link, state, date, fiatMode, link.claimAmount?.let { fiatAt(it, price, currency) })
     val hint = tr("Opens the link to claim it")
     ActivityRow(
-        hue = SuccessGreen,
-        glyph = Icons.Default.Link,
-        glyphTurned = false,
+        incoming = true,
         title = text.title,
-        subtitle = status,
-        subtitleIsStatus = true,
+        subtitle = date,
         spoken = text.spoken,
         onClick = onOpen,
+        linkBadge = true,
         modifier = Modifier
             .testTag("activity.receivedLink.${link.id}")
             .semantics { onClick(label = hint) { onOpen(); true } }
     ) {
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            text.amount?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = SuccessGreen,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-            text.secondary?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-        }
-    }
-}
-
-/**
- * One Activity row: the glyph in a tinted disc, the title over a second line
- * (the date, or a link's status on one line), the [amounts] and a chevron.
- * TalkBack reads [spoken] for the whole row.
- */
-@Composable
-private fun ActivityRow(
-    hue: Color,
-    glyph: ImageVector,
-    /** The direction arrows turn 45°; the link glyph stays upright. */
-    glyphTurned: Boolean,
-    title: String,
-    subtitle: String,
-    subtitleIsStatus: Boolean,
-    spoken: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    amounts: @Composable () -> Unit
-) {
-    GlassCard(
-        modifier = modifier.fillMaxWidth(),
-        onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clearAndSetSemantics { contentDescription = spoken }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Direction icon
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(hue.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = glyph,
-                    contentDescription = null,
-                    tint = hue,
-                    modifier = Modifier.size(20.dp).then(if (glyphTurned) Modifier.rotate(45f) else Modifier)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Details
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                // A link's status stays on one line beside the amount.
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (subtitleIsStatus) 1 else Int.MAX_VALUE,
-                    softWrap = !subtitleIsStatus,
-                    // At a large font scale a cut status ends in "…", not mid-letter.
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            amounts()
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MoneroTheme.colors.labelTertiary,
-                modifier = Modifier.size(16.dp)
-            )
-        }
+        LinkRowAmounts(text, null)
     }
 }
 

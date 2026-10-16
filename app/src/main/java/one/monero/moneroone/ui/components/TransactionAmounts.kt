@@ -27,18 +27,21 @@ fun amountFiat(atomic: Long, timestamp: Long, history: List<HistoricalPrice>, li
 fun fiatAt(atomic: Long, price: Double?, currency: Currency): String? =
     price?.let { MoneyFormat.format(atomic / 1_000_000_000_000.0 * it, currency, fractionDigits = 2) }
 
+/** A row's transaction status: Failed, Pending (0 confirmations), Locked (under 10) or Confirmed. */
+fun transactionStatus(transaction: TransactionInfo): TransactionStatus = when {
+    transaction.isFailed -> TransactionStatus.Failed
+    transaction.confirmations == 0L -> TransactionStatus.Pending
+    transaction.confirmations < 10 -> TransactionStatus.Locked
+    else -> TransactionStatus.Confirmed
+}
+
 /** Shared by the dashboard and history so their amount and spoken order agree. */
 @Composable
 fun TransactionAmounts(transaction: TransactionInfo, fiatMode: Boolean, fiatValue: String?) {
     val incoming = transaction.direction == TransactionInfo.Direction.Direction_In
     val sign = if (incoming) "+" else "−"
     val fiatFirst = fiatMode && fiatValue != null
-    val status = when {
-        transaction.isFailed -> TransactionStatus.Failed
-        transaction.confirmations == 0L -> TransactionStatus.Pending
-        transaction.confirmations < 10 -> TransactionStatus.Locked
-        else -> TransactionStatus.Confirmed
-    }
+    val status = transactionStatus(transaction)
     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             text = sign + if (fiatFirst) fiatValue else "${XmrFormat.format(transaction.amount)} XMR",

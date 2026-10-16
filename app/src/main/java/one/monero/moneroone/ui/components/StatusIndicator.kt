@@ -255,16 +255,27 @@ fun TransactionStatusIndicator(
         TransactionStatus.Failed -> tr("Failed") to ErrorRed
     }
 
+    StatusLabel(text = text, dotColor = color, modifier = modifier)
+}
+
+/** A row's status spot: an 8 dot and a caption2 word, in the dot's hue unless [textColor] says (yellow keeps the label color). */
+@Composable
+fun StatusLabel(
+    text: String,
+    dotColor: Color,
+    modifier: Modifier = Modifier,
+    textColor: Color = dotColor
+) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        StatusDot(color = color)
+        StatusDot(color = dotColor)
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            color = color
+            color = textColor
         )
     }
 }

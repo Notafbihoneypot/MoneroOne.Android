@@ -1,5 +1,7 @@
 package one.monero.moneroone.paymentlinks
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,11 +16,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.WalletManager
 import one.monero.moneroone.data.util.XmrFormat
+import one.monero.moneroone.ui.components.StatusLabel
+import one.monero.moneroone.ui.components.TransactionStatus
+import one.monero.moneroone.ui.components.TransactionStatusIndicator
+import one.monero.moneroone.ui.theme.MoneroOrange
+import one.monero.moneroone.ui.theme.MoneroTheme
+import one.monero.moneroone.ui.theme.SuccessGreen
+import one.monero.moneroone.ui.theme.WarningYellow
 
 /** What a wallet transaction did for a payment link on this device. */
 enum class LinkActivityKind {
@@ -68,9 +78,9 @@ sealed interface PendingLinkState {
  * - sent record, outgoing tx == fundingTxid: "Sent by Link" (funding)
  * - sent record, incoming tx == reclaimTxid: "Reclaimed by Link"
  * - received record, incoming tx == claimTxid: "Received by Link"
- * Every other transaction keeps "Received" / "Sent". A link row shows a link
- * glyph in the disc of its direction and opens the link's detail. Activity's
- * Links filter shows these rows only, under the Open Links group ([OpenLinks]).
+ * Every other transaction keeps "Received" / "Sent". A link row is a normal
+ * row (Apple Card): the direction disc with a link badge, the link's name over
+ * the date, its amount and a status. The kind ("Sent by Link") is spoken only.
  */
 object PaymentLinkActivityRules {
 
@@ -88,30 +98,93 @@ object PaymentLinkActivityRules {
     }
 
     /**
-     * A funding row's second line, in place of the date, from [LinkStatusRules.sentView]'s status (ready at
-     * 10 confirmations), so the row, the detail and Reclaim agree. The row is the funding transaction
-     * itself, so "not funded" never shows: until a check sees the money, the link waits to be claimed.
+     * A funding row's status, from [LinkStatusRules.sentView]'s status (ready at 10 confirmations), so the
+     * row, the detail and Reclaim agree. The row is the funding transaction itself, so "not funded" never
+     * shows: until a check sees the money, the link waits to be claimed.
      */
-    fun fundingStatusLine(status: LinkStatus): String = when (status) {
-        LinkStatus.CLAIMED -> tr("Claimed")
-        LinkStatus.RECLAIMED -> tr("Reclaimed")
-        LinkStatus.EXPIRED -> tr("Expired")
-        LinkStatus.READY -> tr("Ready to claim")
-        LinkStatus.NOT_FUNDED, LinkStatus.PENDING -> tr("Waiting to be claimed")
+    fun fundingRowState(status: LinkStatus): LinkRowState = when (status) {
+        LinkStatus.CLAIMED -> LinkRowState.CLAIMED
+        LinkStatus.RECLAIMED -> LinkRowState.RECLAIMED
+        LinkStatus.EXPIRED -> LinkRowState.EXPIRED
+        LinkStatus.READY -> LinkRowState.READY
+        LinkStatus.NOT_FUNDED, LinkStatus.PENDING -> LinkRowState.WAITING
     }
 
-    /** TalkBack: "Sent by Link, minus 0.5 XMR, Waiting to be claimed, 2 hours ago, Confirmed". */
-    fun spokenLabel(
-        title: String,
-        incoming: Boolean,
-        amountSpoken: String,
-        statusLine: String?,
-        date: String,
-        transactionStatus: String
-    ): String {
-        val amount = if (incoming) tr("plus %s", amountSpoken) else tr("minus %s", amountSpoken)
-        return listOfNotNull(title, amount, statusLine, date, transactionStatus).joinToString(", ")
+    /** A received link not claimed yet: Ready once it can be claimed, else Waiting. */
+    fun pendingRowState(state: PendingLinkState): LinkRowState =
+        if (state == PendingLinkState.Ready) LinkRowState.READY else LinkRowState.WAITING
+
+    fun stateLabel(state: LinkRowState): String = when (state) {
+        LinkRowState.WAITING -> tr("Waiting")
+        LinkRowState.READY -> tr("Ready")
+        LinkRowState.CLAIMED -> tr("Claimed")
+        LinkRowState.RECLAIMED -> tr("Reclaimed")
+        LinkRowState.EXPIRED -> tr("Expired")
     }
+
+    /**
+     * A link row's text. [amount] is the one amount of the link (atomic), null when unknown;
+     * [estimate] marks a claim not made yet ("+~"). The amount follows fiat mode like every row.
+     * TalkBack keeps the kind: "Sent by Link, Dinner, minus 0.02 XMR, Waiting, Oct 16".
+     */
+    fun rowText(
+        kind: String,
+        name: String,
+        incoming: Boolean,
+        amount: Long?,
+        estimate: Boolean,
+        fiatMode: Boolean,
+        fiatValue: String?,
+        state: LinkRowState?,
+        transactionStatus: String,
+        date: String
+    ): LinkRowText {
+        val statusWord = state?.let(::stateLabel) ?: transactionStatus
+        if (amount == null) {
+            return LinkRowText(name, incoming, null, null, state, listOf(kind, name, statusWord, date).joinToString(", "))
+        }
+        val about = if (estimate) "~" else ""
+        val xmr = "${XmrFormat.format(amount)} XMR"
+        val fiatFirst = fiatMode && fiatValue != null
+        val sign = if (incoming) "+" else "−"
+        val primary = sign + about + if (fiatFirst) fiatValue else xmr
+        val secondary = if (fiatFirst) "$about${XmrFormat.compact(amount)} XMR" else fiatValue?.let { about + it }
+        // TalkBack would read "tilde": the estimate is "about".
+        val amountSpoken = if (fiatFirst) "$fiatValue, ${XmrFormat.compact(amount)} XMR" else xmr
+        val signed = when {
+            incoming && estimate -> tr("plus about %s", amountSpoken)
+            incoming -> tr("plus %s", amountSpoken)
+            else -> tr("minus %s", amountSpoken)
+        }
+        return LinkRowText(name, incoming, primary, secondary, state, listOf(kind, name, signed, statusWord, date).joinToString(", "))
+    }
+
+    /**
+     * The row of a link's transaction. A funding row shows the link's amount (what the recipient
+     * gets; the fees show in the detail) and the link's status; a reclaim or claim row shows its
+     * own amount and the transaction's status.
+     */
+    fun transactionRow(
+        activity: LinkActivity,
+        txAmount: Long,
+        txConfirmations: Long,
+        incoming: Boolean,
+        date: String,
+        fiatMode: Boolean,
+        fiatOf: (Long) -> String?,
+        transactionStatus: String,
+        nowSeconds: Long
+    ): LinkRowText {
+        val funding = activity.sent?.takeIf { activity.kind == LinkActivityKind.FUNDING }
+        val amount = funding?.amount ?: txAmount
+        val state = funding?.let { fundingRowState(LinkStatusRules.sentView(it, txConfirmations, null, nowSeconds).status) }
+        val name = activity.sent?.name ?: activity.received?.name ?: tr("Payment link")
+        return rowText(activity.title, name, incoming, amount, false, fiatMode, fiatOf(amount), state, transactionStatus, date)
+    }
+
+    /** The row of a received link not claimed yet (it has no transaction): its name, the claim estimate, Ready or Waiting. */
+    fun pendingRow(link: ReceivedLink, state: PendingLinkState, date: String, fiatMode: Boolean, fiatValue: String?): LinkRowText =
+        rowText(tr("Payment link"), link.name, true, link.claimAmount, true, fiatMode, fiatValue, pendingRowState(state), "", date)
 
     /**
      * What a sent link cost, for its detail only (rows and the home line show
@@ -162,25 +235,6 @@ object PaymentLinkActivityRules {
     }
 
     /**
-     * The Activity row of a received link not claimed yet (it has no
-     * transaction): "Payment link", the amount a claim delivers as an estimate
-     * that follows fiat mode like every row ("+~0.0492 XMR" over "~$12.35", or
-     * "+~$12.35" over "~0.0492 XMR"), and [status] as the second line. With no
-     * amount known yet, the row shows none.
-     */
-    fun pendingRowText(claimAmount: Long?, fiatMode: Boolean, fiatValue: String?, status: String): PendingLinkRowText {
-        val title = tr("Payment link")
-        if (claimAmount == null) return PendingLinkRowText(title, null, null, "$title, $status")
-        val xmr = "${XmrFormat.format(claimAmount)} XMR"
-        val fiatFirst = fiatMode && fiatValue != null
-        val amount = "+~" + if (fiatFirst) fiatValue else xmr
-        val secondary = if (fiatFirst) "~${XmrFormat.compact(claimAmount)} XMR" else fiatValue?.let { "~$it" }
-        // TalkBack would read "tilde": the estimate is "about".
-        val amountSpoken = if (fiatFirst) "$fiatValue, ${XmrFormat.compact(claimAmount)} XMR" else xmr
-        return PendingLinkRowText(title, amount, secondary, listOf(title, tr("plus about %s", amountSpoken), status).joinToString(", "))
-    }
-
-    /**
      * A received link's live confirmation count: the last check's, or more
      * from its funding height and the open wallet's daemon height.
      */
@@ -218,36 +272,86 @@ fun rememberDaemonHeight(): Long? {
 /** A sent link's fee lines: the funding fee (null when unknown), the claim fee reserve and the total (null without the fee). */
 class SentCosts(val networkFee: Long?, val claimFeeReserve: Long, val total: Long?)
 
-/** Title, amounts and TalkBack words of the Activity row of a received link not claimed yet. */
-class PendingLinkRowText(val title: String, val amount: String?, val secondary: String?, val spoken: String)
+/** A link row's status when the row has no transaction status of its own. */
+enum class LinkRowState { WAITING, READY, CLAIMED, RECLAIMED, EXPIRED }
 
-/** Title, glyph and second line of an Activity row for a payment link transaction. */
-class LinkRowText(val title: String, val subtitle: String, val subtitleIsStatus: Boolean, val spoken: String)
+/**
+ * A link row: the name (title), the amount over the status and [secondary]
+ * (fiat, or XMR in fiat mode), and the TalkBack words. [state] null: the row
+ * shows the transaction's status.
+ */
+class LinkRowText(
+    val title: String,
+    val incoming: Boolean,
+    val amount: String?,
+    val secondary: String?,
+    val state: LinkRowState?,
+    val spoken: String
+)
 
 /**
  * The row text of [tx] when it belongs to a payment link, else null (the row
- * keeps "Received" / "Sent" and the date).
+ * keeps "Received" / "Sent"). [fiatOf] gives an amount's value at the time of [tx].
  */
 fun linkRowText(
     tx: TransactionInfo,
     index: PaymentLinkIndex,
     date: String,
-    amountSpoken: String,
+    fiatMode: Boolean,
+    fiatOf: (Long) -> String?,
     transactionStatus: String,
     nowSeconds: Long = System.currentTimeMillis() / 1000
 ): LinkRowText? {
     val activity = index.match(tx) ?: return null
-    val statusLine = activity.sent?.takeIf { activity.kind == LinkActivityKind.FUNDING }?.let {
-        // The row is the funding transaction: its count is the live one the detail and Reclaim read too.
-        PaymentLinkActivityRules.fundingStatusLine(LinkStatusRules.sentView(it, tx.confirmations, null, nowSeconds).status)
-    }
-    val incoming = tx.direction == TransactionInfo.Direction.Direction_In
-    return LinkRowText(
-        title = activity.title,
-        subtitle = statusLine ?: date,
-        subtitleIsStatus = statusLine != null,
-        spoken = PaymentLinkActivityRules.spokenLabel(activity.title, incoming, amountSpoken, statusLine, date, transactionStatus)
+    // A funding row's count is the live one the detail and Reclaim read too.
+    return PaymentLinkActivityRules.transactionRow(
+        activity, tx.amount, tx.confirmations, tx.direction == TransactionInfo.Direction.Direction_In,
+        date, fiatMode, fiatOf, transactionStatus, nowSeconds
     )
+}
+
+/**
+ * A link row's amounts, as a transaction row's ([TransactionAmounts]): the
+ * amount, the status spot (the link's state, else [transactionStatus]) and the
+ * secondary amount.
+ */
+@Composable
+fun LinkRowAmounts(text: LinkRowText, transactionStatus: TransactionStatus?) {
+    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        text.amount?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = if (text.incoming) SuccessGreen else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+        val state = text.state
+        if (state != null) LinkStateLabel(state) else transactionStatus?.let { TransactionStatusIndicator(status = it) }
+        text.secondary?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+    }
+}
+
+/** Waiting orange, Ready and Claimed green, Reclaimed gray, Expired a yellow dot with label-color text. */
+@Composable
+fun LinkStateLabel(state: LinkRowState) {
+    val label = PaymentLinkActivityRules.stateLabel(state)
+    when (state) {
+        LinkRowState.WAITING -> StatusLabel(label, MoneroOrange)
+        LinkRowState.READY, LinkRowState.CLAIMED -> StatusLabel(label, SuccessGreen)
+        LinkRowState.RECLAIMED -> StatusLabel(label, MoneroTheme.colors.gray)
+        LinkRowState.EXPIRED -> StatusLabel(label, WarningYellow, textColor = MaterialTheme.colorScheme.onSurface)
+    }
 }
 
 /**
