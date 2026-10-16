@@ -18,6 +18,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.ui.text.style.TextOverflow
 import one.monero.moneroone.ui.components.MoneroTextField
+import one.monero.moneroone.ui.components.DismissTextButton
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import one.monero.moneroone.ui.components.fiatAt
 import one.monero.moneroone.ui.theme.TabularFigures
 import androidx.compose.foundation.rememberScrollState
@@ -56,6 +61,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -312,8 +321,9 @@ private fun NoteRow(note: String?, onRename: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onRename)
-            .semantics(mergeDescendants = true) {
+            .clearAndSetSemantics {
                 contentDescription = spoken
+                role = Role.Button
                 onClick(label = tr("Renames the link")) { onRename(); true }
             }
             .padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
@@ -321,14 +331,14 @@ private fun NoteRow(note: String?, onRename: () -> Unit) {
     ) {
         Text(tr("Note"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(16.dp))
-        Spacer(Modifier.weight(1f))
         Text(
             note ?: tr("Add"),
             style = MaterialTheme.typography.bodyMedium,
             color = if (note == null) MoneroTheme.colors.labelTertiary else MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false)
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f)
         )
         Icon(
             Icons.Outlined.Edit,
@@ -381,7 +391,9 @@ private fun RenameLinkDialog(note: String?, placeholder: String, onSave: (String
                     onValueChange = { text = it.take(LinkNames.NOTE_LIMIT) },
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(placeholder) },
-                    singleLine = true
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onSave(text) })
                 )
                 Text(
                     tr("Only this phone keeps the note."),
@@ -391,7 +403,7 @@ private fun RenameLinkDialog(note: String?, placeholder: String, onSave: (String
             }
         },
         confirmButton = { TextButton(onClick = { onSave(text) }) { Text(tr("Save"), color = MoneroOrange) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } }
+        dismissButton = { DismissTextButton(onClick = onDismiss) { Text(tr("Cancel")) } }
     )
 }
 

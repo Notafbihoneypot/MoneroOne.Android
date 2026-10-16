@@ -247,6 +247,57 @@ object PaymentLinkActivityRules {
     }
 }
 
+/** One row of Activity's Links filter: a link's transaction, or a received link with no transaction yet. */
+class LinkListEntry(
+    val transaction: TransactionInfo?,
+    val pending: ReceivedLink?,
+    val linkId: String,
+    /** The link still holds money: a sent link Waiting, Ready or Expired, or a received link not claimed. */
+    val open: Boolean,
+    val atMillis: Long
+) {
+    val key: String get() = transaction?.hash ?: "pending-$linkId"
+}
+
+/** The Links filter: Open (newest first, sent and received mixed), then History; each row once. */
+class LinkSections(val open: List<LinkListEntry>, val history: List<LinkListEntry>, val linkCount: Int) {
+    val openCount: Int get() = open.size
+}
+
+/**
+ * Activity's Links filter (Apple Card): the summary card first ("7 links · 4
+ * open"), then the links that still hold money under Open, then the rest under
+ * History. A sent link is open while its funding row is Waiting, Ready or
+ * Expired; its reclaim row and every claim row go to History.
+ */
+object LinkListRules {
+    private val openStates = setOf(LinkRowState.WAITING, LinkRowState.READY, LinkRowState.EXPIRED)
+
+    fun sections(
+        transactions: List<TransactionInfo>,
+        index: PaymentLinkIndex,
+        pending: List<ReceivedLink>,
+        nowSeconds: Long
+    ): LinkSections {
+        val rows = transactions.mapNotNull { tx ->
+            val activity = index.match(tx) ?: return@mapNotNull null
+            val funding = activity.sent?.takeIf { activity.kind == LinkActivityKind.FUNDING }
+            val open = funding != null && PaymentLinkActivityRules.fundingRowState(
+                LinkStatusRules.sentView(funding, tx.confirmations, null, nowSeconds).status
+            ) in openStates
+            LinkListEntry(tx, null, activity.id, open, tx.timestamp * 1000)
+        }
+        val shown = rows.mapTo(HashSet()) { it.linkId }
+        val waiting = pending.filter { it.id !in shown }.map { LinkListEntry(null, it, it.id, true, it.receivedAtMillis) }
+        val all = (rows + waiting).sortedByDescending { it.atMillis }
+        return LinkSections(all.filter { it.open }, all.filterNot { it.open }, (shown + waiting.map { it.linkId }).size)
+    }
+
+    /** The amount a link row shows: a funding row the link's amount, any other row its transaction's. */
+    fun rowAmount(tx: TransactionInfo, index: PaymentLinkIndex): Long =
+        index.match(tx)?.takeIf { it.kind == LinkActivityKind.FUNDING }?.sent?.amount ?: tx.amount
+}
+
 /** The payment link records of this device, to match Activity rows against. */
 class PaymentLinkIndex(val sent: List<SentLink>, val received: List<ReceivedLink>) {
     fun match(tx: TransactionInfo): LinkActivity? =

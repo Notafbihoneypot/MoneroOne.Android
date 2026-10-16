@@ -61,5 +61,6 @@ private val englishSingular = mapOf(
     "%s payments" to "%s payment",
     "%s payment links" to "%s payment link",
     "%s link transactions" to "%s link transaction",
-    "in %s open links" to "in %s open link"
+    "in %s open links" to "in %s open link",
+    "%s links" to "%s link"
 )

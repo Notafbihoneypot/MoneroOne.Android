@@ -98,12 +98,14 @@ import one.monero.moneroone.ui.components.amountFiat
 import one.monero.moneroone.ui.components.fiatAt
 import one.monero.moneroone.ui.components.transactionStatus
 import one.monero.moneroone.paymentlinks.LinkRowAmounts
+import one.monero.moneroone.paymentlinks.LinkListRules
 import one.monero.moneroone.paymentlinks.linkRowText
 import one.monero.moneroone.paymentlinks.rememberDaemonHeight
 import one.monero.moneroone.data.model.Currency
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import java.text.SimpleDateFormat
@@ -154,11 +156,17 @@ fun TransactionListScreen(
     val filteredTransactions = remember(transactions, selectedFilter, searchQuery, receivingIndex, addressRows, linkIndex) {
         TransactionHistoryLogic.filter(transactions, selectedFilter, receivingIndex, searchQuery, addressRows) { linkIndex.match(it) != null }
     }
-    // Under Links (now only, no search), the received links waiting to be claimed head the list: they
-    // have no transaction yet. A sent link shows once, as its "Sent by Link" row. No other filter shows them.
-    val openReceived = if (asOf == null && searchQuery.isBlank() && receivingIndex == null &&
+    // Under Links (now only, no search), the summary card leads, then Open (the links that still hold
+    // money, with the received links waiting to be claimed: they have no transaction yet), then History.
+    // Each link's rows show once. No other filter shows the received links waiting.
+    val linkSectionsShown = asOf == null && searchQuery.isBlank() && receivingIndex == null &&
         selectedFilter == TransactionFilter.LINKS
-    ) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
+    val openReceived = if (linkSectionsShown) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
+    val linkSections = if (linkSectionsShown) {
+        remember(filteredTransactions, linkIndex, openReceived) {
+            LinkListRules.sections(filteredTransactions, linkIndex, openReceived, System.currentTimeMillis() / 1000)
+        }
+    } else null
     val linkStore = PaymentLinkStore.get(LocalContext.current)
 
     // Under Links (now only), look at sent links someone could have claimed, so their rows say so. A look
@@ -170,18 +178,26 @@ fun TransactionListScreen(
         }
     }
     val dates = rememberChartDateFormats()
-    val totals = remember(filteredTransactions) { TransactionHistoryLogic.totals(filteredTransactions) }
-    val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice) {
-        TransactionHistoryLogic.fiatTotals(filteredTransactions) {
+    // Under Links each send counts its link's amount, as its row shows; the fees are in the link's detail.
+    val linkAmount: ((TransactionInfo) -> Long)? =
+        if (selectedFilter == TransactionFilter.LINKS) ({ LinkListRules.rowAmount(it, linkIndex) }) else null
+    val totals = remember(filteredTransactions, linkIndex, selectedFilter) { TransactionHistoryLogic.totals(filteredTransactions, linkAmount) }
+    val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice, linkIndex, selectedFilter) {
+        TransactionHistoryLogic.fiatTotals(filteredTransactions, linkAmount) {
             PriceHistory.priceAt(it, priceHistory, currentPrice?.price, System.currentTimeMillis() / 1000)
         }
     }
 
-    // Totals of what the list shows. Under Links it follows the received links waiting to be claimed.
+    // Totals of what the list shows. Under Links it describes every link: "7 links · 4 open".
     val summaryCard: @Composable () -> Unit = {
         GlassCard(Modifier.fillMaxWidth(), shadow = false, cornerRadius = 16.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(if (selectedFilter == TransactionFilter.LINKS) pluralTr("%s link transactions", totals.count) else pluralTr("%s transactions", totals.count), style = MaterialTheme.typography.titleSmall)
+                val heading = when {
+                    linkSections != null -> pluralTr("%s links", linkSections.linkCount) + " · " + tr("%s open", linkSections.openCount)
+                    selectedFilter == TransactionFilter.LINKS -> pluralTr("%s link transactions", totals.count)
+                    else -> pluralTr("%s transactions", totals.count)
+                }
+                Text(heading, style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     listOf(Triple(tr("Received"), totals.received, fiatTotals?.received), Triple(tr("Sent"), totals.sent, fiatTotals?.sent)).forEach { (title, amount, fiat) ->
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -193,7 +209,9 @@ fun TransactionListScreen(
                         }
                     }
                 }
-                Text(tr("Sent total includes fees"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (selectedFilter != TransactionFilter.LINKS) {
+                    Text(tr("Sent total includes fees"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
@@ -333,24 +351,11 @@ fun TransactionListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    items(items = openReceived, key = { "openReceived-${it.id}" }) { link ->
-                        ReceivedLinkListItem(
-                            link = link,
-                            fiatMode = fiatMode,
-                            price = currentPrice?.price,
-                            currency = currency,
-                            onOpen = { linkStore.openClaim(link.id) }
-                        )
-                    }
-                    if (openReceived.isNotEmpty()) item(key = "openReceivedGap") { Spacer(Modifier.height(8.dp)) }
                     item(key = "summary") {
                         summaryCard()
                         Spacer(Modifier.height(8.dp))
                     }
-                    items(
-                        items = filteredTransactions,
-                        key = { it.hash }
-                    ) { transaction ->
+                    val transactionItem: @Composable (TransactionInfo) -> Unit = { transaction ->
                         TransactionListItem(
                             transaction = transaction,
                             linkIndex = linkIndex,
@@ -360,6 +365,29 @@ fun TransactionListScreen(
                             receivedOn = TransactionHistoryLogic.receivedOnName(transaction, addressRows),
                             onClick = { onTransactionClick(transaction.hash) }
                         )
+                    }
+                    if (linkSections != null) {
+                        listOf(tr("Open") to linkSections.open, tr("History") to linkSections.history).forEach { (title, entries) ->
+                            if (entries.isEmpty()) return@forEach
+                            item(key = "header-$title") { LinkSectionHeader(title) }
+                            items(items = entries, key = { it.key }) { entry ->
+                                val transaction = entry.transaction
+                                val pending = entry.pending
+                                if (transaction != null) {
+                                    transactionItem(transaction)
+                                } else if (pending != null) {
+                                    ReceivedLinkListItem(
+                                        link = pending,
+                                        fiatMode = fiatMode,
+                                        price = currentPrice?.price,
+                                        currency = currency,
+                                        onOpen = { linkStore.openClaim(pending.id) }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(items = filteredTransactions, key = { it.hash }) { transaction -> transactionItem(transaction) }
                     }
 
                     item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -399,6 +427,16 @@ private fun TransactionListItem(
             TransactionAmounts(transaction = transaction, fiatMode = fiatMode, fiatValue = fiatValue)
         }
     }
+}
+
+/** "Open" and "History" under Links: headline type, a heading for TalkBack. */
+@Composable
+private fun LinkSectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp).semantics { heading() }
+    )
 }
 
 /**
