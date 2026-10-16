@@ -180,4 +180,33 @@ class PaymentLinkActivityTest {
         assertEquals(2L, PaymentLinkActivityRules.receivedConfirmations(link, 390))
         assertNull(PaymentLinkActivityRules.receivedConfirmations(received(), 406))
     }
+
+    @Test
+    fun `a received link's Activity row shows the claim estimate in XMR over fiat`() {
+        val row = PaymentLinkActivityRules.pendingRowText(49_186_000_000, fiatMode = false, fiatValue = "\$12.35", status = "Ready to claim")
+        assertEquals("Payment link", row.title)
+        assertEquals("+~0.049186 XMR", row.amount)
+        assertEquals("~\$12.35", row.secondary)
+        assertEquals("Payment link, plus about 0.049186 XMR, Ready to claim", row.spoken)
+    }
+
+    @Test
+    fun `in fiat mode a received link's Activity row leads with fiat`() {
+        val row = PaymentLinkActivityRules.pendingRowText(49_186_000_000, fiatMode = true, fiatValue = "\$12.35", status = "Ready in about 4 min")
+        assertEquals("+~\$12.35", row.amount)
+        assertEquals("~0.04918 XMR", row.secondary)
+        assertEquals("Payment link, plus about \$12.35, 0.04918 XMR, Ready in about 4 min", row.spoken)
+        // With no price yet, fiat mode falls back to XMR like every row.
+        val noPrice = PaymentLinkActivityRules.pendingRowText(49_186_000_000, fiatMode = true, fiatValue = null, status = "Ready to claim")
+        assertEquals("+~0.049186 XMR", noPrice.amount)
+        assertNull(noPrice.secondary)
+    }
+
+    @Test
+    fun `a received link with no known amount shows no amount`() {
+        val row = PaymentLinkActivityRules.pendingRowText(null, fiatMode = true, fiatValue = null, status = "Tap to check")
+        assertNull(row.amount)
+        assertNull(row.secondary)
+        assertEquals("Payment link, Tap to check", row.spoken)
+    }
 }

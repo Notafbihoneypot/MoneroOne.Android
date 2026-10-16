@@ -89,11 +89,16 @@ import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.paymentlinks.PaymentLinkIndex
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
-import one.monero.moneroone.paymentlinks.OpenLinkRules
-import one.monero.moneroone.paymentlinks.OpenLinksHeader
-import one.monero.moneroone.paymentlinks.OpenReceivedLinkRow
-import one.monero.moneroone.paymentlinks.OpenSentLinkRow
+import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
+import one.monero.moneroone.paymentlinks.PaymentLinkStore
+import one.monero.moneroone.paymentlinks.ReceivedLink
 import one.monero.moneroone.paymentlinks.linkRowText
+import one.monero.moneroone.paymentlinks.rememberDaemonHeight
+import one.monero.moneroone.data.model.Currency
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -106,7 +111,7 @@ enum class TransactionFilter(val label: String) {
     SENT("Sent"),
     PENDING("Pending"),
 
-    /** Payment link transactions (funding, reclaim, claim) and the received links waiting above them. */
+    /** Payment link transactions (funding, reclaim, claim) and the received links waiting to be claimed above them. */
     LINKS("Links")
 }
 
@@ -143,14 +148,12 @@ fun TransactionListScreen(
     val filteredTransactions = remember(transactions, selectedFilter, searchQuery, receivingIndex, addressRows, linkIndex) {
         TransactionHistoryLogic.filter(transactions, selectedFilter, receivingIndex, searchQuery, addressRows) { linkIndex.match(it) != null }
     }
-    // Under Links (now only, no search), the links that still hold money head the list: received
-    // links to claim, then this wallet's sent links (spec Round 3). No other filter shows them.
-    val nowSeconds = System.currentTimeMillis() / 1000
-    val openLinks = if (asOf == null && searchQuery.isBlank() && receivingIndex == null &&
+    // Under Links (now only, no search), the received links waiting to be claimed head the list: they
+    // have no transaction yet. A sent link shows once, as its "Sent by Link" row. No other filter shows them.
+    val openReceived = if (asOf == null && searchQuery.isBlank() && receivingIndex == null &&
         selectedFilter == TransactionFilter.LINKS
-    ) OpenLinkRules.openLinks(linkIndex.sent, linkIndex.received, activeWallet?.id, nowSeconds) else null
-    val openSent = openLinks?.let { OpenLinkRules.sentInGroupOrder(it, nowSeconds) }.orEmpty()
-    val openReceived = openLinks?.received.orEmpty()
+    ) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
+    val linkStore = PaymentLinkStore.get(LocalContext.current)
 
     // Under Links (now only), look at sent links someone could have claimed, so their rows say so. A look
     // holds the wallet runtime for a moment, so no other filter runs it; it stops in the background.
@@ -168,7 +171,7 @@ fun TransactionListScreen(
         }
     }
 
-    // Totals of what the list shows. Under Links it follows the Open Links group.
+    // Totals of what the list shows. Under Links it follows the received links waiting to be claimed.
     val summaryCard: @Composable () -> Unit = {
         GlassCard(Modifier.fillMaxWidth(), shadow = false, cornerRadius = 16.dp) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -280,7 +283,7 @@ fun TransactionListScreen(
                     modifier = Modifier.padding(bottom = 8.dp).testTag("transactions.asOf")
                 )
             }
-            if (filteredTransactions.isEmpty() && openReceived.isEmpty() && openSent.isEmpty()) {
+            if (filteredTransactions.isEmpty() && openReceived.isEmpty()) {
                 summaryCard()
                 Spacer(Modifier.height(16.dp))
                 // Empty state
@@ -324,18 +327,16 @@ fun TransactionListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    if (openReceived.isNotEmpty() || openSent.isNotEmpty()) {
-                        item(key = "openLinksHeader") { OpenLinksHeader() }
-                        items(items = openReceived, key = { "openReceived-${it.id}" }) { link ->
-                            OpenReceivedLinkRow(link, activeWallet?.name, walletViewModel::formatXmr)
-                        }
-                        items(items = openSent, key = { "openSent-${it.id}" }) { link ->
-                            OpenSentLinkRow(link, nowSeconds, walletViewModel::formatXmr) {
-                                link.fundingTxid?.let(onTransactionClick)
-                            }
-                        }
-                        item(key = "openLinksGap") { Spacer(Modifier.height(8.dp)) }
+                    items(items = openReceived, key = { "openReceived-${it.id}" }) { link ->
+                        ReceivedLinkListItem(
+                            link = link,
+                            fiatMode = fiatMode,
+                            price = currentPrice?.price,
+                            currency = currency,
+                            onOpen = { linkStore.openClaim(link.id) }
+                        )
                     }
+                    if (openReceived.isNotEmpty()) item(key = "openReceivedGap") { Spacer(Modifier.height(8.dp)) }
                     item(key = "summary") {
                         summaryCard()
                         Spacer(Modifier.height(8.dp))
@@ -399,14 +400,111 @@ private fun TransactionListItem(
         TransactionStatus.Failed -> ErrorRed
     }
 
+    ActivityRow(
+        hue = iconColor,
+        glyph = if (link != null) Icons.Default.Link else if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+        glyphTurned = link == null,
+        title = link?.title ?: if (isIncoming) tr("Received") else tr("Sent"),
+        subtitle = link?.subtitle ?: date,
+        subtitleIsStatus = link?.subtitleIsStatus == true,
+        spoken = label,
+        onClick = onClick
+    ) {
+        one.monero.moneroone.ui.components.TransactionAmounts(
+            transaction = transaction,
+            fiatMode = fiatMode,
+            fiatValue = fiatValue
+        )
+    }
+}
+
+/**
+ * A received link not claimed yet, under Links: the transaction row with the
+ * link glyph in a green disc, "Payment link", its claim status and the amount
+ * a claim delivers as an estimate. Its tap opens the claim sheet.
+ */
+@Composable
+private fun ReceivedLinkListItem(
+    link: ReceivedLink,
+    fiatMode: Boolean,
+    /** The live XMR price, for the fiat amount; null while unknown. */
+    price: Double?,
+    currency: Currency,
+    onOpen: () -> Unit
+) {
+    val daemonHeight = rememberDaemonHeight()
+    val status = PaymentLinkActivityRules.pendingLabel(
+        PaymentLinkActivityRules.pendingState(link, daemonHeight, System.currentTimeMillis())
+    )
+    val fiatValue = link.claimAmount?.let { amount ->
+        price?.let { MoneyFormat.format(amount / 1_000_000_000_000.0 * it, currency, fractionDigits = 2) }
+    }
+    val text = PaymentLinkActivityRules.pendingRowText(link.claimAmount, fiatMode, fiatValue, status)
+    val hint = tr("Opens the link to claim it")
+    ActivityRow(
+        hue = SuccessGreen,
+        glyph = Icons.Default.Link,
+        glyphTurned = false,
+        title = text.title,
+        subtitle = status,
+        subtitleIsStatus = true,
+        spoken = text.spoken,
+        onClick = onOpen,
+        modifier = Modifier
+            .testTag("activity.receivedLink.${link.id}")
+            .semantics { onClick(label = hint) { onOpen(); true } }
+    ) {
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            text.amount?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SuccessGreen,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+            text.secondary?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One Activity row: the glyph in a tinted disc, the title over a second line
+ * (the date, or a link's status on one line), the [amounts] and a chevron.
+ * TalkBack reads [spoken] for the whole row.
+ */
+@Composable
+private fun ActivityRow(
+    hue: Color,
+    glyph: ImageVector,
+    /** The direction arrows turn 45°; the link glyph stays upright. */
+    glyphTurned: Boolean,
+    title: String,
+    subtitle: String,
+    subtitleIsStatus: Boolean,
+    spoken: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    amounts: @Composable () -> Unit
+) {
     GlassCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         onClick = onClick
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clearAndSetSemantics { contentDescription = label }
+                .clearAndSetSemantics { contentDescription = spoken }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -415,19 +513,15 @@ private fun TransactionListItem(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.15f)),
+                    .background(hue.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (link != null) {
-                    Icon(Icons.Default.Link, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
-                } else {
-                    Icon(
-                        imageVector = if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                        contentDescription = null,
-                        tint = iconColor,
-                        modifier = Modifier.size(20.dp).rotate(45f)
-                    )
-                }
+                Icon(
+                    imageVector = glyph,
+                    contentDescription = null,
+                    tint = hue,
+                    modifier = Modifier.size(20.dp).then(if (glyphTurned) Modifier.rotate(45f) else Modifier)
+                )
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -435,28 +529,24 @@ private fun TransactionListItem(
             // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = link?.title ?: if (isIncoming) tr("Received") else tr("Sent"),
+                    text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 // A link's status stays on one line beside the amount.
                 Text(
-                    text = link?.subtitle ?: date,
+                    text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (link?.subtitleIsStatus == true) 1 else Int.MAX_VALUE,
-                    softWrap = link?.subtitleIsStatus != true,
+                    maxLines = if (subtitleIsStatus) 1 else Int.MAX_VALUE,
+                    softWrap = !subtitleIsStatus,
                     // At a large font scale a cut status ends in "…", not mid-letter.
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            one.monero.moneroone.ui.components.TransactionAmounts(
-                transaction = transaction,
-                fiatMode = fiatMode,
-                fiatValue = fiatValue
-            )
+            amounts()
 
             Spacer(modifier = Modifier.width(8.dp))
 

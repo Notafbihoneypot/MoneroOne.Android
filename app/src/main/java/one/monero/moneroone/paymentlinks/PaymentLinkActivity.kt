@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.WalletManager
+import one.monero.moneroone.data.util.XmrFormat
 
 /** What a wallet transaction did for a payment link on this device. */
 enum class LinkActivityKind {
@@ -153,6 +154,25 @@ object PaymentLinkActivityRules {
     }
 
     /**
+     * The Activity row of a received link not claimed yet (it has no
+     * transaction): "Payment link", the amount a claim delivers as an estimate
+     * that follows fiat mode like every row ("+~0.0492 XMR" over "~$12.35", or
+     * "+~$12.35" over "~0.0492 XMR"), and [status] as the second line. With no
+     * amount known yet, the row shows none.
+     */
+    fun pendingRowText(claimAmount: Long?, fiatMode: Boolean, fiatValue: String?, status: String): PendingLinkRowText {
+        val title = tr("Payment link")
+        if (claimAmount == null) return PendingLinkRowText(title, null, null, "$title, $status")
+        val xmr = "${XmrFormat.format(claimAmount)} XMR"
+        val fiatFirst = fiatMode && fiatValue != null
+        val amount = "+~" + if (fiatFirst) fiatValue else xmr
+        val secondary = if (fiatFirst) "~${XmrFormat.compact(claimAmount)} XMR" else fiatValue?.let { "~$it" }
+        // TalkBack would read "tilde": the estimate is "about".
+        val amountSpoken = if (fiatFirst) "$fiatValue, ${XmrFormat.compact(claimAmount)} XMR" else xmr
+        return PendingLinkRowText(title, amount, secondary, listOf(title, tr("plus about %s", amountSpoken), status).joinToString(", "))
+    }
+
+    /**
      * A received link's live confirmation count: the last check's, or more
      * from its funding height and the open wallet's daemon height.
      */
@@ -186,6 +206,9 @@ fun rememberDaemonHeight(): Long? {
     val transactions by WalletManager.transactionsFlow.collectAsState()
     return remember(sync, transactions) { WalletManager.kit?.lastBlockHeight?.takeIf { it > 0 } }
 }
+
+/** Title, amounts and TalkBack words of the Activity row of a received link not claimed yet. */
+class PendingLinkRowText(val title: String, val amount: String?, val secondary: String?, val spoken: String)
 
 /** Title, glyph and second line of an Activity row for a payment link transaction. */
 class LinkRowText(val title: String, val subtitle: String, val subtitleIsStatus: Boolean, val spoken: String)

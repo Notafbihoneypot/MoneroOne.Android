@@ -111,12 +111,12 @@ class OpenLinksTest {
     }
 
     @Test
-    fun `the group lists expired links first, then the newest`() {
+    fun `open sent links list newest first and count the expired ones`() {
         val expired = sent(id = "e", createdAt = 1, check = ready, expiresAt = before - 10)
         val older = sent(id = "o", createdAt = 2, check = waiting)
         val newer = sent(id = "n", createdAt = 5, check = waiting)
         val open = OpenLinkRules.openLinks(listOf(older, expired, newer), emptyList(), "w", before)
         assertEquals(1, open.expired)
-        assertEquals(listOf("e", "n", "o"), OpenLinkRules.sentInGroupOrder(open, before).map { it.id })
+        assertEquals(listOf("n", "o", "e"), open.sent.map { it.id })
     }
 }
