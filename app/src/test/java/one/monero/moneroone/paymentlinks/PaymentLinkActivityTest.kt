@@ -96,14 +96,14 @@ class PaymentLinkActivityTest {
         assertEquals(LinkRowState.CLAIMED, state(LinkStatus.CLAIMED))
         assertEquals(LinkRowState.RECLAIMED, state(LinkStatus.RECLAIMED))
         assertEquals(
-            listOf("Waiting", "Ready", "Claimed", "Reclaimed", "Expired"),
+            listOf("Waiting", "Ready", "Claimed", "Reclaimed", "Expired", "Ready to claim"),
             LinkRowState.entries.map(PaymentLinkActivityRules::stateLabel)
         )
     }
 
     @Test
-    fun `a received link not claimed yet is Ready or Waiting`() {
-        assertEquals(LinkRowState.READY, PaymentLinkActivityRules.pendingRowState(PendingLinkState.Ready))
+    fun `a received link not claimed yet is Ready to claim or Waiting`() {
+        assertEquals(LinkRowState.READY_TO_CLAIM, PaymentLinkActivityRules.pendingRowState(PendingLinkState.Ready))
         assertEquals(LinkRowState.WAITING, PaymentLinkActivityRules.pendingRowState(PendingLinkState.Waiting(4)))
         assertEquals(LinkRowState.WAITING, PaymentLinkActivityRules.pendingRowState(PendingLinkState.NoMoney))
         assertEquals(LinkRowState.WAITING, PaymentLinkActivityRules.pendingRowState(PendingLinkState.Unchecked))
@@ -227,8 +227,8 @@ class PaymentLinkActivityTest {
         assertEquals("Link 7", row.title)
         assertEquals("+~0.049186 XMR", row.amount)
         assertEquals("~\$12.35", row.secondary)
-        assertEquals(LinkRowState.READY, row.state)
-        assertEquals("Payment link, Link 7, plus about 0.049186 XMR, Ready, Thu, 8:12 PM", row.spoken)
+        assertEquals(LinkRowState.READY_TO_CLAIM, row.state)
+        assertEquals("Payment link, Link 7, plus about 0.049186 XMR, Ready to claim, Thu, 8:12 PM", row.spoken)
     }
 
     @Test

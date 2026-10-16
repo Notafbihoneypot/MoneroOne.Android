@@ -38,38 +38,27 @@ object TransactionHistoryLogic {
         kindMatches && addressMatches && (query.isBlank() || searchable.any { it.contains(query.trim(), ignoreCase = true) })
     }.sortedWith(compareBy<TransactionInfo> { !it.isPending && it.confirmations > 0 }.thenByDescending { it.timestamp })
 
-    /**
-     * Failed transactions contribute nothing; outgoing totals include fees, unless [sentAmount]
-     * gives a send's amount (the Links filter: each link's amount, as its row shows).
-     */
-    fun totals(transactions: List<TransactionInfo>, sentAmount: ((TransactionInfo) -> Long)? = null): TransactionTotals {
+    /** Failed transactions contribute nothing; outgoing totals include fees. */
+    fun totals(transactions: List<TransactionInfo>): TransactionTotals {
         var received = BigInteger.ZERO
         var sent = BigInteger.ZERO
         val counted = transactions.filterNot { it.isFailed }
         for (tx in counted) {
             val amount = BigInteger.valueOf(tx.amount)
             if (tx.direction == TransactionInfo.Direction.Direction_In) received += amount
-            else sent += sentAmount?.let { BigInteger.valueOf(it(tx)) } ?: (amount + BigInteger.valueOf(tx.fee))
+            else sent += amount + BigInteger.valueOf(tx.fee)
         }
         return TransactionTotals(counted.size, received, sent)
     }
 
     /** No partial fiat sum is presented as a complete total. */
-    fun fiatTotals(
-        transactions: List<TransactionInfo>,
-        sentAmount: ((TransactionInfo) -> Long)? = null,
-        priceAt: (Long) -> Double?
-    ): FiatTotals? {
+    fun fiatTotals(transactions: List<TransactionInfo>, priceAt: (Long) -> Double?): FiatTotals? {
         var received = BigDecimal.ZERO
         var sent = BigDecimal.ZERO
         for (tx in transactions.filterNot { it.isFailed }) {
             val price = priceAt(tx.timestamp)?.takeIf { it.isFinite() && it > 0 } ?: return null
             val incoming = tx.direction == TransactionInfo.Direction.Direction_In
-            val atomic = when {
-                incoming -> BigInteger.valueOf(tx.amount)
-                sentAmount != null -> BigInteger.valueOf(sentAmount(tx))
-                else -> BigInteger.valueOf(tx.amount) + BigInteger.valueOf(tx.fee)
-            }
+            val atomic = BigInteger.valueOf(tx.amount) + if (incoming) BigInteger.ZERO else BigInteger.valueOf(tx.fee)
             val value = BigDecimal(atomic).movePointLeft(12) * BigDecimal.valueOf(price)
             if (incoming) received += value else sent += value
         }

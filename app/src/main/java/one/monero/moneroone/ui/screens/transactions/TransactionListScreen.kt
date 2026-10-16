@@ -178,12 +178,10 @@ fun TransactionListScreen(
         }
     }
     val dates = rememberChartDateFormats()
-    // Under Links each send counts its link's amount, as its row shows; the fees are in the link's detail.
-    val linkAmount: ((TransactionInfo) -> Long)? =
-        if (selectedFilter == TransactionFilter.LINKS) ({ LinkListRules.rowAmount(it, linkIndex) }) else null
-    val totals = remember(filteredTransactions, linkIndex, selectedFilter) { TransactionHistoryLogic.totals(filteredTransactions, linkAmount) }
-    val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice, linkIndex, selectedFilter) {
-        TransactionHistoryLogic.fiatTotals(filteredTransactions, linkAmount) {
+    // Sent totals include fees under every filter, Links too (as on iOS); the card says so.
+    val totals = remember(filteredTransactions) { TransactionHistoryLogic.totals(filteredTransactions) }
+    val fiatTotals = remember(filteredTransactions, priceHistory, currentPrice) {
+        TransactionHistoryLogic.fiatTotals(filteredTransactions) {
             PriceHistory.priceAt(it, priceHistory, currentPrice?.price, System.currentTimeMillis() / 1000)
         }
     }
@@ -209,9 +207,7 @@ fun TransactionListScreen(
                         }
                     }
                 }
-                if (selectedFilter != TransactionFilter.LINKS) {
-                    Text(tr("Sent total includes fees"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text(tr("Sent total includes fees"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

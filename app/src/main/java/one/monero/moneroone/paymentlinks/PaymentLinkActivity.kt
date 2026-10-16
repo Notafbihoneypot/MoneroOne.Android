@@ -110,9 +110,9 @@ object PaymentLinkActivityRules {
         LinkStatus.NOT_FUNDED, LinkStatus.PENDING -> LinkRowState.WAITING
     }
 
-    /** A received link not claimed yet: Ready once it can be claimed, else Waiting. */
+    /** A received link not claimed yet: Ready to claim once it can be claimed, else Waiting. */
     fun pendingRowState(state: PendingLinkState): LinkRowState =
-        if (state == PendingLinkState.Ready) LinkRowState.READY else LinkRowState.WAITING
+        if (state == PendingLinkState.Ready) LinkRowState.READY_TO_CLAIM else LinkRowState.WAITING
 
     fun stateLabel(state: LinkRowState): String = when (state) {
         LinkRowState.WAITING -> tr("Waiting")
@@ -120,6 +120,7 @@ object PaymentLinkActivityRules {
         LinkRowState.CLAIMED -> tr("Claimed")
         LinkRowState.RECLAIMED -> tr("Reclaimed")
         LinkRowState.EXPIRED -> tr("Expired")
+        LinkRowState.READY_TO_CLAIM -> tr("Ready to claim")
     }
 
     /**
@@ -271,7 +272,7 @@ class LinkSections(val open: List<LinkListEntry>, val history: List<LinkListEntr
  * Expired; its reclaim row and every claim row go to History.
  */
 object LinkListRules {
-    private val openStates = setOf(LinkRowState.WAITING, LinkRowState.READY, LinkRowState.EXPIRED)
+    private val openStates = setOf(LinkRowState.WAITING, LinkRowState.READY, LinkRowState.EXPIRED, LinkRowState.READY_TO_CLAIM)
 
     fun sections(
         transactions: List<TransactionInfo>,
@@ -292,10 +293,6 @@ object LinkListRules {
         val all = (rows + waiting).sortedByDescending { it.atMillis }
         return LinkSections(all.filter { it.open }, all.filterNot { it.open }, (shown + waiting.map { it.linkId }).size)
     }
-
-    /** The amount a link row shows: a funding row the link's amount, any other row its transaction's. */
-    fun rowAmount(tx: TransactionInfo, index: PaymentLinkIndex): Long =
-        index.match(tx)?.takeIf { it.kind == LinkActivityKind.FUNDING }?.sent?.amount ?: tx.amount
 }
 
 /** The payment link records of this device, to match Activity rows against. */
@@ -324,7 +321,8 @@ fun rememberDaemonHeight(): Long? {
 class SentCosts(val networkFee: Long?, val claimFeeReserve: Long, val total: Long?)
 
 /** A link row's status when the row has no transaction status of its own. */
-enum class LinkRowState { WAITING, READY, CLAIMED, RECLAIMED, EXPIRED }
+/** READY: a sent link the recipient can claim. READY_TO_CLAIM: a link sent to us that we can claim now. */
+enum class LinkRowState { WAITING, READY, CLAIMED, RECLAIMED, EXPIRED, READY_TO_CLAIM }
 
 /**
  * A link row: the name (title), the amount over the status and [secondary]
@@ -393,13 +391,13 @@ fun LinkRowAmounts(text: LinkRowText, transactionStatus: TransactionStatus?) {
     }
 }
 
-/** Waiting orange, Ready and Claimed green, Reclaimed gray, Expired a yellow dot with label-color text. */
+/** Waiting orange, Ready, Ready to claim and Claimed green, Reclaimed gray, Expired a yellow dot with label-color text. */
 @Composable
 fun LinkStateLabel(state: LinkRowState) {
     val label = PaymentLinkActivityRules.stateLabel(state)
     when (state) {
         LinkRowState.WAITING -> StatusLabel(label, MoneroOrange)
-        LinkRowState.READY, LinkRowState.CLAIMED -> StatusLabel(label, SuccessGreen)
+        LinkRowState.READY, LinkRowState.READY_TO_CLAIM, LinkRowState.CLAIMED -> StatusLabel(label, SuccessGreen)
         LinkRowState.RECLAIMED -> StatusLabel(label, MoneroTheme.colors.gray)
         LinkRowState.EXPIRED -> StatusLabel(label, WarningYellow, textColor = MaterialTheme.colorScheme.onSurface)
     }

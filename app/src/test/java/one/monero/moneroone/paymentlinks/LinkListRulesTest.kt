@@ -78,19 +78,14 @@ class LinkListRulesTest {
     }
 
     @Test
-    fun `the Links totals count each link's amount, as its row shows`() {
-        val link = sent("a")
-        val index = PaymentLinkIndex(listOf(link), emptyList())
+    fun `the Links totals include fees, as under every filter`() {
         val funding = tx("f-a", false, now - 10, amount = 20_300_000_000)
         val back = tx("back", true, now - 5, amount = 19_000_000_000)
-        assertEquals(20_000_000_000L, LinkListRules.rowAmount(funding, index))
-        assertEquals(19_000_000_000L, LinkListRules.rowAmount(back, index))
-
-        val totals = TransactionHistoryLogic.totals(listOf(funding, back)) { LinkListRules.rowAmount(it, index) }
-        assertEquals(BigInteger.valueOf(20_000_000_000), totals.sent)
+        val totals = TransactionHistoryLogic.totals(listOf(funding, back))
+        assertEquals(BigInteger.valueOf(20_340_000_000), totals.sent)
         assertEquals(BigInteger.valueOf(19_000_000_000), totals.received)
-        val fiat = TransactionHistoryLogic.fiatTotals(listOf(funding), { LinkListRules.rowAmount(it, index) }) { 100.0 }!!
-        assertEquals(0, fiat.sent.compareTo(java.math.BigDecimal("2.00")))
+        val fiat = TransactionHistoryLogic.fiatTotals(listOf(funding)) { 100.0 }!!
+        assertEquals(0, fiat.sent.compareTo(java.math.BigDecimal("2.034")))
     }
 
     @Test
