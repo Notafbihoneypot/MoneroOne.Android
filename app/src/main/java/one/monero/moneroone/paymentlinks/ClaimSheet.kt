@@ -4,9 +4,11 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,8 +22,11 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,15 +39,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,6 +63,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.core.wallet.addressesOf
+import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.ErrorRed
@@ -133,6 +147,7 @@ private fun ClaimSheet(
     val sent = sentList.firstOrNull { it.id == id }
     val received = receivedList.firstOrNull { it.id == id }
     val activeWallet by walletViewModel.activeWallet.collectAsState()
+    val wallets by walletViewModel.wallets.collectAsState()
     val walletState by walletViewModel.walletState.collectAsState()
     val session by paymentLinks.session.collectAsState()
     val sweep by paymentLinks.sweep.collectAsState()
@@ -149,8 +164,13 @@ private fun ClaimSheet(
     val net = received?.netAmount?.takeIf { !own && sent == null && it > 0 }
     // A received v2 link carries no expiry (0).
     val expiry = (sent?.expiry ?: received?.expiry)?.takeIf { it > 0 }
-    val walletName = activeWallet?.name.orEmpty()
     val receiveAddress = walletState.addressesOf(activeWallet?.id)?.shownAddress(walletState.receiveIndex)?.address
+    // Where the sweep goes: the open wallet at its live receive address, or a closed wallet at its saved main address.
+    val destinations = remember(wallets, activeWallet?.id, receiveAddress) {
+        ClaimDestinations.eligible(wallets, activeWallet?.id, receiveAddress, ClaimDestinations::isSavedMainAddress)
+    }
+    var pickedWalletId by rememberSaveable(id) { mutableStateOf<String?>(null) }
+    val destination = ClaimDestinations.chosen(destinations, pickedWalletId, reclaim = own, fundingWalletId = sent?.walletId)
 
     // The envelope is open only while the sheet is on screen and still has something to check: closing
     // the sheet or going to the background closes it, so the main wallet runs again. A finished claim
@@ -165,12 +185,17 @@ private fun ClaimSheet(
     val current = session?.takeIf { it.id == id }
     val ui: ClaimUi = when {
         result != null -> when (val outcome = result.outcome) {
-            is SweepOutcome.Sent -> ClaimUi.Done(outcome.amount, outcome.txid, walletName, result.kind == SweepKind.RECLAIM)
+            is SweepOutcome.Sent -> ClaimUi.Done(outcome.amount, outcome.txid, result.walletName, result.kind == SweepKind.RECLAIM)
             SweepOutcome.AlreadyClaimed -> ClaimUi.AlreadyClaimed
             is SweepOutcome.Failed -> ClaimUi.Error(outcome.message)
         }
         claimedBefore -> ClaimUi.Done(received?.claimedAmount, received?.claimTxid, received?.claimedTo, reclaim = false)
-        reclaimedBefore -> ClaimUi.Done(null, sent?.reclaimTxid?.takeIf { it.isNotEmpty() }, null, reclaim = true)
+        reclaimedBefore -> ClaimUi.Done(
+            null,
+            sent?.reclaimTxid?.takeIf { it.isNotEmpty() },
+            wallets.firstOrNull { it.derivedWalletId != null && it.derivedWalletId == sent?.reclaimWallet }?.name,
+            reclaim = true
+        )
         !hasWords -> ClaimUi.Missing
         current == null || current.phase == EnvelopeSession.Phase.CHECKING -> ClaimUi.Checking(amount)
         current.phase == EnvelopeSession.Phase.ERROR -> ClaimUi.Error(current.error)
@@ -187,10 +212,10 @@ private fun ClaimSheet(
 
     // From a ready row at the top of Activity: claim once this sheet's own check finds the link ready.
     val claimWhenReady by paymentLinks.store.claimWhenReady.collectAsState()
-    LaunchedEffect(ui, claimWhenReady, receiveAddress) {
-        if (ui is ClaimUi.Ready && !own && claimWhenReady == id && receiveAddress != null) {
+    LaunchedEffect(ui, claimWhenReady, destination) {
+        if (ui is ClaimUi.Ready && !own && claimWhenReady == id && destination?.address != null) {
             paymentLinks.store.clearClaimWhenReady(id)
-            paymentLinks.sweepOpenEnvelope(SweepKind.CLAIM, receiveAddress, walletName)
+            paymentLinks.sweepOpenEnvelope(SweepKind.CLAIM, destination)
         }
     }
 
@@ -225,14 +250,14 @@ private fun ClaimSheet(
                 ClaimBody(
                     state = state,
                     own = own,
-                    walletName = walletName,
+                    destination = destination,
+                    destinations = destinations,
+                    onPick = { pickedWalletId = it },
                     expiry = expiry,
-                    canSweep = receiveAddress != null,
+                    canSweep = destination?.address != null,
                     formatXmr = walletViewModel::formatXmr,
                     onSweep = {
-                        receiveAddress?.let {
-                            paymentLinks.sweepOpenEnvelope(if (own) SweepKind.RECLAIM else SweepKind.CLAIM, it, walletName)
-                        }
+                        destination?.let { paymentLinks.sweepOpenEnvelope(if (own) SweepKind.RECLAIM else SweepKind.CLAIM, it) }
                     },
                     onRetry = {
                         paymentLinks.clearSweep()
@@ -249,7 +274,9 @@ private fun ClaimSheet(
 private fun ClaimBody(
     state: ClaimUi,
     own: Boolean,
-    walletName: String,
+    destination: ClaimDestination?,
+    destinations: List<ClaimDestination>,
+    onPick: (String) -> Unit,
     expiry: Long?,
     canSweep: Boolean,
     formatXmr: (Long) -> String,
@@ -285,7 +312,7 @@ private fun ClaimBody(
             is ClaimUi.Ready -> {
                 Disc(Icons.Default.Link, MoneroOrange)
                 if (state.estimated) EstimatedAmount(formatXmr(state.amount)) else Amount("${formatXmr(state.amount)} XMR")
-                Secondary(tr("To %s", walletName))
+                destination?.let { DestinationLine(own, it, destinations, onPick) }
                 expiry?.let { Secondary(tr("Claim by %s", formatLinkDate(it))) }
                 Spacer(Modifier.height(8.dp))
                 PrimaryButton(onClick = onSweep, enabled = canSweep, modifier = Modifier.fillMaxWidth()) {
@@ -338,6 +365,74 @@ private fun ClaimBody(
                 Disc(Icons.Default.Error, MoneroTheme.colors.gray)
                 Message(tr("This link is not complete."))
                 PrimaryButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(tr("Done")) }
+            }
+        }
+    }
+}
+
+/**
+ * "Claim to Savings" / "Reclaim to Savings". With two or more wallets to choose from it opens
+ * a menu of them (iOS: a Menu with a Picker, checkmark on the chosen one), the name and the
+ * chevron in the brand color as a menu's current value; with one it is text.
+ */
+@Composable
+private fun DestinationLine(own: Boolean, chosen: ClaimDestination, choices: List<ClaimDestination>, onPick: (String) -> Unit) {
+    val text = if (own) tr("Reclaim to %s", chosen.name) else tr("Claim to %s", chosen.name)
+    if (choices.size < 2) {
+        Secondary(text)
+        return
+    }
+    var open by remember { mutableStateOf(false) }
+    // TalkBack: "Claim to, Savings", a drop-down list (iOS: the label "Claim to", the wallet name as its value).
+    val spoken = (if (own) tr("Reclaim to") else tr("Claim to")) + ", " + chosen.name
+    val line = buildAnnotatedString {
+        append(text)
+        val start = text.lastIndexOf(chosen.name)
+        if (start >= 0) addStyle(SpanStyle(color = MoneroOrange), start, start + chosen.name.length)
+    }
+    Box {
+        Row(
+            modifier = Modifier
+                .clip(CapsuleShape)
+                .semantics(mergeDescendants = true) { contentDescription = spoken }
+                .clickable(role = Role.DropdownList) { open = true }
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                line,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
+            Icon(
+                Icons.Default.UnfoldMore,
+                contentDescription = null,
+                tint = MoneroOrange,
+                modifier = Modifier.size(14.dp)
+            )
+        }
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ) {
+            choices.forEach { choice ->
+                val selected = choice.walletId == chosen.walletId
+                DropdownMenuItem(
+                    text = { Text(choice.name) },
+                    leadingIcon = {
+                        if (selected) Icon(Icons.Default.Check, contentDescription = null) else Spacer(Modifier.size(24.dp))
+                    },
+                    onClick = {
+                        open = false
+                        onPick(choice.walletId)
+                    },
+                    modifier = Modifier.semantics { this.selected = selected }
+                )
             }
         }
     }

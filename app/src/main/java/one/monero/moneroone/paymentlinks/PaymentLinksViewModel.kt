@@ -38,8 +38,8 @@ data class EnvelopeSession(
 
 enum class SweepKind { CLAIM, RECLAIM }
 
-/** What the last sweep of envelope [id] did. */
-data class SweepResult(val id: String, val kind: SweepKind, val outcome: SweepOutcome)
+/** What the last sweep of envelope [id] did. [walletName]: the wallet it went to. */
+data class SweepResult(val id: String, val kind: SweepKind, val outcome: SweepOutcome, val walletName: String = "")
 
 sealed class SweepOutcome {
     data class Sent(val txid: String?, val amount: Long) : SweepOutcome()
@@ -335,7 +335,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         pendingReclaim?.takeIf { it.id == id }?.let { reclaimIfReady(it, snapshot) }
     }
 
-    private class PendingReclaim(val id: String, val address: String, val walletName: String)
+    private class PendingReclaim(val id: String, val destination: ClaimDestination)
 
     private var pendingReclaim: PendingReclaim? = null
     private val _reclaimPending = MutableStateFlow<String?>(null)
@@ -349,9 +349,9 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
      * check that sees it claimed moves nothing. With no live check (it failed, or none ran), the envelope
      * is checked again first.
      */
-    fun reclaim(id: String, address: String, walletName: String) {
-        if (sweeping) return
-        val request = PendingReclaim(id, address, walletName)
+    fun reclaim(id: String, destination: ClaimDestination) {
+        if (sweeping || destination.address == null) return
+        val request = PendingReclaim(id, destination)
         pendingReclaim = request
         _reclaimPending.value = id
         val current = _session.value?.takeIf { it.id == id }
@@ -366,7 +366,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         when (LinkStatusRules.claimView(snapshot)) {
             is ClaimView.Ready -> {
                 dropReclaim(request.id)
-                sweepOpenEnvelope(SweepKind.RECLAIM, request.address, request.walletName)
+                sweepOpenEnvelope(SweepKind.RECLAIM, request.destination)
             }
             // Still locked by the envelope's count (it trails the chain by a block): the next check sweeps.
             is ClaimView.Waiting -> {}
@@ -415,7 +415,13 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
      * address): a [SweepKind.CLAIM] of a received link or a [SweepKind.RECLAIM]
      * of a sent one. [walletName] names the destination in the record.
      */
-    fun sweepOpenEnvelope(kind: SweepKind, address: String, walletName: String) {
+    /**
+     * Sweeps the open envelope into [destination]: the open wallet at its live receive address,
+     * or a closed wallet at its saved main address (no wallet switch).
+     */
+    fun sweepOpenEnvelope(kind: SweepKind, destination: ClaimDestination) {
+        val address = destination.address ?: return
+        val walletName = destination.name
         val current = _session.value ?: return
         val open = envelope ?: return
         if (current.phase != EnvelopeSession.Phase.LIVE || sweeping) return
@@ -427,7 +433,9 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             SweepKind.RECLAIM -> store.sent(id)?.reclaimStartedAt != null
             SweepKind.CLAIM -> store.received(id)?.claimStartedAt != null
         }
-        val into = WalletManager.currentWalletId
+        // The kit wallet the money lands in: the open one, or the closed wallet's own when it next opens.
+        val into = if (destination.isOpen) WalletManager.currentWalletId else destination.kitWalletId
+        Timber.d("PaymentLinks: sweep %s into %s wallet", kind, if (destination.isOpen) "the open" else "a closed")
         when (kind) {
             SweepKind.RECLAIM -> store.updateSent(id) { it.copy(reclaimStartedAt = it.reclaimStartedAt ?: now, reclaimWallet = into) }
             SweepKind.CLAIM -> store.updateReceived(id) {
@@ -450,7 +458,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 SweepOutcome.Failed(e.message ?: "")
             }
             record(id, kind, outcome, (outcome as? SweepOutcome.Sent)?.amount ?: amount, walletName, earlierAttempt)
-            _sweep.value = SweepResult(id, kind, outcome)
+            _sweep.value = SweepResult(id, kind, outcome, walletName)
             val snapshot = runCatching { open.snapshot() }.getOrNull()
             _session.update { s -> s?.takeIf { it.id == id }?.copy(phase = EnvelopeSession.Phase.LIVE, snapshot = snapshot ?: s.snapshot) }
             sweeping = false

@@ -373,6 +373,14 @@ private fun SentLinkDetail(
         val result = sweep?.takeIf { it.id == id }
         val amount = "${walletViewModel.formatXmr(link.amount)} XMR"
         val receiveAddress = walletState.addressesOf(activeWallet?.id)?.shownAddress(walletState.receiveIndex)?.address
+        // A reclaim goes to the wallet that funded the link while it can receive, else to the open wallet (as the claim sheet).
+        val destination = remember(wallets, activeWallet?.id, receiveAddress, link.walletId) {
+            ClaimDestinations.default(
+                ClaimDestinations.eligible(wallets, activeWallet?.id, receiveAddress, ClaimDestinations::isSavedMainAddress),
+                reclaim = true,
+                fundingWalletId = link.walletId
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
@@ -435,7 +443,7 @@ private fun SentLinkDetail(
         }
         result?.let {
             val text = when (val outcome = it.outcome) {
-                is SweepOutcome.Sent -> tr("Reclaimed. On its way to %s.", activeWallet?.name.orEmpty())
+                is SweepOutcome.Sent -> tr("Reclaimed. On its way to %s.", it.walletName)
                 SweepOutcome.AlreadyClaimed -> tr("Already claimed")
                 is SweepOutcome.Failed -> outcome.message.ifBlank { tr("Transaction Failed") }
             }
@@ -453,10 +461,10 @@ private fun SentLinkDetail(
         Spacer(Modifier.height(16.dp))
         val live = current?.phase == EnvelopeSession.Phase.LIVE
         // Ready by the funding's count or by a check; the envelope's own check runs before anything moves.
-        val canReclaim = view.canReclaim && receiveAddress != null && reclaimPending != id &&
+        val canReclaim = view.canReclaim && destination?.address != null && reclaimPending != id &&
             current?.phase != EnvelopeSession.Phase.SWEEPING
         val reclaim = {
-            receiveAddress?.let { paymentLinks.reclaim(id, it, activeWallet?.name.orEmpty()) }
+            destination?.let { paymentLinks.reclaim(id, it) }
             Unit
         }
         val share = { shareLink(context, walletViewModel.formatXmr(link.amount), link.link) }
