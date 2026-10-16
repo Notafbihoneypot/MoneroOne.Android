@@ -1,34 +1,41 @@
 package one.monero.moneroone.paymentlinks
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
@@ -52,10 +59,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -63,8 +71,9 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.core.wallet.addressesOf
-import one.monero.moneroone.ui.components.CapsuleShape
+import one.monero.moneroone.ui.components.CellFill
 import one.monero.moneroone.ui.components.DismissTextButton
+import one.monero.moneroone.ui.components.Motion
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.ErrorRed
 import one.monero.moneroone.ui.theme.MoneroOrange
@@ -72,6 +81,8 @@ import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.MonoCaption
 import one.monero.moneroone.ui.theme.SuccessGreen
 import one.monero.moneroone.ui.theme.truncateMiddle
+import one.monero.moneroone.ui.screens.wallet.WalletRowCard
+import one.monero.moneroone.ui.screens.wallet.WalletRowCheck
 
 /** SwiftUI's default ease-in-out (0.35 s), the plain cross-fade iOS uses between states. */
 private val CrossFade = tween<Float>(350, easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f))
@@ -165,13 +176,17 @@ private fun ClaimSheet(
     val net = received?.netAmount?.takeIf { !own && it > 0 }
     // A received v2 link carries no expiry (0).
     val expiry = (sent?.expiry ?: received?.expiry)?.takeIf { it > 0 }
-    val receiveAddress = walletState.addressesOf(activeWallet?.id)?.shownAddress(walletState.receiveIndex)?.address
-    // Where the sweep goes: the open wallet at its live receive address, or a closed wallet at its saved main address.
-    val destinations = remember(wallets, activeWallet?.id, receiveAddress) {
-        ClaimDestinations.eligible(wallets, activeWallet?.id, receiveAddress, ClaimDestinations::isSavedMainAddress)
+    // Where the sweep goes: a wallet's main address, the one the switcher shows. The open wallet's
+    // live primary (none while its keys failed a check), or a closed wallet's saved one.
+    val openPrimary = walletState.addressesOf(activeWallet?.id)?.takeIf { !it.blocked }
+        ?.list?.firstOrNull { it.addressIndex == 0 }?.address
+    val destinations = remember(wallets, activeWallet?.id, openPrimary) {
+        ClaimDestinations.eligible(wallets, activeWallet?.id, openPrimary, ClaimDestinations::isSavedMainAddress)
     }
     var pickedWalletId by rememberSaveable(id) { mutableStateOf<String?>(null) }
     val destination = ClaimDestinations.chosen(destinations, pickedWalletId, reclaim = own, fundingWalletId = sent?.walletId)
+    // The wallet list (the switcher's rows) slides in over the claim, from the Ready row only.
+    var choosing by rememberSaveable(id) { mutableStateOf(false) }
 
     // The envelope is open only while the sheet is on screen and still has something to check: closing
     // the sheet or going to the background closes it, so the main wallet runs again. A finished claim
@@ -211,6 +226,12 @@ private fun ClaimSheet(
         } ?: ClaimUi.Checking(amount)
     }
 
+    val ready = ui is ClaimUi.Ready
+    val sweeping = current?.phase == EnvelopeSession.Phase.SWEEPING
+    val canChoose = destinations.size > 1 && !sweeping
+    LaunchedEffect(ready, canChoose) { if (!ready || !canChoose) choosing = false }
+    val showList = choosing && ready && canChoose
+
     // From a ready row at the top of Activity: claim once this sheet's own check finds the link ready.
     val claimWhenReady by paymentLinks.store.claimWhenReady.collectAsState()
     LaunchedEffect(ui, claimWhenReady, destination) {
@@ -232,40 +253,76 @@ private fun ClaimSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(Modifier.fillMaxWidth()) {
-                if (ui != ClaimUi.Claiming) {
-                    DismissTextButton(onClick = dismiss, modifier = Modifier.align(Alignment.CenterStart)) { Text(tr("Close")) }
+        // System back leaves the list for the claim, as the back arrow does; the sheet stays. It must
+        // sit in the sheet's content: there it reaches the sheet dialog's back dispatcher, after the
+        // sheet's own dismiss callback, so it wins.
+        BackHandler(enabled = showList) { choosing = false }
+        // The list slides in from the trailing edge and the sheet's height follows (iOS pushes it).
+        AnimatedContent(
+            targetState = showList,
+            transitionSpec = {
+                if (targetState) {
+                    (slideInHorizontally(Motion.stepForward()) { it } togetherWith slideOutHorizontally(Motion.stepForward()) { -it })
+                        .using(SizeTransform(clip = true) { _, _ -> Motion.stepForward() })
+                } else {
+                    (slideInHorizontally(Motion.stepBack()) { -it } togetherWith slideOutHorizontally(Motion.stepBack()) { it })
+                        .using(SizeTransform(clip = true) { _, _ -> Motion.stepBack() })
                 }
-                Text(
-                    if (own) tr("This is your own link") else tr("Payment Link"),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            Crossfade(targetState = ui, animationSpec = CrossFade, label = "claimState") { state ->
-                ClaimBody(
-                    state = state,
-                    own = own,
-                    destination = destination,
-                    destinations = destinations,
-                    onPick = { pickedWalletId = it },
-                    expiry = expiry,
-                    canSweep = destination?.address != null,
-                    formatXmr = walletViewModel::formatXmr,
-                    onSweep = {
-                        destination?.let { paymentLinks.sweepOpenEnvelope(if (own) SweepKind.RECLAIM else SweepKind.CLAIM, it) }
-                    },
-                    onRetry = {
-                        paymentLinks.clearSweep()
-                        paymentLinks.recheck(id)
-                    },
-                    onDone = dismiss
-                )
+            },
+            label = "claimPane"
+        ) { list ->
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (list) {
+                    WalletList(
+                        own = own,
+                        destinations = destinations,
+                        chosenId = destination?.walletId,
+                        balanceOf = { choice ->
+                            if (choice.isOpen) "${walletViewModel.formatXmr(walletState.balance.all)} XMR"
+                            else "${walletViewModel.formatXmr(wallets.firstOrNull { it.id == choice.walletId }?.cachedBalance ?: 0L)} XMR"
+                        },
+                        onBack = { choosing = false },
+                        onPick = {
+                            pickedWalletId = it
+                            choosing = false
+                        }
+                    )
+                } else {
+                    Box(Modifier.fillMaxWidth()) {
+                        if (ui != ClaimUi.Claiming) {
+                            DismissTextButton(onClick = dismiss, modifier = Modifier.align(Alignment.CenterStart)) { Text(tr("Close")) }
+                        }
+                        Text(
+                            if (own) tr("This is your own link") else tr("Payment Link"),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Crossfade(targetState = ui, animationSpec = CrossFade, label = "claimState") { state ->
+                        ClaimBody(
+                            state = state,
+                            own = own,
+                            destination = destination,
+                            canChoose = canChoose,
+                            onChoose = { choosing = true },
+                            expiry = expiry,
+                            canSweep = destination?.address != null,
+                            formatXmr = walletViewModel::formatXmr,
+                            onSweep = {
+                                destination?.let { paymentLinks.sweepOpenEnvelope(if (own) SweepKind.RECLAIM else SweepKind.CLAIM, it) }
+                            },
+                            onRetry = {
+                                paymentLinks.clearSweep()
+                                paymentLinks.recheck(id)
+                            },
+                            onDone = dismiss
+                        )
+                    }
+                }
             }
         }
     }
@@ -276,8 +333,8 @@ private fun ClaimBody(
     state: ClaimUi,
     own: Boolean,
     destination: ClaimDestination?,
-    destinations: List<ClaimDestination>,
-    onPick: (String) -> Unit,
+    canChoose: Boolean,
+    onChoose: () -> Unit,
     expiry: Long?,
     canSweep: Boolean,
     formatXmr: (Long) -> String,
@@ -307,16 +364,20 @@ private fun ClaimBody(
                 )
                 Secondary(tr("Ready in about %s min", state.minutes))
                 if (own) {
-                    PrimaryButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(tr("Reclaim")) }
+                    PrimaryButton(containerColor = sheetFill(), onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text(tr("Reclaim")) }
                 }
             }
             is ClaimUi.Ready -> {
                 Disc(Icons.Default.Link, MoneroOrange)
                 if (state.estimated) EstimatedAmount(formatXmr(state.amount)) else Amount("${formatXmr(state.amount)} XMR")
-                destination?.let { DestinationLine(own, it, destinations, onPick) }
                 if (!own) expiry?.let { Secondary(tr("Claim by %s", formatLinkDate(it))) }
+                destination?.let {
+                    // 24 above the row and 20 below it, with the column's 12.
+                    Spacer(Modifier.height(12.dp))
+                    DestinationRow(own, it, canChoose, onChoose)
+                }
                 Spacer(Modifier.height(8.dp))
-                PrimaryButton(onClick = onSweep, enabled = canSweep, modifier = Modifier.fillMaxWidth()) {
+                PrimaryButton(containerColor = sheetFill(), onClick = onSweep, enabled = canSweep, modifier = Modifier.fillMaxWidth()) {
                     Text(if (own) tr("Reclaim") else tr("Claim"))
                 }
             }
@@ -338,17 +399,17 @@ private fun ClaimBody(
                 }
                 state.wallet?.takeIf { it.isNotEmpty() }?.let { Secondary(tr("On its way to %s", it)) }
                 Spacer(Modifier.height(8.dp))
-                PrimaryButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(tr("Done")) }
+                PrimaryButton(containerColor = sheetFill(), onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(tr("Done")) }
             }
             ClaimUi.AlreadyClaimed -> {
                 Disc(Icons.Default.Check, MoneroTheme.colors.gray)
                 Message(tr("This link was already claimed."))
-                PrimaryButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(tr("Done")) }
+                PrimaryButton(containerColor = sheetFill(), onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(tr("Done")) }
             }
             ClaimUi.NoMoney -> {
                 Disc(Icons.Default.HourglassTop, MoneroTheme.colors.gray)
                 Message(tr("No money in this link yet."))
-                PrimaryButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                PrimaryButton(containerColor = sheetFill(), onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
                     Text(tr("Check Again"))
                 }
@@ -357,7 +418,7 @@ private fun ClaimBody(
                 Disc(Icons.Default.Error, ErrorRed)
                 Message(tr("Could not check this link."))
                 state.message?.takeIf { it.isNotBlank() }?.let { Secondary(it) }
-                PrimaryButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                PrimaryButton(containerColor = sheetFill(), onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
                     Text(tr("Retry"))
                 }
@@ -365,79 +426,124 @@ private fun ClaimBody(
             ClaimUi.Missing -> {
                 Disc(Icons.Default.Error, MoneroTheme.colors.gray)
                 Message(tr("This link is not complete."))
-                PrimaryButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(tr("Done")) }
+                PrimaryButton(containerColor = sheetFill(), onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(tr("Done")) }
             }
         }
     }
 }
 
 /**
- * "Claim to Savings" / "Reclaim to Savings". With two or more wallets to choose from it opens
- * a menu of them (iOS: a Menu with a Picker, checkmark on the chosen one), the name and the
- * chevron in the brand color as a menu's current value; with one it is text.
+ * "Claim to" over the wallet switcher's row for the wallet the money goes to: emoji, name and
+ * main address, no balance (the claim amount stays the one amount on the sheet). With two or
+ * more wallets to choose from, a chevron shows and a tap opens [WalletList]; with one, the row
+ * only shows where the money goes. Rows step up one fill so they never match the sheet in dark mode.
  */
 @Composable
-private fun DestinationLine(own: Boolean, chosen: ClaimDestination, choices: List<ClaimDestination>, onPick: (String) -> Unit) {
-    val text = if (own) tr("Reclaim to %s", chosen.name) else tr("Claim to %s", chosen.name)
-    if (choices.size < 2) {
-        Secondary(text)
-        return
-    }
-    var open by remember { mutableStateOf(false) }
-    // TalkBack: "Claim to, Savings", a drop-down list (iOS: the label "Claim to", the wallet name as its value).
-    val spoken = (if (own) tr("Reclaim to") else tr("Claim to")) + ", " + chosen.name
-    val line = buildAnnotatedString {
-        append(text)
-        val start = text.lastIndexOf(chosen.name)
-        if (start >= 0) addStyle(SpanStyle(color = MoneroOrange), start, start + chosen.name.length)
-    }
-    Box {
-        Row(
-            modifier = Modifier
-                .clip(CapsuleShape)
-                .semantics(mergeDescendants = true) { contentDescription = spoken }
-                .clickable(role = Role.DropdownList) { open = true }
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+private fun DestinationRow(own: Boolean, chosen: ClaimDestination, canChoose: Boolean, onChoose: () -> Unit) {
+    val label = if (own) tr("Reclaim to") else tr("Claim to")
+    // TalkBack: "Claim to, Savings, 44AFFq5k…7nN3bWpQ", and with a choice, a button that chooses a wallet.
+    val spoken = listOfNotNull(label, chosen.name, chosen.address?.let(::truncateMiddle)).joinToString(", ")
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp).clearAndSetSemantics {}
+        )
+        WalletRowCard(
+            emoji = chosen.emoji,
+            name = chosen.name,
+            address = chosen.address,
+            containerColor = sheetFill(),
+            circleColor = sheetCircleFill(),
+            onClick = if (canChoose) onChoose else null,
+            modifier = Modifier.fillMaxWidth().clearAndSetSemantics {
+                contentDescription = spoken
+                if (canChoose) {
+                    role = Role.Button
+                    onClick(label = tr("Choose a wallet")) { onChoose(); true }
+                }
+            }
         ) {
-            Text(
-                line,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.clearAndSetSemantics {}
-            )
-            Icon(
-                Icons.Default.UnfoldMore,
-                contentDescription = null,
-                tint = MoneroOrange,
-                modifier = Modifier.size(14.dp)
-            )
-        }
-        DropdownMenu(
-            expanded = open,
-            onDismissRequest = { open = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        ) {
-            choices.forEach { choice ->
-                val selected = choice.walletId == chosen.walletId
-                DropdownMenuItem(
-                    text = { Text(choice.name) },
-                    leadingIcon = {
-                        if (selected) Icon(Icons.Default.Check, contentDescription = null) else Spacer(Modifier.size(24.dp))
-                    },
-                    onClick = {
-                        open = false
-                        onPick(choice.walletId)
-                    },
-                    modifier = Modifier.semantics { this.selected = selected }
+            if (canChoose) {
+                Spacer(Modifier.width(12.dp))
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MoneroTheme.colors.labelTertiary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
     }
 }
+
+/**
+ * The wallets a claim can go to, as the switcher lists them: same rows, balances, ring and
+ * check on the chosen one, same order, no rename or reorder. A tap picks the wallet and goes back.
+ */
+@Composable
+private fun WalletList(
+    own: Boolean,
+    destinations: List<ClaimDestination>,
+    chosenId: String?,
+    balanceOf: (ClaimDestination) -> String,
+    onBack: () -> Unit,
+    onPick: (String) -> Unit
+) {
+    Box(Modifier.fillMaxWidth()) {
+        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
+        }
+        Text(
+            if (own) tr("Reclaim to") else tr("Claim to"),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.align(Alignment.Center).semantics { heading() }
+        )
+    }
+    Spacer(Modifier.height(4.dp))
+    // Scrolls when the wallets outgrow the sheet. The 12dp inside the scroll keeps the first and
+    // last cards' shadows from being cut, and with the 4 above it leaves the 16 under the title.
+    Column(
+        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        destinations.forEach { choice ->
+            val chosen = choice.walletId == chosenId
+            val balance = balanceOf(choice)
+            WalletRowCard(
+                emoji = choice.emoji,
+                name = choice.name,
+                address = choice.address,
+                balanceText = balance,
+                isActive = chosen,
+                containerColor = sheetFill(),
+                circleColor = sheetCircleFill(),
+                onClick = { onPick(choice.walletId) },
+                modifier = Modifier.fillMaxWidth().clearAndSetSemantics {
+                    contentDescription = "${choice.name}, $balance"
+                    selected = chosen
+                    onClick { onPick(choice.walletId); true }
+                }
+            ) {
+                Spacer(Modifier.width(12.dp))
+                WalletRowCheck(chosen)
+            }
+        }
+    }
+}
+
+/**
+ * A row or button on the sheet: fillElevated, so in dark mode it steps up from the #1C1C1E sheet
+ * (white on the white sheet in light, with the card shadow). iOS glass does this by itself.
+ */
+@Composable
+private fun sheetFill(): Color = MaterialTheme.colorScheme.surfaceContainerHigh
+
+/** The row's emoji circle one step above the row: the cell fill in light, fillHighest in dark. */
+@Composable
+private fun sheetCircleFill(): Color =
+    if (MoneroTheme.isDark) MaterialTheme.colorScheme.surfaceContainerHighest else CellFill
 
 @Composable
 private fun Spinner() {

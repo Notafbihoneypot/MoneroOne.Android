@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -379,7 +380,12 @@ private fun WalletRow(
             }
         }
 
-        GlassCard(
+        WalletRowCard(
+            emoji = wallet.emoji,
+            name = wallet.name,
+            address = wallet.cachedPrimaryAddress?.takeIf { SeedValidation.isPlausiblePrimaryAddress(it) },
+            balanceText = balanceText,
+            isActive = isActive,
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(animatedOffset.roundToInt(), 0) }
@@ -394,10 +400,6 @@ private fun WalletRow(
                         onMoveDown?.let { add(CustomAccessibilityAction(tr("Move down")) { it(); true }) }
                     }
                 }
-                .then(
-                    if (isActive) Modifier.border(1.5.dp, MoneroOrange.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
-                    else Modifier
-                )
                 .pointerInput(swipeEnabled, revealPx, dragStartPx) {
                     if (!swipeEnabled) return@pointerInput
                     awaitEachGesture {
@@ -442,67 +444,106 @@ private fun WalletRow(
                 }
             }
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                EmojiCircle(emoji = wallet.emoji, size = 44.dp)
+            IconButton(onClick = onRenameRequest) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = tr("Rename Wallet"),
+                    tint = MoneroTheme.colors.labelTertiary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            WalletRowCheck(isActive)
+        }
+    }
+}
 
-                Spacer(modifier = Modifier.width(12.dp))
+/**
+ * The wallet switcher's row card (iOS WalletRow): the emoji circle, the name, an optional
+ * orange balance and the main address 8…8, then [trailing]. The active row carries the 1.5dp
+ * brand ring at 0.7. The switcher, the claim sheet's "Claim to" row and its wallet list share
+ * it; the claim sheet passes a fill one step up ([containerColor], [circleColor]) so a row
+ * never matches the sheet in dark mode.
+ */
+@Composable
+fun WalletRowCard(
+    emoji: String,
+    name: String,
+    address: String?,
+    modifier: Modifier = Modifier,
+    balanceText: String? = null,
+    isActive: Boolean = false,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    circleColor: Color = CellFill,
+    onClick: (() -> Unit)? = null,
+    trailing: @Composable RowScope.() -> Unit = {}
+) {
+    GlassCard(
+        modifier = modifier.then(
+            if (isActive) Modifier.border(1.5.dp, MoneroOrange.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
+            else Modifier
+        ),
+        color = containerColor,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            EmojiCircle(emoji = emoji, size = 44.dp, color = circleColor)
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = wallet.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                balanceText?.let {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = balanceText,
+                        text = it,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium,
                         color = MoneroOrange,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    wallet.cachedPrimaryAddress?.takeIf { SeedValidation.isPlausiblePrimaryAddress(it) }?.let { address ->
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = truncateMiddle(address),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = MonoFamily,
-                            fontWeight = FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
                 }
-
-                IconButton(onClick = onRenameRequest) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = tr("Rename Wallet"),
-                        tint = MoneroTheme.colors.labelTertiary,
-                        modifier = Modifier.size(18.dp)
+                address?.let {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = truncateMiddle(it),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = MonoFamily,
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
-                }
-
-                if (isActive) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = tr("Current wallet"),
-                        tint = SuccessGreen,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Spacer(modifier = Modifier.width(20.dp))
                 }
             }
+
+            trailing()
         }
+    }
+}
+
+/** The switcher's green check on the active row, or its empty 20dp slot. */
+@Composable
+fun WalletRowCheck(isActive: Boolean) {
+    if (isActive) {
+        Icon(
+            imageVector = Icons.Default.Check,
+            contentDescription = tr("Current wallet"),
+            tint = SuccessGreen,
+            modifier = Modifier.size(20.dp)
+        )
+    } else {
+        Spacer(modifier = Modifier.width(20.dp))
     }
 }
 
@@ -544,12 +585,12 @@ private fun AddWalletRow(onClick: () -> Unit) {
 }
 
 @Composable
-fun EmojiCircle(emoji: String, size: androidx.compose.ui.unit.Dp) {
+fun EmojiCircle(emoji: String, size: androidx.compose.ui.unit.Dp, color: Color = CellFill) {
     Box(
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
-            .background(CellFill),
+            .background(color),
         contentAlignment = Alignment.Center
     ) {
         Text(text = emoji, fontSize = (size.value * 0.5f).sp)
