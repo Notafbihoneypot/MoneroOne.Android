@@ -242,7 +242,6 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     /** Opens the envelope of [id] (sent or received) and keeps its state current until [closeSession]. */
     fun openSession(id: String) {
         if (_session.value?.id == id && _session.value?.phase != EnvelopeSession.Phase.ERROR) return
-        if (pendingReclaim?.id != id) dropReclaim()
         _sweep.value = null
         refreshJob?.cancel()
         openLookJob?.cancel()
@@ -266,7 +265,6 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 } catch (e: Exception) {
                     Timber.w(e, "PaymentLinks: envelope open failed")
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = e.message)
-                    dropReclaim(id)
                     return@withLock
                 }
                 envelope = opened
@@ -278,7 +276,6 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                     // Retry opens it anew.
                     closeEnvelopeLocked()
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = message)
-                    dropReclaim(id)
                     return@withLock
                 }
                 publish(id, if (estimatesClaim) first.copy(sweepFee = opened.sweepFee(first.balance)) else first)
@@ -332,55 +329,6 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         store.updateSent(id) { it.copy(lastCheck = snapshot) }
         store.updateReceived(id) { it.noting(snapshot) }
         _session.value = EnvelopeSession(id, EnvelopeSession.Phase.LIVE, snapshot)
-        pendingReclaim?.takeIf { it.id == id }?.let { reclaimIfReady(it, snapshot) }
-    }
-
-    private class PendingReclaim(val id: String, val destination: ClaimDestination)
-
-    private var pendingReclaim: PendingReclaim? = null
-    private val _reclaimPending = MutableStateFlow<String?>(null)
-
-    /** The sent link whose Reclaim waits for its envelope's check. */
-    val reclaimPending: StateFlow<String?> = _reclaimPending.asStateFlow()
-
-    /**
-     * Reclaim of a sent link that reads ready ([LinkStatusRules.sentView]: a check, or 10 confirmations of
-     * its funding). The sweep runs only once the open envelope's own check sees the money unlocked; a
-     * check that sees it claimed moves nothing. With no live check (it failed, or none ran), the envelope
-     * is checked again first.
-     */
-    fun reclaim(id: String, destination: ClaimDestination) {
-        if (sweeping || destination.address == null) return
-        val request = PendingReclaim(id, destination)
-        pendingReclaim = request
-        _reclaimPending.value = id
-        val current = _session.value?.takeIf { it.id == id }
-        when (current?.phase) {
-            EnvelopeSession.Phase.LIVE -> current.snapshot?.let { reclaimIfReady(request, it) }
-            EnvelopeSession.Phase.CHECKING -> {}
-            else -> recheck(id)
-        }
-    }
-
-    private fun reclaimIfReady(request: PendingReclaim, snapshot: EnvelopeSnapshot) {
-        when (LinkStatusRules.claimView(snapshot)) {
-            is ClaimView.Ready -> {
-                dropReclaim(request.id)
-                sweepOpenEnvelope(SweepKind.RECLAIM, request.destination)
-            }
-            // Still locked by the envelope's count (it trails the chain by a block): the next check sweeps.
-            is ClaimView.Waiting -> {}
-            ClaimView.AlreadyClaimed, ClaimView.NoMoney -> {
-                Timber.d("PaymentLinks: reclaim skipped: the envelope check saw %s", LinkStatusRules.claimView(snapshot))
-                dropReclaim(request.id)
-            }
-        }
-    }
-
-    private fun dropReclaim(id: String? = null) {
-        if (id != null && pendingReclaim?.id != id) return
-        pendingReclaim = null
-        _reclaimPending.value = null
     }
 
     fun closeSession() {
@@ -392,7 +340,6 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         sessionJob?.cancel()
         sessionJob = null
         _session.value = null
-        dropReclaim()
         viewModelScope.launch(NonCancellable) { sessionLock.withLock { closeEnvelopeLocked() } }
         if (refreshWanted) refreshSent()
     }
@@ -411,13 +358,9 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     private var closeAfterSweep = false
 
     /**
-     * Sweeps the open envelope to [address] (the active wallet's receive
-     * address): a [SweepKind.CLAIM] of a received link or a [SweepKind.RECLAIM]
-     * of a sent one. [walletName] names the destination in the record.
-     */
-    /**
-     * Sweeps the open envelope into [destination]: the open wallet at its live receive address,
-     * or a closed wallet at its saved main address (no wallet switch).
+     * Sweeps the open envelope into [destination]: a [SweepKind.CLAIM] of a received link or a
+     * [SweepKind.RECLAIM] of a sent one. The open wallet takes it at its live receive address, a
+     * closed wallet at its saved main address (no wallet switch).
      */
     fun sweepOpenEnvelope(kind: SweepKind, destination: ClaimDestination) {
         val address = destination.address ?: return
@@ -487,14 +430,9 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                         it.copy(state = ReceivedState.CLAIMED)
                     }
                 }
-                if (store.updateReceived(id, claimed) == null) {
-                    // Claimed by another wallet on this phone from a link it sent: keep a received entry too.
-                    store.sent(id)?.let { sent ->
-                        store.putReceived(
-                            claimed(ReceivedLink(sent.id, null, sent.height, sent.amount, sent.expiry, System.currentTimeMillis()))
-                        )
-                    }
-                }
+                // Only a received record takes a claim: a link this phone sent is reclaimed (iOS parity), so it never
+                // gets a received record.
+                if (store.updateReceived(id, claimed) == null) Timber.w("PaymentLinks: a claim with no received record")
             }
         }
     }

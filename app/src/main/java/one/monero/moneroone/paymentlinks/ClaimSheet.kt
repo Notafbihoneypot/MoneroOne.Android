@@ -152,8 +152,9 @@ private fun ClaimSheet(
     val session by paymentLinks.session.collectAsState()
     val sweep by paymentLinks.sweep.collectAsState()
 
-    // Own link: this phone sent it from the wallet that is open now.
-    val own = sent != null && sent.walletId == activeWallet?.id
+    // Own link: this phone sent it, whichever wallet is open (iOS: a sent record). It is a reclaim, by default
+    // into the wallet that funded it.
+    val own = sent != null
     val result = sweep?.takeIf { it.id == id }
     val claimedBefore = received?.state == ReceivedState.CLAIMED && result == null
     val reclaimedBefore = own && sent?.reclaimTxid != null && result == null
@@ -161,7 +162,7 @@ private fun ClaimSheet(
     // Ours: the amount sent. Sent to us: what a claim delivers, else the v1 link's amount or the balance.
     val amount = sent?.amount ?: received?.claimAmount
     // Sent to us and checked: the balance less the claim sweep's fee estimate.
-    val net = received?.netAmount?.takeIf { !own && sent == null && it > 0 }
+    val net = received?.netAmount?.takeIf { !own && it > 0 }
     // A received v2 link carries no expiry (0).
     val expiry = (sent?.expiry ?: received?.expiry)?.takeIf { it > 0 }
     val receiveAddress = walletState.addressesOf(activeWallet?.id)?.shownAddress(walletState.receiveIndex)?.address
@@ -313,7 +314,7 @@ private fun ClaimBody(
                 Disc(Icons.Default.Link, MoneroOrange)
                 if (state.estimated) EstimatedAmount(formatXmr(state.amount)) else Amount("${formatXmr(state.amount)} XMR")
                 destination?.let { DestinationLine(own, it, destinations, onPick) }
-                expiry?.let { Secondary(tr("Claim by %s", formatLinkDate(it))) }
+                if (!own) expiry?.let { Secondary(tr("Claim by %s", formatLinkDate(it))) }
                 Spacer(Modifier.height(8.dp))
                 PrimaryButton(onClick = onSweep, enabled = canSweep, modifier = Modifier.fillMaxWidth()) {
                     Text(if (own) tr("Reclaim") else tr("Claim"))

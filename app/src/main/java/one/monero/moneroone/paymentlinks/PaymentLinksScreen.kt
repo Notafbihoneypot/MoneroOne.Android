@@ -61,7 +61,6 @@ import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.WalletViewModel
-import one.monero.moneroone.core.wallet.addressesOf
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.PrimaryButton
@@ -319,7 +318,7 @@ private fun SentLinkDetail(
     val link = sentList.firstOrNull { it.id == id }
     val session by paymentLinks.session.collectAsState()
     val sweep by paymentLinks.sweep.collectAsState()
-    val reclaimPending by paymentLinks.reclaimPending.collectAsState()
+    val pendingOpen by paymentLinks.store.pendingOpen.collectAsState()
     val daemonHeight = rememberDaemonHeight()
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     val walletState by walletViewModel.walletState.collectAsState()
@@ -339,9 +338,13 @@ private fun SentLinkDetail(
     // flight needs the main wallet.
     val wantsSession = link != null && !LinkStatusRules.isSettled(link)
     val fundingInFlight by rememberUpdatedState(busy)
-    LifecycleStartEffect(id, wantsSession) {
-        if (wantsSession && !fundingInFlight) paymentLinks.openSession(id)
-        onStopOrDispose { paymentLinks.closeSession() }
+    // Reclaim opens the claim sheet over this screen (iOS parity): the sheet takes this envelope session
+    // while it is up, and this screen checks again once it closes.
+    val sheetOpen = pendingOpen == id
+    val sheetUp by rememberUpdatedState(sheetOpen)
+    LifecycleStartEffect(id, wantsSession, sheetOpen) {
+        if (wantsSession && !fundingInFlight && !sheetOpen) paymentLinks.openSession(id)
+        onStopOrDispose { if (!sheetUp) paymentLinks.closeSession() }
     }
     DisposableEffect(id) { onDispose { paymentLinks.clearSweep() } }
     LaunchedEffect(sendState) {
@@ -372,15 +375,6 @@ private fun SentLinkDetail(
         val checking = current == null || current.phase == EnvelopeSession.Phase.CHECKING
         val result = sweep?.takeIf { it.id == id }
         val amount = "${walletViewModel.formatXmr(link.amount)} XMR"
-        val receiveAddress = walletState.addressesOf(activeWallet?.id)?.shownAddress(walletState.receiveIndex)?.address
-        // A reclaim goes to the wallet that funded the link while it can receive, else to the open wallet (as the claim sheet).
-        val destination = remember(wallets, activeWallet?.id, receiveAddress, link.walletId) {
-            ClaimDestinations.default(
-                ClaimDestinations.eligible(wallets, activeWallet?.id, receiveAddress, ClaimDestinations::isSavedMainAddress),
-                reclaim = true,
-                fundingWalletId = link.walletId
-            )
-        }
 
         Spacer(Modifier.height(16.dp))
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
@@ -432,7 +426,7 @@ private fun SentLinkDetail(
                     Icon(Icons.Default.Refresh, contentDescription = tr("Retry"), tint = MoneroOrange)
                 }
             }
-            current?.phase == EnvelopeSession.Phase.SWEEPING || reclaimPending == id -> Row(
+            current?.phase == EnvelopeSession.Phase.SWEEPING -> Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(horizontal = 16.dp)
@@ -460,13 +454,10 @@ private fun SentLinkDetail(
 
         Spacer(Modifier.height(16.dp))
         val live = current?.phase == EnvelopeSession.Phase.LIVE
-        // Ready by the funding's count or by a check; the envelope's own check runs before anything moves.
-        val canReclaim = view.canReclaim && destination?.address != null && reclaimPending != id &&
-            current?.phase != EnvelopeSession.Phase.SWEEPING
-        val reclaim = {
-            destination?.let { paymentLinks.reclaim(id, it) }
-            Unit
-        }
+        // Ready by the funding's count or by a check. Reclaim opens the claim sheet: it picks the wallet (the
+        // funding wallet first), checks the envelope again, and its Reclaim button confirms.
+        val canReclaim = view.canReclaim && current?.phase != EnvelopeSession.Phase.SWEEPING
+        val reclaim = { paymentLinks.store.openClaim(id) }
         val share = { shareLink(context, walletViewModel.formatXmr(link.amount), link.link) }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when (status) {
