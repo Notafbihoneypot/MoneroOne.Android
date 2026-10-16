@@ -451,6 +451,7 @@ fun SendScreen(
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
                         sendInProgress = sendInProgress,
+                        note = LinkNames.cleanNote(linkNote).orEmpty(),
                         onConfirm = { draft, reserve ->
                             linkDraft = draft
                             linkFeeReserve = reserve

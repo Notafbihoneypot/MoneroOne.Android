@@ -35,9 +35,20 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
 
     fun received(id: String): ReceivedLink? = _received.value.firstOrNull { it.id == id }
 
+    /**
+     * Saves [link]. The number and the note belong to the store: a saved record keeps its own,
+     * whatever the caller's copy holds, so a copy taken before a rename cannot undo it. A new
+     * record gets the next number and keeps its note. [rename] changes the note.
+     */
     @Synchronized
     fun putSent(link: SentLink): Boolean {
-        val record = if (link.number == null) link.copy(number = takeNumber()) else link
+        val stored = sent(link.id)
+        val kept = if (stored != null) link.copy(number = stored.number ?: link.number, note = stored.note) else link
+        val record = if (kept.number == null) kept.copy(number = takeNumber()) else kept
+        return saveSent(record)
+    }
+
+    private fun saveSent(record: SentLink): Boolean {
         val next = _sent.value.filterNot { it.id == record.id } + record
         return write(KEY_SENT, next, SentLink.serializer()).also { if (it) _sent.value = next }
     }
@@ -55,9 +66,16 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         if (write(KEY_SENT, next, SentLink.serializer())) _sent.value = next
     }
 
+    /** Saves [link], keeping a saved record's number and note, as [putSent]. */
     @Synchronized
     fun putReceived(link: ReceivedLink): Boolean {
-        val record = if (link.number == null) link.copy(number = takeNumber()) else link
+        val stored = received(link.id)
+        val kept = if (stored != null) link.copy(number = stored.number ?: link.number, note = stored.note) else link
+        val record = if (kept.number == null) kept.copy(number = takeNumber()) else kept
+        return saveReceived(record)
+    }
+
+    private fun saveReceived(record: ReceivedLink): Boolean {
         val next = _received.value.filterNot { it.id == record.id } + record
         return write(KEY_RECEIVED, next, ReceivedLink.serializer()).also { if (it) _received.value = next }
     }
@@ -69,8 +87,8 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
     @Synchronized
     fun rename(id: String, note: String?) {
         val clean = LinkNames.cleanNote(note)
-        if (sent(id) != null) updateSent(id) { it.copy(note = clean) }
-        else updateReceived(id) { it.copy(note = clean) }
+        sent(id)?.let { saveSent(it.copy(note = clean)); return }
+        received(id)?.let { saveReceived(it.copy(note = clean)) }
     }
 
     private fun nextNumber(): Int = LinkNames.highest(_sent.value, _received.value, prefs.getInt(KEY_LAST_NUMBER, 0)) + 1

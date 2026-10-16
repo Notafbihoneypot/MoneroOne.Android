@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -210,6 +211,8 @@ fun PaymentLinkReview(
     xmrPrice: Double?,
     currencySymbol: String,
     sendInProgress: Boolean,
+    /** The link's note, trimmed; empty for none. Shown here, never sent. */
+    note: String = "",
     onConfirm: (draft: EnvelopeDraft, feeReserve: Long) -> Unit
 ) {
     var draft by remember { mutableStateOf(existingDraft?.takeIf { it.amount == amount }) }
@@ -279,6 +282,25 @@ fun PaymentLinkReview(
                         Text("${formatXmr(amount)} XMR", style = MaterialTheme.typography.headlineMedium)
                         fiat(amount)?.let {
                             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    // The note, as Send's review shows a memo.
+                    if (note.isNotEmpty()) {
+                        RowDivider()
+                        val spoken = tr("Note, %s", note)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }
+                        ) {
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
