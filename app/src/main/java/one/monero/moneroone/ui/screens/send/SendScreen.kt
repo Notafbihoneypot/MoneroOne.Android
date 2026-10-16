@@ -120,6 +120,7 @@ import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.paymentlinks.EnvelopeDraft
+import one.monero.moneroone.paymentlinks.LinkNames
 import one.monero.moneroone.paymentlinks.PaymentLinkCodec
 import one.monero.moneroone.paymentlinks.PaymentLinkParse
 import one.monero.moneroone.paymentlinks.PaymentLinkReadyPhase
@@ -238,6 +239,8 @@ fun SendScreen(
     var amount by remember { mutableStateOf(prefilledAmount ?: "") }
     var isSweepAll by remember { mutableStateOf(false) }
     var memo by remember { mutableStateOf("") }
+    // A link's note: this phone only, never in the link or the tx memo.
+    var linkNote by remember { mutableStateOf("") }
     var sendInProgress by remember { mutableStateOf(false) }
     // Re-authentication is required between confirming and broadcasting: an
     // unlocked, unattended phone must not be able to drain the wallet.
@@ -427,10 +430,11 @@ fun SendScreen(
                         prefillSource = amountSource,
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
-                        memo = memo,
-                        onMemoChange = { memo = it },
+                        memo = if (linkMode) linkNote else memo,
+                        onMemoChange = { if (linkMode) linkNote = it.take(LinkNames.NOTE_LIMIT) else memo = it },
                         onContinue = { goForward(SendPhase.REVIEW) },
-                        linkMode = linkMode
+                        linkMode = linkMode,
+                        notePlaceholder = if (linkMode) remember(paymentLinks) { paymentLinks?.nextName() } else null
                     )
                 }
                 SendPhase.REVIEW -> if (linkMode && paymentLinks != null) {
@@ -551,7 +555,7 @@ fun SendScreen(
                         }
                         // The record is saved before any broadcast; without it, nothing is sent.
                         !paymentLinks.recordBeforeFunding(
-                            draft, walletViewModel.activeWallet.value?.id.orEmpty(), linkFeeReserve
+                            draft, walletViewModel.activeWallet.value?.id.orEmpty(), linkFeeReserve, note = linkNote
                         ) -> sendInProgress = false
                         else -> walletViewModel.send(
                             flow,
@@ -809,8 +813,11 @@ private fun AmountPhase(
     memo: String,
     onMemoChange: (String) -> Unit,
     onContinue: () -> Unit,
-    // Link mode: no Max (the envelope needs its fee reserve) and no memo (the note is "Payment link").
-    linkMode: Boolean = false
+    // Link mode: no Max (the envelope needs its fee reserve). The memo field becomes the link's
+    // note, which stays on this phone (the tx memo stays "Payment link").
+    linkMode: Boolean = false,
+    /** Link mode: the name the link gets without a note ("Link 9"). */
+    notePlaceholder: String? = null
 ) {
     val parsedAmount = parseXmr(amount)
     val canContinue = parsedAmount > 0 && parsedAmount <= unlockedBalance
@@ -1000,7 +1007,7 @@ private fun AmountPhase(
 
         // Add memo
         Spacer(modifier = Modifier.height(8.dp))
-        if (!linkMode) Row(
+        Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
@@ -1009,16 +1016,16 @@ private fun AmountPhase(
         ) {
             Icon(Icons.Default.Description, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(tr("Add memo"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (linkMode) tr("Add note") else tr("Add memo"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.weight(1f))
             Text(if (showMemo) "▲" else "▼", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        AnimatedVisibility(visible = showMemo && !linkMode) {
+        AnimatedVisibility(visible = showMemo) {
             MoneroTextField(
                 value = memo,
                 onValueChange = onMemoChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(tr("Add a note")) },
+                placeholder = { Text(notePlaceholder?.takeIf { linkMode } ?: tr("Add a note")) },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium
             )

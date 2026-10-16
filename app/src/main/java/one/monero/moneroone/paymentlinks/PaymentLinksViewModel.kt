@@ -124,6 +124,12 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         EnvelopeFactory.create(context, amount, height, System.currentTimeMillis() / 1000)
     }
 
+    /** The name the next link gets ("Link 9"). */
+    fun nextName(): String = store.nextName()
+
+    /** Saves this phone's note for a link (blank: back to "Link 7"). */
+    fun rename(id: String, note: String?) = store.rename(id, note)
+
     /** The draft was left before funding: nothing was saved, its files go. */
     fun discard(draft: EnvelopeDraft) {
         if (store.sent(draft.link.id) != null) return
@@ -131,14 +137,14 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /** Saves the record before any broadcast (spec "Sender flow" step 2). False: do not fund. */
-    fun recordBeforeFunding(draft: EnvelopeDraft, walletId: String, feeReserve: Long): Boolean {
+    fun recordBeforeFunding(draft: EnvelopeDraft, walletId: String, feeReserve: Long, note: String? = null): Boolean {
         val link = draft.link
         return store.putSent(
             SentLink(
                 id = link.id, words = if (link.version == 1) link.words else emptyList(), secret = link.secretHex,
                 height = link.height, amount = draft.amount, expiry = draft.expiry,
                 createdAtMillis = System.currentTimeMillis(), walletId = walletId, envelopeAddress = draft.address,
-                feeReserve = feeReserve, state = SentState.CREATED
+                feeReserve = feeReserve, state = SentState.CREATED, note = LinkNames.cleanNote(note)
             )
         )
     }

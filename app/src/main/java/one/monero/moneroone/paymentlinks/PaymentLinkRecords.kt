@@ -77,8 +77,15 @@ data class SentLink(
     /** The kit wallet that reclaim swept into (WalletManager.currentWalletId). */
     val reclaimWallet: String? = null,
     /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links. */
-    val secret: String? = null
+    val secret: String? = null,
+    /** This device's number for the link, shared with received links ([LinkNames]). */
+    val number: Int? = null,
+    /** The sender's own note. Local only: never in the link, its URL, the share text or a tx memo. */
+    val note: String? = null
 ) {
+    /** The note, else "Link 7". */
+    val name: String get() = LinkNames.name(note, number)
+
     /** The link to share and to open the envelope with. A v2 link carries no amount and no expiry: [amount] and [expiry] stay here. */
     val link: PaymentLink get() = secret?.let { PaymentLink.v2(it, height) } ?: PaymentLink(words, height, amount, expiry, id)
 
@@ -127,8 +134,15 @@ data class ReceivedLink(
      * for the claim sweep. Null until a check (or the active wallet's estimate, for a
      * record checked before this field) saw the link funded.
      */
-    val netAmount: Long? = null
+    val netAmount: Long? = null,
+    /** This device's number for the link, shared with sent links ([LinkNames]). */
+    val number: Int? = null,
+    /** This device's own note. Local only. */
+    val note: String? = null
 ) {
+    /** The note, else "Link 7". */
+    val name: String get() = LinkNames.name(note, number)
+
     /** The link, while its secret is still held. */
     val link: PaymentLink?
         get() = secret?.let { PaymentLink.v2(it, height) } ?: words?.let { PaymentLink(it, height, amount, expiry, id) }

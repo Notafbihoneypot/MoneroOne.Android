@@ -113,6 +113,14 @@ object PaymentLinkActivityRules {
         return listOfNotNull(title, amount, statusLine, date, transactionStatus).joinToString(", ")
     }
 
+    /**
+     * What a sent link cost, for its detail only (rows and the home line show
+     * [SentLink.amount]): the funding fee when the open wallet has the funding
+     * transaction, the claim fee reserve, and the total that left the wallet.
+     */
+    fun sentCosts(link: SentLink, fundingFee: Long?): SentCosts =
+        SentCosts(fundingFee, link.feeReserve, fundingFee?.let { link.amount + link.feeReserve + it })
+
     fun minutesUntilReady(confirmations: Long): Long =
         (LinkStatusRules.CONFIRMATIONS - confirmations).coerceAtLeast(0) * LinkStatusRules.MINUTES_PER_BLOCK
 
@@ -206,6 +214,9 @@ fun rememberDaemonHeight(): Long? {
     val transactions by WalletManager.transactionsFlow.collectAsState()
     return remember(sync, transactions) { WalletManager.kit?.lastBlockHeight?.takeIf { it > 0 } }
 }
+
+/** A sent link's fee lines: the funding fee (null when unknown), the claim fee reserve and the total (null without the fee). */
+class SentCosts(val networkFee: Long?, val claimFeeReserve: Long, val total: Long?)
 
 /** Title, amounts and TalkBack words of the Activity row of a received link not claimed yet. */
 class PendingLinkRowText(val title: String, val amount: String?, val secondary: String?, val spoken: String)

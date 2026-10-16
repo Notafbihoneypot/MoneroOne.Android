@@ -27,13 +27,18 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
     private val _received = MutableStateFlow(read(KEY_RECEIVED, ReceivedLink.serializer()))
     val received: StateFlow<List<ReceivedLink>> = _received.asStateFlow()
 
+    init {
+        numberOldRecords()
+    }
+
     fun sent(id: String): SentLink? = _sent.value.firstOrNull { it.id == id }
 
     fun received(id: String): ReceivedLink? = _received.value.firstOrNull { it.id == id }
 
     @Synchronized
     fun putSent(link: SentLink): Boolean {
-        val next = _sent.value.filterNot { it.id == link.id } + link
+        val record = if (link.number == null) link.copy(number = takeNumber()) else link
+        val next = _sent.value.filterNot { it.id == record.id } + record
         return write(KEY_SENT, next, SentLink.serializer()).also { if (it) _sent.value = next }
     }
 
@@ -52,8 +57,37 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
 
     @Synchronized
     fun putReceived(link: ReceivedLink): Boolean {
-        val next = _received.value.filterNot { it.id == link.id } + link
+        val record = if (link.number == null) link.copy(number = takeNumber()) else link
+        val next = _received.value.filterNot { it.id == record.id } + record
         return write(KEY_RECEIVED, next, ReceivedLink.serializer()).also { if (it) _received.value = next }
+    }
+
+    /** The name the next new link gets ("Link 9"): the Send note field's placeholder. */
+    fun nextName(): String = LinkNames.name(null, nextNumber())
+
+    /** Saves this phone's note for a link; a blank note goes back to "Link 7". */
+    @Synchronized
+    fun rename(id: String, note: String?) {
+        val clean = LinkNames.cleanNote(note)
+        if (sent(id) != null) updateSent(id) { it.copy(note = clean) }
+        else updateReceived(id) { it.copy(note = clean) }
+    }
+
+    private fun nextNumber(): Int = LinkNames.highest(_sent.value, _received.value, prefs.getInt(KEY_LAST_NUMBER, 0)) + 1
+
+    /** A new link's number. The counter only goes up: a removed link's number is not used again. */
+    private fun takeNumber(): Int = nextNumber().also { prefs.edit().putInt(KEY_LAST_NUMBER, it).commit() }
+
+    /** Records saved before numbers get one each, once, in the order they were made. */
+    @Synchronized
+    private fun numberOldRecords() {
+        val counter = prefs.getInt(KEY_LAST_NUMBER, 0)
+        val numbered = LinkNames.numbered(_sent.value, _received.value, counter)
+        if (numbered.sent != _sent.value && write(KEY_SENT, numbered.sent, SentLink.serializer())) _sent.value = numbered.sent
+        if (numbered.received != _received.value && write(KEY_RECEIVED, numbered.received, ReceivedLink.serializer())) {
+            _received.value = numbered.received
+        }
+        if (numbered.counter != counter) prefs.edit().putInt(KEY_LAST_NUMBER, numbered.counter).commit()
     }
 
     @Synchronized
@@ -145,7 +179,7 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
     /** Remove All (the full wipe): every record and its secret leave the encrypted store. */
     @Synchronized
     fun removeAll() {
-        prefs.edit().remove(KEY_SENT).remove(KEY_RECEIVED).remove(KEY_PENDING_OPEN).commit()
+        prefs.edit().remove(KEY_SENT).remove(KEY_RECEIVED).remove(KEY_PENDING_OPEN).remove(KEY_LAST_NUMBER).commit()
         _sent.value = emptyList()
         _received.value = emptyList()
         _pendingOpen.value = null
@@ -186,6 +220,7 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         private const val KEY_SENT = "paymentlinks.sent.v1"
         private const val KEY_RECEIVED = "paymentlinks.received.v1"
         private const val KEY_PENDING_OPEN = "paymentlinks.pending_open"
+        private const val KEY_LAST_NUMBER = "paymentlinks.last_number"
 
         @Volatile
         private var instance: PaymentLinkStore? = null

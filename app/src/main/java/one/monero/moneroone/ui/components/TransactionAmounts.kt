@@ -17,9 +17,15 @@ import one.monero.moneroone.data.util.XmrFormat
 import one.monero.moneroone.ui.theme.SuccessGreen
 
 fun transactionFiat(tx: TransactionInfo, history: List<HistoricalPrice>, live: Double?, currency: Currency): String? =
-    PriceHistory.priceAt(tx.timestamp, history, live, System.currentTimeMillis() / 1000)?.let {
-        MoneyFormat.format(tx.amount / 1_000_000_000_000.0 * it, currency, fractionDigits = 2)
-    }
+    amountFiat(tx.amount, tx.timestamp, history, live, currency)
+
+/** [atomic] in the user's currency at the price of [timestamp] (seconds). */
+fun amountFiat(atomic: Long, timestamp: Long, history: List<HistoricalPrice>, live: Double?, currency: Currency): String? =
+    PriceHistory.priceAt(timestamp, history, live, System.currentTimeMillis() / 1000)?.let { fiatAt(atomic, it, currency) }
+
+/** [atomic] in the user's currency at [price]. */
+fun fiatAt(atomic: Long, price: Double?, currency: Currency): String? =
+    price?.let { MoneyFormat.format(atomic / 1_000_000_000_000.0 * it, currency, fractionDigits = 2) }
 
 /** Shared by the dashboard and history so their amount and spoken order agree. */
 @Composable

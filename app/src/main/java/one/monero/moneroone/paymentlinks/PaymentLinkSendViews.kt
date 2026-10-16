@@ -87,11 +87,15 @@ internal fun formatLinkDate(epochSeconds: Long): String =
 internal fun formatRecordDate(epochMillis: Long): String =
     DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(epochMillis))
 
+/** The share text: the amount and the link only. A link's note stays on this phone. */
+internal fun shareText(amountXmr: String, link: PaymentLink): String =
+    tr("I sent you %s XMR. Tap to claim it in Monero One: %s", amountXmr, link.url())
+
 /** Opens the system share sheet with the spec's share text. The link never goes to the clipboard. */
 internal fun shareLink(context: Context, amountXmr: String, link: PaymentLink) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, tr("I sent you %s XMR. Tap to claim it in Monero One: %s", amountXmr, link.url()))
+        putExtra(Intent.EXTRA_TEXT, shareText(amountXmr, link))
     }
     context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }

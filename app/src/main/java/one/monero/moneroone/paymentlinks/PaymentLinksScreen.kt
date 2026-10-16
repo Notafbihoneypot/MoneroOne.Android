@@ -14,6 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.ui.text.style.TextOverflow
+import one.monero.moneroone.ui.components.MoneroTextField
+import one.monero.moneroone.ui.components.fiatAt
+import one.monero.moneroone.ui.theme.TabularFigures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -104,6 +110,12 @@ internal fun fundingConfirmations(link: SentLink, transactions: List<Transaction
     link.fundingTxid?.let { txid ->
         transactions.firstOrNull { it.hash == txid && it.direction == TransactionInfo.Direction.Direction_Out }
     }?.confirmations
+
+/** The network fee of [link]'s funding, from the open wallet's history; null when that wallet did not fund it. */
+internal fun fundingFee(link: SentLink, transactions: List<TransactionInfo>): Long? =
+    link.fundingTxid?.let { txid ->
+        transactions.firstOrNull { it.hash == txid && it.direction == TransactionInfo.Direction.Direction_Out }
+    }?.fee?.takeIf { it > 0 }
 
 /** [LinkStatusRules.sentView] with the open wallet's history and daemon height. */
 internal fun sentView(link: SentLink, transactions: List<TransactionInfo>, daemonHeight: Long?, nowSeconds: Long = nowSeconds()): SentView =
@@ -286,6 +298,103 @@ private fun ConfirmRemove(message: String, onConfirm: () -> Unit, onCancel: () -
     )
 }
 
+/** The link's name over its amount (Apple Card: the merchant over the amount). */
+@Composable
+private fun LinkNameTitle(name: String) {
+    Text(name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+}
+
+/** The Note row: this phone's note, or "Add"; a tap renames the link. */
+@Composable
+private fun NoteRow(note: String?, onRename: () -> Unit) {
+    val spoken = note?.let { tr("Note, %s", it) } ?: tr("Note, none")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onRename)
+            .semantics(mergeDescendants = true) {
+                contentDescription = spoken
+                onClick(label = tr("Renames the link")) { onRename(); true }
+            }
+            .padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(tr("Note"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.weight(1f))
+        Text(
+            note ?: tr("Add"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (note == null) MoneroTheme.colors.labelTertiary else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        Icon(
+            Icons.Outlined.Edit,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp).size(18.dp)
+        )
+    }
+}
+
+/** A fee line: the XMR amount over its value in the user's currency. [emphasis] is the Total line. */
+@Composable
+private fun FeeRow(label: String, xmr: String, fiat: String?, emphasis: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp).semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (emphasis) FontWeight.SemiBold else null,
+            color = if (emphasis) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.weight(1f))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                xmr,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = TabularFigures),
+                fontWeight = if (emphasis) FontWeight.SemiBold else null,
+                color = if (emphasis) MoneroOrange else MaterialTheme.colorScheme.onSurface
+            )
+            fiat?.let {
+                Text("≈ $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** "Name this link": the note field (placeholder "Link 7"), Cancel and Save. */
+@Composable
+private fun RenameLinkDialog(note: String?, placeholder: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(note.orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Name this link")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                MoneroTextField(
+                    value = text,
+                    onValueChange = { text = it.take(LinkNames.NOTE_LIMIT) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(placeholder) },
+                    singleLine = true
+                )
+                Text(
+                    tr("Only this phone keeps the note."),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(text) }) { Text(tr("Save"), color = MoneroOrange) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } }
+    )
+}
+
 /**
  * One link: its status, amount, transactions and the actions the spec's
  * status table gives it. Opened from the link's transactions in Activity;
@@ -331,7 +440,10 @@ private fun SentLinkDetail(
     var message by remember { mutableStateOf<String?>(null) }
     var confirmRemove by remember { mutableStateOf(false) }
     var confirmRetry by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
     val wallets by walletViewModel.wallets.collectAsState()
+    val currentPrice by walletViewModel.currentPrice.collectAsState()
+    val currency by walletViewModel.selectedCurrency.collectAsState()
 
     // The envelope is open only while this screen is on screen: leaving or going to the background
     // closes it, so the main wallet runs again. A settled link needs no check, and a funding send in
@@ -384,9 +496,12 @@ private fun SentLinkDetail(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    LinkNameTitle(link.name)
                     Text(amount, style = MaterialTheme.typography.headlineMedium)
                     LinkStatusChip(sentDisplay(view))
                 }
+                DetailDivider()
+                NoteRow(LinkNames.cleanNote(link.note)) { renaming = true }
                 DetailDivider()
                 DetailRow(tr("Created"), formatRecordDate(link.createdAtMillis))
                 DetailDivider()
@@ -395,6 +510,19 @@ private fun SentLinkDetail(
                 view.confirmations?.takeIf { status == LinkStatus.PENDING }?.let {
                     DetailDivider()
                     DetailRow(tr("Confirmations"), tr("%s/10", it.coerceAtMost(LinkStatusRules.CONFIRMATIONS - 1)))
+                }
+                // What left the wallet: the link's amount, the funding fee and the claim fee reserve.
+                val costs = PaymentLinkActivityRules.sentCosts(link, fundingFee(link, walletState.transactions))
+                val price = currentPrice?.price
+                costs.networkFee?.let {
+                    DetailDivider()
+                    FeeRow(tr("Network fee"), "${walletViewModel.formatXmr(it)} XMR", fiatAt(it, price, currency))
+                }
+                DetailDivider()
+                FeeRow(tr("Claim fee reserve"), "${walletViewModel.formatXmr(costs.claimFeeReserve)} XMR", fiatAt(costs.claimFeeReserve, price, currency))
+                costs.total?.let {
+                    DetailDivider()
+                    FeeRow(tr("Total"), "${walletViewModel.formatXmr(it)} XMR", fiatAt(it, price, currency), emphasis = true)
                 }
                 link.fundingTxid?.let {
                     DetailDivider()
@@ -559,6 +687,14 @@ private fun SentLinkDetail(
                 onCancel = { confirmRemove = false }
             )
         }
+        if (renaming) {
+            RenameLinkDialog(
+                note = LinkNames.cleanNote(link.note),
+                placeholder = LinkNames.name(null, link.number),
+                onSave = { paymentLinks.rename(id, it); renaming = false },
+                onDismiss = { renaming = false }
+            )
+        }
     }
 
     if (showAuthGate && link != null) {
@@ -601,6 +737,7 @@ private fun ReceivedLinkDetail(
     val daemonHeight = rememberDaemonHeight()
     val link = receivedList.firstOrNull { it.id == id }
     var confirmRemove by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
 
     LinksScaffold(tr("Payment Link"), onBack) {
         if (link == null) return@LinksScaffold
@@ -608,7 +745,7 @@ private fun ReceivedLinkDetail(
         val canClaim = !link.isSettled && link.link != null
         val waiting = link.lastCheck?.let { LinkStatusRules.claimView(it) } is ClaimView.Waiting
         val confirmations = PaymentLinkActivityRules.receivedConfirmations(link, daemonHeight) ?: 0L
-        val amount = (link.claimedAmount ?: link.claimAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" } ?: tr("Payment link")
+        val amount = (link.claimedAmount ?: link.claimAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" }
         Spacer(Modifier.height(16.dp))
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
             Column {
@@ -617,7 +754,8 @@ private fun ReceivedLinkDetail(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(amount, style = MaterialTheme.typography.headlineMedium)
+                    LinkNameTitle(link.name)
+                    amount?.let { Text(it, style = MaterialTheme.typography.headlineMedium) }
                     LinkStatusChip(display)
                     if (canClaim && waiting && confirmations < LinkStatusRules.CONFIRMATIONS) {
                         Text(
@@ -627,6 +765,8 @@ private fun ReceivedLinkDetail(
                         )
                     }
                 }
+                DetailDivider()
+                NoteRow(LinkNames.cleanNote(link.note)) { renaming = true }
                 DetailDivider()
                 DetailRow(tr("Received"), formatRecordDate(link.receivedAtMillis))
                 if (canClaim && link.expiry > 0) {
@@ -675,6 +815,14 @@ private fun ReceivedLinkDetail(
                     onBack()
                 },
                 onCancel = { confirmRemove = false }
+            )
+        }
+        if (renaming) {
+            RenameLinkDialog(
+                note = LinkNames.cleanNote(link.note),
+                placeholder = LinkNames.name(null, link.number),
+                onSave = { paymentLinks.rename(id, it); renaming = false },
+                onDismiss = { renaming = false }
             )
         }
     }
