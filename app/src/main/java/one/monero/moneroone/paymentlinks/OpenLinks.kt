@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -85,18 +86,27 @@ object OpenLinkRules {
         return OpenLinks(open, expired, PaymentLinkActivityRules.pendingRecords(received))
     }
 
-    /** "0.15 XMR" + "in 2 open links · 1 expired"; TalkBack reads "0.15 XMR in 2 open links, 1 expired". */
-    fun sentLine(amountXmr: String, count: Int, expired: Int): OpenLinkLine {
-        val amount = "$amountXmr XMR"
+    /**
+     * "0.15 XMR" (or in fiat mode "$83.40") + "in 2 open links · 1 expired";
+     * TalkBack reads "0.15 XMR in 2 open links, 1 expired". [amount] carries its unit.
+     */
+    fun sentLine(amount: String, count: Int, expired: Int): OpenLinkLine {
         val parts = listOfNotNull(pluralTr("in %s open links", count), if (expired > 0) tr("%s expired", expired) else null)
         return OpenLinkLine(amount, parts.joinToString(" · "), "$amount " + parts.joinToString(", "))
     }
 
-    /** "0.03 XMR" + "to claim"; with no amount known, "1 payment link" + "to claim". */
-    fun claimLine(amountXmr: String?, count: Int): OpenLinkLine {
-        val amount = amountXmr?.let { "$it XMR" } ?: pluralTr("%s payment links", count)
+    /**
+     * "~0.03 XMR" (or in fiat mode "~$16.70") + "to claim": what a claim
+     * delivers is an estimate, which TalkBack reads "about". With no amount
+     * known, "1 payment link" + "to claim". [amount] carries its unit.
+     */
+    fun claimLine(amount: String?, count: Int): OpenLinkLine {
         val rest = tr("to claim")
-        return OpenLinkLine(amount, rest, "$amount $rest")
+        if (amount == null) {
+            val links = pluralTr("%s payment links", count)
+            return OpenLinkLine(links, rest, "$links $rest")
+        }
+        return OpenLinkLine("~$amount", rest, tr("about %s", amount) + " " + rest)
     }
 }
 
@@ -104,14 +114,15 @@ object OpenLinkRules {
 
 /**
  * The balance card's open-link lines, under a separator: "0.15 XMR in 2 open
- * links · 1 expired ›" for sent links, and "0.03 XMR to claim  Claim" for
- * received ones. A line opens Activity's Links filter; Claim claims the one
+ * links · 1 expired ›" for sent links, and "~0.03 XMR to claim  Claim" for
+ * received ones. The amounts follow fiat mode like the balance. A line opens Activity's Links filter; Claim claims the one
  * received link, or opens the Links filter when there are more.
  */
 @Composable
 fun OpenLinksLines(
     open: OpenLinks,
-    formatXmr: (Long) -> String,
+    /** An amount with its unit: "0.15 XMR", or in fiat mode "$83.40". */
+    formatAmount: (Long) -> String,
     enabled: Boolean,
     onOpenLinks: () -> Unit,
     onClaim: () -> Unit
@@ -120,7 +131,7 @@ fun OpenLinksLines(
     Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp).testTag("wallet.openLinks")) {
         HorizontalDivider(color = MoneroTheme.colors.separator)
         if (open.sent.isNotEmpty()) {
-            val line = OpenLinkRules.sentLine(formatXmr(open.sentAmount), open.sent.size, open.expired)
+            val line = OpenLinkRules.sentLine(formatAmount(open.sentAmount), open.sent.size, open.expired)
             BalanceLine(
                 line = line,
                 glyphTint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -142,7 +153,7 @@ fun OpenLinksLines(
             }
         }
         if (open.received.isNotEmpty()) {
-            val line = OpenLinkRules.claimLine(open.receivedAmount?.let(formatXmr), open.received.size)
+            val line = OpenLinkRules.claimLine(open.receivedAmount?.let(formatAmount), open.received.size)
             BalanceLine(
                 line = line,
                 glyphTint = SuccessGreen,
@@ -210,7 +221,8 @@ private fun BalanceLine(
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f).padding(vertical = 4.dp)
+            // TalkBack reads "about" for the estimate's "~".
+            modifier = Modifier.weight(1f).padding(vertical = 4.dp).semantics { contentDescription = line.spoken }
         )
         trailing()
     }

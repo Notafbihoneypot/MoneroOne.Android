@@ -43,7 +43,7 @@ class OpenLinksTest {
 
     @Test
     fun `one open link reads singular`() {
-        val line = OpenLinkRules.sentLine("0.05", count = 1, expired = 0)
+        val line = OpenLinkRules.sentLine("0.05 XMR", count = 1, expired = 0)
         assertEquals("0.05 XMR", line.amount)
         assertEquals("in 1 open link", line.rest)
         assertEquals("0.05 XMR in 1 open link", line.spoken)
@@ -51,18 +51,27 @@ class OpenLinksTest {
 
     @Test
     fun `several open links read plural with the expired count`() {
-        val line = OpenLinkRules.sentLine("0.40", count = 3, expired = 1)
+        val line = OpenLinkRules.sentLine("0.40 XMR", count = 3, expired = 1)
         assertEquals("0.40 XMR", line.amount)
         assertEquals("in 3 open links · 1 expired", line.rest)
         assertEquals("0.40 XMR in 3 open links, 1 expired", line.spoken)
-        assertEquals("in 2 open links", OpenLinkRules.sentLine("0.15", count = 2, expired = 0).rest)
+        assertEquals("in 2 open links", OpenLinkRules.sentLine("0.15 XMR", count = 2, expired = 0).rest)
     }
 
     @Test
     fun `the claim line shows the amount, or the count when no amount is known`() {
-        assertEquals(OpenLinkLine("0.03 XMR", "to claim", "0.03 XMR to claim"), OpenLinkRules.claimLine("0.03", 1))
+        assertEquals(OpenLinkLine("~0.03 XMR", "to claim", "about 0.03 XMR to claim"), OpenLinkRules.claimLine("0.03 XMR", 1))
         assertEquals(OpenLinkLine("1 payment link", "to claim", "1 payment link to claim"), OpenLinkRules.claimLine(null, 1))
         assertEquals("2 payment links", OpenLinkRules.claimLine(null, 2).amount)
+    }
+
+    @Test
+    fun `in fiat mode the lines lead with fiat`() {
+        val sent = OpenLinkRules.sentLine("\$11.14", count = 1, expired = 0)
+        assertEquals("\$11.14", sent.amount)
+        assertEquals("\$11.14 in 1 open link", sent.spoken)
+        val claim = OpenLinkRules.claimLine("\$27.37", 1)
+        assertEquals(OpenLinkLine("~\$27.37", "to claim", "about \$27.37 to claim"), claim)
     }
 
     @Test

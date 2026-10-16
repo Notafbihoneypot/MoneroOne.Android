@@ -450,7 +450,10 @@ fun WalletScreen(
                                         ) {
                                             OpenLinksLines(
                                                 open = shown.value,
-                                                formatXmr = walletViewModel::formatXmr,
+                                                // Fiat mode leads with fiat, like the balance above.
+                                                formatAmount = { atomic ->
+                                                    liveFiat(atomic)?.takeIf { fiatMode } ?: "${walletViewModel.formatXmr(atomic)} XMR"
+                                                },
                                                 enabled = !isPast,
                                                 onOpenLinks = { history.timestamp = null; onOpenLinks() },
                                                 onClaim = claimOpenLink
