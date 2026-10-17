@@ -3,6 +3,7 @@ package one.monero.moneroone.paymentlinks
 import android.content.Context
 import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.Seed
+import io.horizontalsystems.monerokit.SignedTransaction
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.PendingTransaction
 import io.horizontalsystems.monerokit.model.TransactionInfo
@@ -29,6 +30,9 @@ import timber.log.Timber
 
 /** The node refused the sweep because the envelope's outputs are already spent: someone claimed it first. */
 class AlreadyClaimedException : IllegalStateException("Already claimed")
+
+/** A claim or reclaim that went out: its [txid] (known before the broadcast) and the [amount] that arrives, fee paid. */
+data class SweepSent(val txid: String, val amount: Long)
 
 /**
  * One envelope wallet, open in its own kit instance with its own files
@@ -125,15 +129,20 @@ class EnvelopeWallet private constructor(
     }
 
     /**
-     * Sweeps every unlocked output to [address]. Returns the sweep's txid and
-     * the amount that arrives (fee paid), or null when the kit's history did not
-     * show it in time. Throws [AlreadyClaimedException] when the node rejects a
-     * double spend.
+     * Sweeps every unlocked output to [address]. [beforeCommit] gets the signed sweep and the chain height
+     * before its broadcast, so the record names the claim or reclaim before it can go out; when it throws,
+     * nothing is broadcast. Returns the sweep's txid and the amount that arrives (fee paid). Throws
+     * [AlreadyClaimedException] when the node rejects a double spend, and
+     * [io.horizontalsystems.monerokit.TransactionRejectedException] when it refuses the sweep otherwise
+     * (nothing went out either way). Any other error may come after the node took the sweep.
      */
-    suspend fun sweepTo(address: String): TransactionInfo? {
-        val before = outgoingHashes()
-        try {
-            withContext(Dispatchers.IO) { kit.send(0, address, null, sweepAll = true, priority = SWEEP_PRIORITY) }
+    suspend fun sweepTo(address: String, beforeCommit: (SignedTransaction, Long?) -> Unit): SweepSent {
+        // The envelope's chain height now: a settle's grace counts blocks from here (LinkStatusRules.SETTLE_GRACE_BLOCKS).
+        val height = kit.lastBlockHeight?.takeIf { it > 0 }
+        val signed = try {
+            withContext(Dispatchers.IO) {
+                kit.send(0, address, null, sweepAll = true, priority = SWEEP_PRIORITY) { beforeCommit(it, height) }
+            }
         } catch (e: Exception) {
             val message = e.message.orEmpty().lowercase()
             if ("double spend" in message || "double_spend" in message || "already spent" in message) {
@@ -141,14 +150,7 @@ class EnvelopeWallet private constructor(
             }
             throw e
         }
-        return withTimeoutOrNull(TXID_WAIT_MS) {
-            var sweep: TransactionInfo? = null
-            while (sweep == null) {
-                sweep = outgoing().firstOrNull { it.hash !in before }
-                if (sweep == null) delay(500)
-            }
-            sweep
-        }
+        return SweepSent(signed.txids.first(), signed.amount)
     }
 
     private fun outgoing(): List<TransactionInfo> = kit.allTransactionsFlow.value
@@ -191,7 +193,6 @@ class EnvelopeWallet private constructor(
         val SWEEP_PRIORITY: PendingTransaction.Priority = PendingTransaction.Priority.Priority_Default
 
         private const val SYNC_TIMEOUT_MS = 120_000L
-        private const val TXID_WAIT_MS = 30_000L
         private const val SLOT_WAIT_MS = 1_500L
         private const val BALANCE_SETTLE_MS = 750L
 

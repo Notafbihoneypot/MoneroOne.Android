@@ -10,6 +10,7 @@ import io.horizontalsystems.monerokit.Balance
 import io.horizontalsystems.monerokit.CakeWalletStyleConverter
 import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.Seed
+import io.horizontalsystems.monerokit.SignedTransaction
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.data.Subaddress
 import io.horizontalsystems.monerokit.model.NetworkType
@@ -2154,7 +2155,18 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun send(flow: SendFlow, address: String, amount: Long, memo: String? = null, isSweepAll: Boolean = false) {
+    /**
+     * [beforeCommit] gets the signed transaction and its txids before the broadcast (a payment link saves them
+     * on its record); when it throws, nothing is broadcast and the send fails with its message.
+     */
+    fun send(
+        flow: SendFlow,
+        address: String,
+        amount: Long,
+        memo: String? = null,
+        isSweepAll: Boolean = false,
+        beforeCommit: ((SignedTransaction) -> Unit)? = null
+    ) {
         val operation = sendCoordinator.begin(flow, _activeWallet.value?.id, isSweepAll || amount > 0L)
             ?: return
         viewModelScope.launch {
@@ -2172,7 +2184,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     return@launch
                 }
                 withContext(Dispatchers.IO) {
-                    kit.send(amount, address, memo, sweepAll = isSweepAll)
+                    kit.send(amount, address, memo, sweepAll = isSweepAll, beforeCommit = beforeCommit)
                 }
                 one.monero.moneroone.core.util.SoundFeedback.sendComplete(context)
                 // MoneroKit.send() doesn't return txHash, we'll show success without it

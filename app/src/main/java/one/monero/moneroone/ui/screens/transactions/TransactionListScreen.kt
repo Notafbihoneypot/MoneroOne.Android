@@ -92,6 +92,9 @@ import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
 import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.paymentlinks.ReceivedLink
+import one.monero.moneroone.paymentlinks.SentLink
+import one.monero.moneroone.paymentlinks.OpenLinkRules
+import one.monero.moneroone.paymentlinks.LinkStatusRules
 import one.monero.moneroone.ui.components.ActivityRow
 import one.monero.moneroone.ui.components.TransactionAmounts
 import one.monero.moneroone.ui.components.amountFiat
@@ -134,7 +137,9 @@ fun TransactionListScreen(
     /** From History: only transactions up to this moment (ms); null for all. */
     asOf: Long? = null,
     /** The filter it opens on: Links from the balance card's open-links line. */
-    initialFilter: TransactionFilter = TransactionFilter.ALL
+    initialFilter: TransactionFilter = TransactionFilter.ALL,
+    /** Opens a sent link's detail (Share, Reclaim): for an open link whose funding is not in this wallet's history. */
+    onOpenSentLink: (String) -> Unit = {}
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val fiatMode by walletViewModel.fiatMode.collectAsState()
@@ -162,9 +167,16 @@ fun TransactionListScreen(
     val linkSectionsShown = asOf == null && searchQuery.isBlank() && receivingIndex == null &&
         selectedFilter == TransactionFilter.LINKS
     val openReceived = if (linkSectionsShown) PaymentLinkActivityRules.pendingRecords(linkIndex.received) else emptyList()
+    // This wallet's open sent links, orphaned ones too (their funding wallet is gone): one with no row still shows.
+    val wallets by walletViewModel.wallets.collectAsState()
+    val openSent = if (linkSectionsShown) {
+        val walletIds = wallets.mapTo(HashSet()) { it.id }
+        val now = System.currentTimeMillis() / 1000
+        linkIndex.sent.filter { OpenLinkRules.belongsTo(it, activeWallet?.id, walletIds) && OpenLinkRules.isOpen(it, now) }
+    } else emptyList()
     val linkSections = if (linkSectionsShown) {
-        remember(filteredTransactions, linkIndex, openReceived) {
-            LinkListRules.sections(filteredTransactions, linkIndex, openReceived, System.currentTimeMillis() / 1000)
+        remember(filteredTransactions, linkIndex, openReceived, openSent) {
+            LinkListRules.sections(filteredTransactions, linkIndex, openReceived, System.currentTimeMillis() / 1000, openSent)
         }
     } else null
     val linkStore = PaymentLinkStore.get(LocalContext.current)
@@ -369,8 +381,17 @@ fun TransactionListScreen(
                             items(items = entries, key = { it.key }) { entry ->
                                 val transaction = entry.transaction
                                 val pending = entry.pending
+                                val rowless = entry.sent
                                 if (transaction != null) {
                                     transactionItem(transaction)
+                                } else if (rowless != null) {
+                                    SentLinkListItem(
+                                        link = rowless,
+                                        fiatMode = fiatMode,
+                                        price = currentPrice?.price,
+                                        currency = currency,
+                                        onOpen = { onOpenSentLink(rowless.id) }
+                                    )
                                 } else if (pending != null) {
                                     ReceivedLinkListItem(
                                         link = pending,
@@ -433,6 +454,37 @@ private fun LinkSectionHeader(title: String) {
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp).semantics { heading() }
     )
+}
+
+/**
+ * An open sent link whose funding is not in this wallet's history (the wallet that funded it is gone), under
+ * Links: its funding row (orange ↗ disc with the link badge), from the link's record. Its tap opens the link's
+ * detail, with Share and Reclaim.
+ */
+@Composable
+private fun SentLinkListItem(
+    link: SentLink,
+    fiatMode: Boolean,
+    /** The live XMR price, for the fiat amount; null while unknown. */
+    price: Double?,
+    currency: Currency,
+    onOpen: () -> Unit
+) {
+    val daemonHeight = rememberDaemonHeight()
+    val status = LinkStatusRules.sentView(link, null, daemonHeight, System.currentTimeMillis() / 1000).status
+    val date = formatDate(link.createdAtMillis)
+    val text = PaymentLinkActivityRules.sentRow(link, status, date, fiatMode, fiatAt(link.amount, price, currency))
+    ActivityRow(
+        incoming = false,
+        title = text.title,
+        subtitle = date,
+        spoken = text.spoken,
+        onClick = onOpen,
+        linkBadge = true,
+        modifier = Modifier.testTag("activity.sentLink.${link.id}")
+    ) {
+        LinkRowAmounts(text, null)
+    }
 }
 
 /**

@@ -553,11 +553,14 @@ fun SendScreen(
                             phase = SendPhase.ERROR
                             sendInProgress = false
                         }
+                        // The signed funding's txids go on the record before the broadcast: a funding whose
+                        // broadcast times out is still found by its txid once it shows.
                         else -> walletViewModel.send(
                             flow,
                             draft.address,
                             draft.amount + linkFeeReserve,
-                            memo = "Payment link"
+                            memo = "Payment link",
+                            beforeCommit = { signed -> paymentLinks.fundingSigned(id, signed.txids) }
                         )
                     }
                 } else {

@@ -80,11 +80,26 @@ object OpenLinkRules {
     }
 
     /**
-     * The open links of [walletId]: its sent links, and every received link this device can still claim,
-     * except one whose money never arrived in its 30 days.
+     * [link] belongs to wallet [walletId]: the wallet that funded it, or the open wallet when that one is no
+     * longer on this device (deleted, or restored under a new id): an orphaned link shows, counts and gets its
+     * checks there, and its Reclaim goes there ([ClaimDestinations.default]). [walletIds]: the wallets on this
+     * device; empty while unknown, and then only the funding wallet counts.
      */
-    fun openLinks(sent: List<SentLink>, received: List<ReceivedLink>, walletId: String?, nowSeconds: Long): OpenLinks {
-        val open = sent.filter { it.walletId == walletId && isOpen(it, nowSeconds) }.sortedByDescending { it.createdAtMillis }
+    fun belongsTo(link: SentLink, walletId: String?, walletIds: Set<String>): Boolean =
+        walletId != null && (link.walletId == walletId || (walletIds.isNotEmpty() && link.walletId !in walletIds))
+
+    /**
+     * The open links of [walletId]: its sent links (orphaned ones too, [belongsTo]), and every received link
+     * this device can still claim, except one whose money never arrived in its 30 days.
+     */
+    fun openLinks(
+        sent: List<SentLink>,
+        received: List<ReceivedLink>,
+        walletId: String?,
+        nowSeconds: Long,
+        walletIds: Set<String> = emptySet()
+    ): OpenLinks {
+        val open = sent.filter { belongsTo(it, walletId, walletIds) && isOpen(it, nowSeconds) }.sortedByDescending { it.createdAtMillis }
         val expired = open.count { LinkStatusRules.status(it, nowSeconds) == LinkStatus.EXPIRED }
         val claimable = PaymentLinkActivityRules.pendingRecords(received).filterNot { LinkStatusRules.receivedExpired(it, nowSeconds) }
         return OpenLinks(open, expired, claimable)

@@ -155,7 +155,7 @@ class PaymentLinkFundingTest {
         val known = sent(id = "2222222222222222")
         val reclaimed = sent(id = "3333333333333333", fundingTxid = null, reclaimTxid = "back")
         val walletHistory = { address: String -> if (address == envelope) "late" else null }
-        assertEquals(mapOf(hidden.id to "late"), LinkStatusRules.fundingsToAdopt(listOf(hidden, known, reclaimed), walletHistory))
+        assertEquals(mapOf(hidden.id to "late"), LinkStatusRules.fundingsToAdopt(listOf(hidden, known, reclaimed), fundingTxidFor = walletHistory))
         assertEquals(emptyMap<String, String>(), LinkStatusRules.fundingsToAdopt(listOf(hidden)) { null })
 
         val adopted = hidden.copy(fundingTxid = "late", state = SentState.FUNDED)

@@ -230,8 +230,10 @@ fun WalletScreen(
     // Links that still hold money: a line in the balance card (spec Round 3). A new block can expire one.
     val linkStore = PaymentLinkStore.get(LocalContext.current)
     val daemonHeight = rememberDaemonHeight()
-    val openLinks = remember(linkIndex, activeWallet?.id, daemonHeight) {
-        OpenLinkRules.openLinks(linkIndex.sent, linkIndex.received, activeWallet?.id, System.currentTimeMillis() / 1000)
+    // A link whose funding wallet is gone (deleted, or restored under a new id) counts for the open wallet.
+    val walletIds = remember(wallets) { wallets.mapTo(HashSet()) { it.id } }
+    val openLinks = remember(linkIndex, activeWallet?.id, daemonHeight, walletIds) {
+        OpenLinkRules.openLinks(linkIndex.sent, linkIndex.received, activeWallet?.id, System.currentTimeMillis() / 1000, walletIds)
     }
     // A look at the open sent links, so a claimed one leaves the line: when the tab appears, comes
     // back to the foreground or shows another wallet, then every 10 minutes while it shows. A look
@@ -244,12 +246,13 @@ fun WalletScreen(
         val canLook by rememberUpdatedState(
             walletState.syncState is SyncState.Synced && sendState !is SendState.Sending && asOf == null
         )
+        val currentWalletIds by rememberUpdatedState(walletIds)
         LaunchedEffect(paymentLinks, walletId) {
             if (walletId == null) return@LaunchedEffect
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
                     snapshotFlow { canLook }.first { it }
-                    paymentLinks.lookAtOpenLinks(walletId)
+                    paymentLinks.lookAtOpenLinks(walletId, currentWalletIds)
                     delay(PaymentLinksViewModel.WALLET_TAB_LOOK_EVERY_MS)
                 }
             }

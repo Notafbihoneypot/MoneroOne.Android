@@ -189,6 +189,13 @@ object PaymentLinkActivityRules {
         return rowText(activity.title, name, incoming, amount, false, fiatMode, fiatOf(amount), state, transactionStatus, date)
     }
 
+    /**
+     * The row of an open sent link whose funding is not in the open wallet's history (the wallet that funded it
+     * was deleted or restored under a new id): the funding row's text, from the link's record.
+     */
+    fun sentRow(link: SentLink, status: LinkStatus, date: String, fiatMode: Boolean, fiatValue: String?): LinkRowText =
+        rowText(tr("Sent by Link"), link.name, false, link.amount, false, fiatMode, fiatValue, fundingRowState(status), "", date)
+
     /** The row of a received link not claimed yet (it has no transaction): its name, the claim estimate, Ready or Waiting. */
     fun pendingRow(link: ReceivedLink, state: PendingLinkState, date: String, fiatMode: Boolean, fiatValue: String?): LinkRowText =
         rowText(tr("Payment link"), link.name, true, link.claimAmount, true, fiatMode, fiatValue, pendingRowState(state), "", date)
@@ -256,16 +263,20 @@ object PaymentLinkActivityRules {
     }
 }
 
-/** One row of Activity's Links filter: a link's transaction, or a received link with no transaction yet. */
+/**
+ * One row of Activity's Links filter: a link's transaction, a received link with no transaction yet, or an
+ * open sent link whose funding is not in this wallet's history ([sent]).
+ */
 class LinkListEntry(
     val transaction: TransactionInfo?,
     val pending: ReceivedLink?,
     val linkId: String,
     /** The link still holds money: a sent link Waiting, Ready or Expired, or a received link not claimed. */
     val open: Boolean,
-    val atMillis: Long
+    val atMillis: Long,
+    val sent: SentLink? = null
 ) {
-    val key: String get() = transaction?.hash ?: "pending-$linkId"
+    val key: String get() = transaction?.hash ?: if (sent != null) "sent-$linkId" else "pending-$linkId"
 }
 
 /** The Links filter: Open (newest first, sent and received mixed), then History; each row once. */
@@ -282,11 +293,16 @@ class LinkSections(val open: List<LinkListEntry>, val history: List<LinkListEntr
 object LinkListRules {
     private val openStates = setOf(LinkRowState.WAITING, LinkRowState.READY, LinkRowState.EXPIRED, LinkRowState.READY_TO_CLAIM)
 
+    /**
+     * [openSent]: the open sent links of this wallet ([OpenLinkRules.belongsTo]); one with no row of its own
+     * (its funding is not in this wallet's history) still shows under Open, so Share and Reclaim stay in reach.
+     */
     fun sections(
         transactions: List<TransactionInfo>,
         index: PaymentLinkIndex,
         pending: List<ReceivedLink>,
-        nowSeconds: Long
+        nowSeconds: Long,
+        openSent: List<SentLink> = emptyList()
     ): LinkSections {
         val rows = transactions.mapNotNull { tx ->
             val activity = index.match(tx) ?: return@mapNotNull null
@@ -300,8 +316,10 @@ object LinkListRules {
         // A received link with no money after its 30 days goes to History.
         val waiting = pending.filter { it.id !in shown }
             .map { LinkListEntry(null, it, it.id, !LinkStatusRules.receivedExpired(it, nowSeconds), it.receivedAtMillis) }
-        val all = (rows + waiting).sortedByDescending { it.atMillis }
-        return LinkSections(all.filter { it.open }, all.filterNot { it.open }, (shown + waiting.map { it.linkId }).size)
+        val rowless = openSent.filter { it.id !in shown }
+            .map { LinkListEntry(null, null, it.id, open = true, atMillis = it.createdAtMillis, sent = it) }
+        val all = (rows + waiting + rowless).sortedByDescending { it.atMillis }
+        return LinkSections(all.filter { it.open }, all.filterNot { it.open }, (shown + waiting.map { it.linkId } + rowless.map { it.linkId }).size)
     }
 }
 

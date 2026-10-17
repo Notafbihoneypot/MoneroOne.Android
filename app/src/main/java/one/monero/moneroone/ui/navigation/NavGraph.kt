@@ -540,7 +540,23 @@ fun MoneroOneNavHost(
                     onBack = { navController.popBackStack() },
                     onTransactionClick = { txId ->
                         navController.navigate(Screen.TransactionDetail.createRoute(txId))
-                    }
+                    },
+                    onOpenSentLink = { id -> navController.navigate(PaymentLinkRoutes.sentDetail(id)) }
+                )
+            }
+
+            // A sent link with no funding row in the open wallet's history (its funding wallet is gone).
+            composable(
+                route = PaymentLinkRoutes.SENT_DETAIL,
+                arguments = listOf(navArgument("id") { type = NavType.StringType })
+            ) { backStackEntry ->
+                PaymentLinkDetailScreen(
+                    paymentLinks = paymentLinks,
+                    walletViewModel = walletViewModel,
+                    kind = PaymentLinkRoutes.SENT,
+                    id = backStackEntry.arguments?.getString("id").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onOpenTransaction = { navController.navigate(PaymentLinkRoutes.transaction(it)) }
                 )
             }
 

@@ -54,7 +54,7 @@ data class EnvelopeSnapshot(
     val failedSpendTxids: List<String> = emptyList(),
     /**
      * The settle transactions this check reads as dropped ([LinkStatusRules.droppedSettles]): marked failed, or
-     * past [LinkStatusRules.SETTLE_GRACE_MS] seen nowhere. Set when a record takes the check.
+     * seen nowhere past their grace ([LinkStatusRules.settleGraceOver]). Set when a record takes the check.
      */
     val droppedSpendTxids: List<String> = emptyList(),
     /** The block height the envelope's scan reached (the daemon height when it reported synced). 0: not known. */
@@ -82,6 +82,13 @@ data class SentLink(
     val state: SentState,
     val fundingTxid: String? = null,
     /**
+     * The funding's transactions, saved signed before the broadcast (wallet2 knows a txid before its commit).
+     * Not a known funding: the link stays hidden until the open wallet's history (in any state) or the
+     * envelope's scan shows one, and then that one is its funding ([LinkStatusRules.fundingsToAdopt]). No time
+     * limit: a broadcast that timed out, a seed restore and a wallet restored under a new id all find it.
+     */
+    val attemptTxids: List<String> = emptyList(),
+    /**
      * The open wallet's history marks [fundingTxid] failed (the network dropped or rejected it), so no
      * money left. Cleared when that history shows the transaction live again or a new funding.
      */
@@ -96,6 +103,8 @@ data class SentLink(
     val reclaimWallet: String? = null,
     /** When the node took the reclaim in [reclaimTxid]: its grace before an unmined reclaim reads as dropped. */
     val reclaimSentAt: Long? = null,
+    /** The chain height when our reclaim in [reclaimTxid] went out: its grace counts blocks from here ([LinkStatusRules.SETTLE_GRACE_BLOCKS]). */
+    val reclaimSentHeight: Long? = null,
     /**
      * The envelope's spends a check saw before our reclaim in [reclaimTxid] went out (earlier settles):
      * never a claim that beat it ([LinkStatusRules.lostToClaim]).
@@ -158,6 +167,15 @@ data class ReceivedLink(
     val claimWallet: String? = null,
     /** When the node took the claim in [claimTxid]: its grace before an unmined claim reads as dropped. */
     val claimSentAt: Long? = null,
+    /** The chain height when our claim in [claimTxid] went out: its grace counts blocks from here ([LinkStatusRules.SETTLE_GRACE_BLOCKS]). */
+    val claimSentHeight: Long? = null,
+    /**
+     * The envelope's spends a check saw before our claim in [claimTxid] went out (earlier settles): never a
+     * claim that beat it ([LinkStatusRules.claimLost]).
+     */
+    val spendsBeforeClaim: List<String> = emptyList(),
+    /** Another device's claim beat ours (two devices claimed one link): the link reads claimed, and is checked no more. */
+    val claimLostRace: Boolean = false,
     /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links, or legacy records that discarded their secret. */
     val secret: String? = null,
     /**
@@ -208,7 +226,11 @@ data class ReceivedLink(
      * [wallet]: what the open wallet's history shows of the claim.
      */
     fun noting(check: EnvelopeSnapshot, wallet: WalletHistory = WalletHistory()): ReceivedLink {
-        val read = LinkStatusRules.annotated(settleTxids, settledAt, check, wallet)
+        val read = LinkStatusRules.annotated(settleTxids, settledAt, check, wallet, settledHeight)
+        // Another device's claim is in a block, ours is not live, and nothing is left: final, no more checks.
+        if (state == ReceivedState.CLAIMED && !claimLostRace && LinkStatusRules.claimLost(claimTxid, spendsBeforeClaim, read)) {
+            return copy(claimLostRace = true, lastCheck = read)
+        }
         if (isSettled && !LinkStatusRules.reopens(settleTxids, read)) {
             return if (LinkStatusRules.settleFinal(settleTxids, read)) copy(lastCheck = read) else this
         }
@@ -228,9 +250,30 @@ data class ReceivedLink(
         return copy(lastCheck = read, netAmount = net, state = next)
     }
 
+    /**
+     * Our claim [txid] is signed and about to go out ([at], chain [height]): the record reads claimed into
+     * [to] for [amount] before the broadcast, so an app killed mid-flight or a broadcast that timed out still
+     * knows the spend is ours. Earlier spends stay apart from it ([spendsBeforeClaim]).
+     */
+    fun claimSigned(txid: String, amount: Long, to: String, at: Long, height: Long?): ReceivedLink = copy(
+        state = ReceivedState.CLAIMED, claimTxid = txid, claimedAmount = amount, claimedTo = to, claimSentAt = at,
+        claimSentHeight = height, spendsBeforeClaim = LinkStatusRules.spendsBeforeClaim(this, txid), claimLostRace = false
+    )
+
+    /** The node refused the claim [claimSigned] saved, so nothing went out: the claim fields go back to [before]'s. */
+    fun claimRefused(before: ReceivedLink): ReceivedLink = copy(
+        state = before.state, claimTxid = before.claimTxid, claimedAmount = before.claimedAmount, claimedTo = before.claimedTo,
+        claimSentAt = before.claimSentAt, claimSentHeight = before.claimSentHeight, spendsBeforeClaim = before.spendsBeforeClaim,
+        claimLostRace = before.claimLostRace
+    )
+
     /** When the claim in [claimTxid] went out (older records: when it began). */
     val settledAt: Long?
         get() = if (state == ReceivedState.CLAIMED) claimSentAt ?: claimStartedAt else null
+
+    /** The chain height when the claim in [claimTxid] went out; null when not known (older records). */
+    val settledHeight: Long?
+        get() = if (state == ReceivedState.CLAIMED) claimSentHeight else null
 
     /** Settled by a spend that no check has seen in a block yet: the link is checked until one does. */
     val settleUnconfirmed: Boolean
@@ -245,13 +288,15 @@ data class ReceivedLink(
      */
     val settleTxids: List<String>
         get() = when {
+            // Another device's claim beat ours: final, nothing to follow.
+            state == ReceivedState.CLAIMED && claimLostRace -> emptyList()
             state == ReceivedState.CLAIMED -> listOfNotNull(claimTxid?.takeIf { it.isNotEmpty() })
             else -> lastCheck?.spendTxids.orEmpty()
         }
 
     /** This device's own claim (its transaction or amount is known), not one that lost to another claim. */
     val claimedHere: Boolean
-        get() = state == ReceivedState.CLAIMED && (claimTxid != null || claimedAmount != null)
+        get() = state == ReceivedState.CLAIMED && !claimLostRace && (claimTxid != null || claimedAmount != null)
 
     /** Checked before records had a net amount: the active wallet's fee estimate stands in for the envelope's. */
     val needsNetAmount: Boolean
@@ -445,13 +490,27 @@ object LinkStatusRules {
         fundingBlock?.takeIf { it > 0 }?.let { minOf(restoreHeight, it - RESCAN_MARGIN).coerceAtLeast(0) } ?: restoreHeight
 
     /**
-     * Records saved without a funding txid (the app quit mid-broadcast, or the error came after the node
-     * took it) whose funding the open wallet now shows: id to txid. [fundingTxidFor] finds the open
-     * wallet's outgoing transaction to an envelope address (each envelope has its own address).
+     * Records saved without a funding txid (the app quit mid-broadcast, the broadcast timed out, or the error
+     * came after the node took it) whose funding the open wallet now shows: id to txid. Whichever wallet is
+     * open, with no time limit (iOS parity).
+     *
+     * A record with [SentLink.attemptTxids] is adopted by txid only: the first of them that the open wallet's
+     * history ([historyHashes], every state) holds. wallet2 lists a transaction it committed after a timeout,
+     * or found again in a seed restore, without its destinations, so its address cannot match.
+     * [fundingTxidFor] finds the open wallet's outgoing transaction to an envelope address (each envelope has
+     * its own address): only for records saved before attempts had txids.
      */
-    fun fundingsToAdopt(sent: List<SentLink>, fundingTxidFor: (String) -> String?): Map<String, String> =
-        sent.filter { (it.fundingTxid == null || it.fundingFailed) && it.reclaimTxid == null }
-            .mapNotNull { link -> fundingTxidFor(link.envelopeAddress)?.let { link.id to it } }
+    fun fundingsToAdopt(sent: List<SentLink>, historyHashes: Set<String> = emptySet(), fundingTxidFor: (String) -> String?): Map<String, String> =
+        sent.filter { it.reclaimTxid == null }
+            .mapNotNull { link ->
+                val txid = if (link.attemptTxids.isNotEmpty()) {
+                    // A known funding txid stays: its state follows the history ([fundingFailures]).
+                    if (link.fundingTxid != null) null else link.attemptTxids.firstOrNull { it in historyHashes }
+                } else {
+                    if (link.fundingTxid == null || link.fundingFailed) fundingTxidFor(link.envelopeAddress) else null
+                }
+                txid?.let { link.id to it }
+            }
             .toMap()
 
     /**
@@ -499,13 +558,14 @@ object LinkStatusRules {
      * reclaim ([lostToClaim]). [wallet]: what the open wallet's history shows of our reclaim.
      */
     fun withCheck(link: SentLink, check: EnvelopeSnapshot, wallet: WalletHistory = WalletHistory()): SentLink {
-        val read = annotated(settleTxids(link), settledAt(link), check, wallet)
+        val read = annotated(settleTxids(link), settledAt(link), check, wallet, settledHeight(link))
         if (!link.reclaimLostRace && lostToClaim(link, read)) return link.copy(reclaimLostRace = true, lastCheck = read)
         if (isSettled(link) && !reopens(settleTxids(link), read)) {
             // A settle in a block with the envelope empty is final: the link is checked no more.
             return if (settleFinal(settleTxids(link), read)) link.copy(lastCheck = read) else link
         }
-        val seen = read.fundingTxids.firstOrNull()
+        // The envelope shows the money: our signed attempt when it is there, else its oldest funding.
+        val seen = read.fundingTxids.firstOrNull { it in link.attemptTxids } ?: read.fundingTxids.firstOrNull()
         return if (seen != null && (link.fundingTxid == null || link.fundingFailed)) {
             link.copy(lastCheck = read, fundingTxid = seen, fundingFailed = false, state = SentState.FUNDED)
         } else {
@@ -545,9 +605,45 @@ object LinkStatusRules {
         (link.spendsBeforeReclaim + link.lastCheck?.spendTxids.orEmpty() + listOfNotNull(link.reclaimTxid?.takeIf { it.isNotEmpty() }))
             .distinct().filter { it != txid }
 
+    /**
+     * Our reclaim [txid] is signed and about to go out ([at], chain [height]): the record reads reclaimed before
+     * the broadcast, so an app killed mid-flight or a broadcast that timed out still knows the spend is ours,
+     * and a second tap never double-spends it. Earlier spends stay apart from it ([spendsBeforeReclaim]).
+     */
+    fun reclaimSigned(link: SentLink, txid: String, at: Long, height: Long?): SentLink = link.copy(
+        reclaimTxid = txid, reclaimSentAt = at, reclaimSentHeight = height, spendsBeforeReclaim = spendsBeforeReclaim(link, txid)
+    )
+
+    /** The node refused the reclaim [reclaimSigned] saved, so nothing went out: the reclaim fields go back to [before]'s. */
+    fun reclaimRefused(link: SentLink, before: SentLink): SentLink = link.copy(
+        reclaimTxid = before.reclaimTxid, reclaimSentAt = before.reclaimSentAt, reclaimSentHeight = before.reclaimSentHeight,
+        spendsBeforeReclaim = before.spendsBeforeReclaim
+    )
+
+    /** What [ReceivedLink.spendsBeforeClaim] holds when a new claim [txid] of [link] goes out. */
+    fun spendsBeforeClaim(link: ReceivedLink, txid: String?): List<String> =
+        (link.spendsBeforeClaim + link.lastCheck?.spendTxids.orEmpty() + listOfNotNull(link.claimTxid?.takeIf { it.isNotEmpty() }))
+            .distinct().filter { it != txid }
+
+    /**
+     * Two devices claimed one link, and the other one won: [check] shows a spend in a block that is neither our
+     * claim [ours] nor one from before it ([before]), our claim is not live in the envelope (it dropped, or the
+     * node refused it as a double spend), and nothing is left. Final: the link reads claimed and is checked no
+     * more, so the losing device stops pausing its main wallet for checks. A spend still in the pool can drop,
+     * so it never counts.
+     */
+    fun claimLost(ours: String?, before: List<String>, check: EnvelopeSnapshot): Boolean {
+        val txid = ours?.takeIf { it.isNotEmpty() } ?: return false
+        return txid !in check.spendTxids && check.balance == 0L &&
+            check.minedSpendTxids.any { it != txid && it !in before }
+    }
+
     /** When our reclaim in [SentLink.reclaimTxid] went out (older records: when it began); null without one. */
     fun settledAt(link: SentLink): Long? =
         if (link.reclaimTxid != null) link.reclaimSentAt ?: link.reclaimStartedAt else null
+
+    /** The chain height when our reclaim in [SentLink.reclaimTxid] went out; null when not known (older records). */
+    fun settledHeight(link: SentLink): Long? = if (link.reclaimTxid != null) link.reclaimSentHeight else null
 
     /** Settled by a spend that no check has seen in a block yet: the link is checked until one does. */
     fun settleUnconfirmed(link: SentLink): Boolean = isSettled(link) && unconfirmed(settleTxids(link), link.lastCheck)
@@ -560,19 +656,42 @@ object LinkStatusRules {
     fun settleFinal(txids: List<String>, check: EnvelopeSnapshot): Boolean =
         txids.isNotEmpty() && check.minedSpendTxids.containsAll(txids) && check.balance == 0L
 
-    /** A settled claim or reclaim gets this long to reach a block before it can read as dropped (30 blocks). */
+    /**
+     * A settled claim or reclaim gets this many blocks past the chain height it went out at to reach a block
+     * before it can read as dropped (about 60 minutes). The same number as iOS.
+     */
+    const val SETTLE_GRACE_BLOCKS = 30L
+
+    /** The grace by the clock, for a settle saved with no chain height (older records): about 30 blocks. */
     const val SETTLE_GRACE_MS = 60 * 60_000L
+
+    /**
+     * The settle grace is over at [check]: more than [SETTLE_GRACE_BLOCKS] past [settledHeight] when that and
+     * the scan's height are known, else (no height) more than [SETTLE_GRACE_MS] past [settledAt]. No
+     * [settledAt] and no height (a claim made elsewhere): never.
+     */
+    fun settleGraceOver(settledHeight: Long?, settledAt: Long?, check: EnvelopeSnapshot): Boolean {
+        val height = settledHeight?.takeIf { it > 0 }
+        if (height != null && check.scannedHeight > 0) return check.scannedHeight - height > SETTLE_GRACE_BLOCKS
+        return settledAt != null && check.checkedAt - settledAt > SETTLE_GRACE_MS
+    }
 
     /**
      * The settle transactions in [txids] that will not confirm (requirement 2026-10-17, iOS settleHasFailed).
      * Not dropped: in a block in the envelope, or waiting or mined in the open wallet's history ([wallet]).
      * Dropped at once: wallet2 marks it failed in the envelope (it checked the pool, and the spend left it
      * unmined). Not dropped while the envelope still lists it waiting. Dropped: the open wallet marks it
-     * failed, or it shows nowhere [SETTLE_GRACE_MS] after [settledAt]. No [settledAt] (a claim made
-     * elsewhere): never by time. While a settle waits in the pool, or within its grace, a check never
-     * reopens the link for it.
+     * failed, or it shows nowhere once its grace is over ([settleGraceOver]: [SETTLE_GRACE_BLOCKS] past
+     * [settledHeight], else [SETTLE_GRACE_MS] after [settledAt]). Neither known (a claim made elsewhere):
+     * never by time. While a settle waits in the pool, or within its grace, a check never reopens the link for it.
      */
-    fun droppedSettles(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, wallet: WalletHistory): List<String> =
+    fun droppedSettles(
+        txids: List<String>,
+        settledAt: Long?,
+        check: EnvelopeSnapshot,
+        wallet: WalletHistory,
+        settledHeight: Long? = null
+    ): List<String> =
         txids.filter { txid ->
             when {
                 txid in check.minedSpendTxids -> false
@@ -580,13 +699,19 @@ object LinkStatusRules {
                 txid in check.failedSpendTxids -> true
                 txid in check.spendTxids -> false
                 txid in wallet.failed -> true
-                else -> settledAt != null && check.checkedAt - settledAt > SETTLE_GRACE_MS
+                else -> settleGraceOver(settledHeight, settledAt, check)
             }
         }
 
     /** [check] with [droppedSettles] of [txids]: what a record keeps. */
-    fun annotated(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, wallet: WalletHistory): EnvelopeSnapshot =
-        check.copy(droppedSpendTxids = droppedSettles(txids, settledAt, check, wallet))
+    fun annotated(
+        txids: List<String>,
+        settledAt: Long?,
+        check: EnvelopeSnapshot,
+        wallet: WalletHistory,
+        settledHeight: Long? = null
+    ): EnvelopeSnapshot =
+        check.copy(droppedSpendTxids = droppedSettles(txids, settledAt, check, wallet, settledHeight))
 
     /** The scan of a hidden funding attempt covers this many blocks (about a day) past the attempt. */
     const val HIDDEN_SCAN_BLOCKS = 720L

@@ -3,7 +3,9 @@ package one.monero.moneroone.paymentlinks
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.horizontalsystems.monerokit.SignedTransaction
 import io.horizontalsystems.monerokit.SyncState
+import io.horizontalsystems.monerokit.TransactionRejectedException
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -87,19 +89,29 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         }
         // Retain received secrets until explicit Remove All. A mined claim can
         // reorg or leave newer locked funding behind.
-        // A record saved without its funding txid (the app quit mid-broadcast, or the error came after the node
-        // took it): the open wallet's outgoing transaction to its envelope is its funding. The link shows again,
-        // as Waiting, and the status never contradicts the wallet's own history.
+        // A record saved without its funding txid (the app quit mid-broadcast, the broadcast timed out, or the
+        // error came after the node took it): its signed attempt's txid in the open wallet's history (whichever
+        // wallet is open, in any state, with no time limit) is its funding. The link shows again, as Waiting, and
+        // the status never contradicts the wallet's own history.
         // A funding the open wallet marks failed (dropped or rejected) sent no money: the link reads as not funded.
         viewModelScope.launch {
             combine(WalletManager.transactionsFlow, store.sent) { txs, sent ->
                 val (failed, live) = txs.filter { it.hash != null }.partition { it.isFailed }
-                LinkStatusRules.fundingFailures(sent, failed.mapNotNull { it.hash }.toSet(), live.mapNotNull { it.hash }.toSet()) to
-                    LinkStatusRules.fundingsToAdopt(sent) { address -> fundingTxid(address, txs) }
-            }.collect { (failures, found) ->
+                val failedHashes = failed.mapNotNull { it.hash }.toSet()
+                val liveHashes = live.mapNotNull { it.hash }.toSet()
+                Triple(
+                    LinkStatusRules.fundingFailures(sent, failedHashes, liveHashes),
+                    LinkStatusRules.fundingsToAdopt(sent, failedHashes + liveHashes) { address -> fundingTxid(address, txs) },
+                    failedHashes
+                )
+            }.collect { (failures, found, failedHashes) ->
                 failures.forEach { (id, failed) -> store.updateSent(id) { it.copy(fundingFailed = failed) } }
                 found.forEach { (id, txid) ->
-                    store.updateSent(id) { it.copy(fundingTxid = txid, fundingFailed = false, state = SentState.FUNDED) }
+                    val failed = txid in failedHashes
+                    if (!failed) Timber.d("PaymentLinks: link %s: funding found in the wallet's history", store.sent(id)?.number)
+                    store.updateSent(id) {
+                        it.copy(fundingTxid = txid, fundingFailed = failed, state = if (failed) it.state else SentState.FUNDED)
+                    }
                 }
             }
         }
@@ -160,16 +172,27 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /**
-     * The funding broadcast ended. On success the funding txid is read from the wallet's history.
-     * [beforeBroadcast]: the failure came before anything reached the network, so the hidden attempt
-     * needs no envelope scan ([LinkStatusRules.hiddenScanDue]).
+     * The funding is signed: its txids go on the record before the broadcast (the kit's beforeCommit), so a
+     * broadcast that times out, an app kill or a seed restore still finds it by txid. Throws when the save
+     * fails: then nothing is broadcast.
+     */
+    fun fundingSigned(id: String, txids: List<String>) {
+        store.updateSent(id) { it.copy(attemptTxids = txids) }
+            ?: throw IllegalStateException(tr("Could not save the payment link. Nothing was sent."))
+    }
+
+    /**
+     * The funding broadcast ended. On success the funding txid is the signed attempt's ([fundingSigned]), else
+     * (no attempt saved) it is read from the wallet's history. [beforeBroadcast]: the failure came before
+     * anything reached the network, so the hidden attempt needs no envelope scan
+     * ([LinkStatusRules.hiddenScanDue]). An attempt that got as far as its txid may have gone out: it is scanned.
      */
     fun fundingFinished(id: String, success: Boolean, beforeBroadcast: Boolean = false) {
-        store.updateSent(id) {
-            if (success) it.copy(state = SentState.FUNDED)
-            else it.copy(state = SentState.NOT_FUNDED, failedBeforeBroadcast = beforeBroadcast)
+        val record = store.updateSent(id) {
+            if (success) it.copy(state = SentState.FUNDED, fundingTxid = it.fundingTxid ?: it.attemptTxids.firstOrNull())
+            else it.copy(state = SentState.NOT_FUNDED, failedBeforeBroadcast = beforeBroadcast && it.attemptTxids.isEmpty())
         }
-        if (!success) return
+        if (!success || record?.fundingTxid != null) return
         viewModelScope.launch {
             val address = store.sent(id)?.envelopeAddress ?: return@launch
             val txid = withTimeoutOrNull(FUNDING_TXID_WAIT_MS) {
@@ -404,17 +427,27 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         _session.value = current.copy(phase = EnvelopeSession.Phase.SWEEPING)
         _sweep.value = null
         viewModelScope.launch(NonCancellable) {
+            // Puts the record back as it was before this sweep's txid was saved: for a sweep the node refused.
+            var unsent: (() -> Unit)? = null
             val outcome = try {
-                val sweepTx = open.sweepTo(address)
-                // What arrives: the sweep's amount after its fee; the unlocked total until the kit shows it.
-                SweepOutcome.Sent(sweepTx?.hash, sweepTx?.amount?.takeIf { it > 0 } ?: amount)
+                val sweepTx = open.sweepTo(address) { signed, height -> unsent = saveSettle(id, kind, signed, height, amount, walletName) }
+                // What arrives: the sweep's amount after its fee; the unlocked total when the kit did not say.
+                SweepOutcome.Sent(sweepTx.txid, sweepTx.amount.takeIf { it > 0 } ?: amount)
             } catch (e: AlreadyClaimedException) {
+                unsent?.invoke()
                 SweepOutcome.AlreadyClaimed
+            } catch (e: TransactionRejectedException) {
+                // The node refused it: nothing went out.
+                unsent?.invoke()
+                Timber.w(e, "PaymentLinks: sweep refused")
+                SweepOutcome.Failed(e.message ?: "")
             } catch (e: Exception) {
+                // The broadcast may have gone out (a timeout, a lost connection): the saved txid stays ours, and a
+                // check reads it dropped once its grace is over (LinkStatusRules.droppedSettles).
                 Timber.w(e, "PaymentLinks: sweep failed")
                 SweepOutcome.Failed(e.message ?: "")
             }
-            record(id, kind, outcome, (outcome as? SweepOutcome.Sent)?.amount ?: amount, walletName, earlierAttempt)
+            record(id, kind, outcome, earlierAttempt)
             _sweep.value = SweepResult(id, kind, outcome, walletName)
             val snapshot = runCatching { open.snapshot() }.getOrNull()
             _session.update { s -> s?.takeIf { it.id == id }?.copy(phase = EnvelopeSession.Phase.LIVE, snapshot = snapshot ?: s.snapshot) }
@@ -424,37 +457,43 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    private fun record(id: String, kind: SweepKind, outcome: SweepOutcome, amount: Long, walletName: String, earlierAttempt: Boolean) {
+    /**
+     * Saves the signed sweep [signed] on [id]'s record as its settle, before the broadcast: the claim or reclaim
+     * txid, when it went out and the chain [height] then (its grace counts blocks from there). An app killed
+     * mid-flight, or a broadcast that timed out, still knows the spend is ours. Throws when the save fails: then
+     * nothing is broadcast. Returns what puts the record back, for a sweep the node refuses (nothing went out).
+     */
+    private fun saveSettle(id: String, kind: SweepKind, signed: SignedTransaction, height: Long?, unlocked: Long, walletName: String): () -> Unit {
+        val txid = signed.txids.first()
+        val now = System.currentTimeMillis()
+        val failure = { IllegalStateException(if (kind == SweepKind.RECLAIM) tr("Could not save the reclaim. Nothing was sent.") else tr("Could not save the claim. Nothing was sent.")) }
         when (kind) {
-            SweepKind.RECLAIM -> when (outcome) {
-                is SweepOutcome.Sent -> store.updateSent(id) {
-                    it.copy(
-                        reclaimTxid = outcome.txid ?: "", reclaimSentAt = System.currentTimeMillis(),
-                        spendsBeforeReclaim = LinkStatusRules.spendsBeforeReclaim(it, outcome.txid)
-                    )
-                }
-                // After a reclaim the app lost, the spend that beat this one may be our own: the open
-                // wallet's history decides (see init). Otherwise a claim won the race.
-                SweepOutcome.AlreadyClaimed -> if (!earlierAttempt) store.updateSent(id) { it.copy(reclaimLostRace = true) }
-                is SweepOutcome.Failed -> {}
+            SweepKind.RECLAIM -> {
+                val before = store.sent(id) ?: throw failure()
+                store.updateSent(id) { LinkStatusRules.reclaimSigned(it, txid, now, height) } ?: throw failure()
+                return { store.updateSent(id) { LinkStatusRules.reclaimRefused(it, before) } }
             }
             SweepKind.CLAIM -> {
-                if (outcome is SweepOutcome.Failed) return
-                // Retain the secret even after confirmation: a reorg or newer
-                // locked funding can leave money in this envelope.
-                val claimed: (ReceivedLink) -> ReceivedLink = {
-                    if (outcome is SweepOutcome.Sent) {
-                        it.copy(
-                            state = ReceivedState.CLAIMED, claimTxid = outcome.txid, claimedAmount = amount, claimedTo = walletName,
-                            claimSentAt = System.currentTimeMillis()
-                        )
-                    } else {
-                        it.copy(state = ReceivedState.CLAIMED)
-                    }
-                }
-                // Only a received record takes a claim: a link this phone sent is reclaimed (iOS parity), so it never
-                // gets a received record.
-                if (store.updateReceived(id, claimed) == null) Timber.w("PaymentLinks: a claim with no received record")
+                // Only a received record takes a claim: a link this phone sent is reclaimed (iOS parity).
+                val before = store.received(id) ?: throw failure()
+                // The secret stays after the claim: a reorg or newer locked funding can leave money in this envelope.
+                val amount = signed.amount.takeIf { it > 0 } ?: unlocked
+                store.updateReceived(id) { it.claimSigned(txid, amount, walletName, now, height) } ?: throw failure()
+                return { store.updateReceived(id) { it.claimRefused(before) } }
+            }
+        }
+    }
+
+    /** The sweep ended. A sweep that went out is on its record already ([saveSettle]). */
+    private fun record(id: String, kind: SweepKind, outcome: SweepOutcome, earlierAttempt: Boolean) {
+        if (outcome !is SweepOutcome.AlreadyClaimed) return
+        when (kind) {
+            // After a reclaim the app lost, the spend that beat this one may be our own: the open
+            // wallet's history decides (see init). Otherwise a claim won the race.
+            SweepKind.RECLAIM -> if (!earlierAttempt) store.updateSent(id) { it.copy(reclaimLostRace = true) }
+            // Our earlier claim, when the record names one, is followed by its checks; else someone claimed it first.
+            SweepKind.CLAIM -> if (store.updateReceived(id) { it.copy(state = ReceivedState.CLAIMED) } == null) {
+                Timber.w("PaymentLinks: a claim with no received record")
             }
         }
     }
@@ -550,7 +589,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /**
-     * The Wallet tab's look at the open sent links of [walletId] (spec Round 3), so the balance
+     * The Wallet tab's look at the open sent links of [walletId] (spec Round 3), orphaned ones too
+     * ([OpenLinkRules.belongsTo], [walletIds]: the wallets on this device), so the balance
      * card's line drops a claimed link. A look stops the main wallet for a moment, so the tab asks
      * for one only when it appears, comes back to the foreground or shows another wallet, then every
      * [WALLET_TAB_LOOK_EVERY_MS], and only while the wallet is synced, no send runs and History shows
@@ -558,7 +598,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
      * look stops when the tab goes; a claim sheet that opens stops it too. The Links filter's
      * [refreshSent] covers that filter.
      */
-    suspend fun lookAtOpenLinks(walletId: String) = coroutineScope {
+    suspend fun lookAtOpenLinks(walletId: String, walletIds: Set<String> = emptySet()) = coroutineScope {
         if (refreshJob?.isActive == true || _session.value != null) {
             Timber.d("PaymentLinks: open link check skipped: the envelope runtime is busy")
             return@coroutineScope
@@ -567,8 +607,9 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         val now = System.currentTimeMillis()
         val wallet = walletHistory()
         // Open links, and links that can still come back: a hidden funding attempt, a settle not in a block yet.
+        // This wallet's links, and links whose funding wallet is gone (deleted, or restored under a new id).
         val due = store.sent.value.filter {
-            it.walletId == walletId && now - (it.lastCheck?.checkedAt ?: 0) > LOOK_AGAIN_AFTER_MS &&
+            OpenLinkRules.belongsTo(it, walletId, walletIds) && now - (it.lastCheck?.checkedAt ?: 0) > LOOK_AGAIN_AFTER_MS &&
                 (OpenLinkRules.isOpen(it, now / 1000) || LinkStatusRules.hiddenScanDue(it, now) || LinkStatusRules.settleDue(it, wallet))
         }
         val dueReceived = store.received.value.filter { it.settleDue(wallet) && now - (it.lastCheck?.checkedAt ?: 0) > LOOK_AGAIN_AFTER_MS }

@@ -89,6 +89,10 @@ object PaymentLinkRoutes {
     /** A link's transaction, opened from the link's detail: the transaction itself, never the link again. */
     const val TRANSACTION = "payment_link_tx/{txId}"
     fun transaction(txId: String) = "payment_link_tx/$txId"
+
+    /** A sent link's detail, opened from its Activity row when its funding is not in the open wallet's history. */
+    const val SENT_DETAIL = "payment_link_sent/{id}"
+    fun sentDetail(id: String) = "payment_link_sent/$id"
 }
 
 private fun nowSeconds() = System.currentTimeMillis() / 1000
