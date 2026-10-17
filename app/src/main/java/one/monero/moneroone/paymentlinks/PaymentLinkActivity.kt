@@ -78,9 +78,10 @@ sealed interface PendingLinkState {
 /**
  * Payment links in Activity, the same rules as iOS `PaymentLinkActivity`.
  * A transaction matches a link record on this device by txid:
- * - sent record, outgoing tx == fundingTxid: "Sent by Link" (funding)
- * - sent record, incoming tx == reclaimTxid: "Reclaimed by Link"
- * - received record, incoming tx == claimTxid: "Received by Link"
+ * - sent record, outgoing tx == fundingTxid or one of its signed attempt: "Sent by Link" (funding)
+ * - sent record, incoming tx == a transaction of our reclaim: "Reclaimed by Link"
+ * - received record, incoming tx == a transaction of our claim: "Received by Link"
+ * A send wallet2 split in several transactions labels each of them.
  * Every other transaction keeps "Received" / "Sent". A link row is a normal
  * row (Apple Card): the direction disc with a link badge, the link's name over
  * the date, its amount and a status. The kind ("Sent by Link") is spoken only.
@@ -89,13 +90,11 @@ object PaymentLinkActivityRules {
 
     fun match(txid: String, incoming: Boolean, sent: List<SentLink>, received: List<ReceivedLink>): LinkActivity? {
         for (link in sent) {
-            if (!incoming && link.fundingTxid == txid) return LinkActivity(LinkActivityKind.FUNDING, link, null)
-            if (incoming && !link.reclaimTxid.isNullOrEmpty() && link.reclaimTxid == txid) {
-                return LinkActivity(LinkActivityKind.RECLAIM, link, null)
-            }
+            if (!incoming && txid in LinkStatusRules.ownFundingTxids(link)) return LinkActivity(LinkActivityKind.FUNDING, link, null)
+            if (incoming && txid in LinkStatusRules.ownReclaimTxids(link)) return LinkActivity(LinkActivityKind.RECLAIM, link, null)
         }
         for (link in received) {
-            if (incoming && link.claimTxid == txid) return LinkActivity(LinkActivityKind.CLAIM, null, link)
+            if (incoming && txid in link.ownClaimTxids) return LinkActivity(LinkActivityKind.CLAIM, null, link)
         }
         return null
     }
@@ -304,9 +303,16 @@ object LinkListRules {
         nowSeconds: Long,
         openSent: List<SentLink> = emptyList()
     ): LinkSections {
+        // A funding wallet2 split in several transactions: one row for the link, its funding txid's when shown.
+        val fundingRow = HashMap<String, TransactionInfo>()
+        for (tx in transactions) {
+            val link = index.match(tx)?.takeIf { it.kind == LinkActivityKind.FUNDING }?.sent ?: continue
+            if (fundingRow[link.id] == null || tx.hash == link.fundingTxid) fundingRow[link.id] = tx
+        }
         val rows = transactions.mapNotNull { tx ->
             val activity = index.match(tx) ?: return@mapNotNull null
             val funding = activity.sent?.takeIf { activity.kind == LinkActivityKind.FUNDING }
+            if (funding != null && fundingRow[funding.id] !== tx) return@mapNotNull null
             val open = funding != null && PaymentLinkActivityRules.fundingRowState(
                 LinkStatusRules.sentView(funding, tx.confirmations, null, nowSeconds).status
             ) in openStates

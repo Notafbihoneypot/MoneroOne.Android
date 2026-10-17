@@ -60,6 +60,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.horizontalsystems.monerokit.SignedTransaction
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -241,30 +243,69 @@ fun PaymentLinkReview(
     onDraft: (EnvelopeDraft) -> Unit,
     formatXmr: (Long) -> String,
     estimateFee: (address: String, amount: Long) -> Long,
+    /**
+     * Builds and signs the funding transfer (not sent): its fee is the one it pays. Send broadcasts this same
+     * transaction. Throws when the build fails.
+     */
+    prepareFunding: (address: String, amount: Long) -> SignedTransaction,
+    /** A new value builds the funding again (the one built here is gone). */
+    rebuild: Int = 0,
     xmrPrice: Double?,
     currencySymbol: String,
     sendInProgress: Boolean,
     /** The link's note, trimmed; empty for none. Shown here, never sent. */
     note: String = "",
-    onConfirm: (draft: EnvelopeDraft, feeReserve: Long) -> Unit
+    onConfirm: (draft: EnvelopeDraft, feeReserve: Long, prepared: SignedTransaction?) -> Unit
 ) {
     var draft by remember { mutableStateOf(existingDraft?.takeIf { it.amount == amount }) }
     var reserve by remember { mutableLongStateOf(0L) }
     var networkFee by remember { mutableLongStateOf(0L) }
+    var prepared by remember { mutableStateOf<SignedTransaction?>(null) }
+    // The funding would spend more than the unlocked balance (the build said so, or the estimate does).
+    var tooMuch by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(attempt) {
+    LaunchedEffect(attempt, rebuild) {
         error = null
+        prepared = null
+        tooMuch = false
+        networkFee = 0L
         try {
             val ready = draft ?: paymentLinks.prepare(amount).also { draft = it; onDraft(it) }
-            val (r, f) = withContext(Dispatchers.IO) {
-                val r = estimateFee(ready.address, amount)
-                r to (if (r > 0) estimateFee(ready.address, amount + r) else 0L)
+            // The reserve pays the claim's sweep (one input): wallet2's estimate fits it. The network fee is the
+            // funding's own, built and signed here: the estimate counts one input, and the funding pays for each
+            // input it spends. Send broadcasts this same transaction.
+            val r = withContext(Dispatchers.IO) { estimateFee(ready.address, amount) }
+            if (r <= 0) {
+                error = tr("Fee estimation failed")
+                return@LaunchedEffect
             }
-            if (r <= 0 || f <= 0) error = tr("Fee estimation failed")
             reserve = r
-            networkFee = f
+            val estimate = withContext(Dispatchers.IO) { estimateFee(ready.address, amount + r) }
+            if (estimate > 0 && amount + r + estimate > unlockedBalance) {
+                networkFee = estimate
+                tooMuch = true
+                return@LaunchedEffect
+            }
+            val built = try {
+                withContext(Dispatchers.IO) { prepareFunding(ready.address, amount + r) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // wallet2: "not enough money" / "not enough unlocked money" once the real inputs are counted.
+                if (e.message?.contains("not enough", ignoreCase = true) == true) {
+                    networkFee = estimate
+                    tooMuch = true
+                    return@LaunchedEffect
+                }
+                throw e
+            }
+            prepared = built
+            networkFee = built.fee
+            if (built.fee <= 0) error = tr("Fee estimation failed")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: EnvelopeMismatchException) {
             error = tr("Could not create the link. Nothing was sent.")
         } catch (e: Exception) {
@@ -272,9 +313,9 @@ fun PaymentLinkReview(
         }
     }
 
-    val feeReady = error == null && reserve > 0 && networkFee > 0 && draft != null
+    val feeReady = error == null && reserve > 0 && networkFee > 0 && draft != null && (prepared != null || tooMuch)
     val total = amount + reserve + networkFee
-    val overBalance = feeReady && total > unlockedBalance
+    val overBalance = feeReady && (tooMuch || total > unlockedBalance)
 
     fun fiat(atomic: Long): String? = xmrPrice?.let { "≈ $currencySymbol${"%.2f".format(atomic / 1_000_000_000_000.0 * it)}" }
 
@@ -414,11 +455,11 @@ fun PaymentLinkReview(
 
         @OptIn(ExperimentalComposeUiApi::class)
         PrimaryButton(
-            onClick = { draft?.let { onConfirm(it, reserve) } },
+            onClick = { draft?.let { onConfirm(it, reserve, prepared) } },
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInteropFilter { event -> (event.flags and MotionEvent.FLAG_WINDOW_IS_OBSCURED) != 0 },
-            enabled = feeReady && !overBalance && !sendInProgress
+            enabled = feeReady && !overBalance && prepared != null && !sendInProgress
         ) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(tr("Send"))

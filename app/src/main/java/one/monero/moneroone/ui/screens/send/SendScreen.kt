@@ -76,6 +76,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,6 +112,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.MoneroKit
+import io.horizontalsystems.monerokit.SignedTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -260,6 +262,11 @@ fun SendScreen(
     var linkMode by remember { mutableStateOf(false) }
     var linkDraft by remember { mutableStateOf<EnvelopeDraft?>(null) }
     var linkFeeReserve by remember { mutableLongStateOf(0L) }
+    // The funding the review built and signed (its real fee shows there); Send broadcasts this one.
+    var linkPrepared by remember { mutableStateOf<SignedTransaction?>(null) }
+    // Bumped to build the funding again (the one the review built is gone).
+    var linkRebuild by remember { mutableIntStateOf(0) }
+    val linkScope = rememberCoroutineScope()
     var linkFundingError by remember { mutableStateOf<String?>(null) }
     val canSendWithLink = paymentLinks != null && walletViewModel.activeWallet.value?.isViewOnly == false
 
@@ -454,13 +461,16 @@ fun SendScreen(
                         onDraft = { linkDraft = it },
                         formatXmr = walletViewModel::formatXmr,
                         estimateFee = { to, amt -> walletViewModel.estimateFee(to, amt) },
+                        prepareFunding = { to, amt -> walletViewModel.prepareSend(to, amt, memo = "Payment link") },
+                        rebuild = linkRebuild,
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
                         sendInProgress = sendInProgress,
                         note = LinkNames.cleanNote(linkNote).orEmpty(),
-                        onConfirm = { draft, reserve ->
+                        onConfirm = { draft, reserve, prepared ->
                             linkDraft = draft
                             linkFeeReserve = reserve
+                            linkPrepared = prepared
                             sendInProgress = true
                             showAuthGate = true
                         }
@@ -534,10 +544,18 @@ fun SendScreen(
             onAuthenticated = {
                 showAuthGate = false
                 val draft = linkDraft
-                if (linkMode && paymentLinks != null && draft != null) {
+                if (linkMode && paymentLinks != null && draft != null) linkScope.launch {
                     val id = draft.link.id
+                    val prepared = linkPrepared
                     val record = paymentLinks.store.sent(id)
                     when {
+                        // The funding the review built is gone (the wallet restarted meanwhile): the review builds
+                        // it again and shows its fee. Nothing is saved or sent.
+                        record == null && (prepared == null || !withContext(Dispatchers.IO) { walletViewModel.isPrepared(prepared) }) -> {
+                            linkPrepared = null
+                            linkRebuild++
+                            sendInProgress = false
+                        }
                         // A saved record consumed this link's one funding attempt, which may have gone out.
                         record != null -> {
                             linkFundingError = linkFundingUnconfirmed()
@@ -555,12 +573,14 @@ fun SendScreen(
                         }
                         // The signed funding's txids go on the record before the broadcast: a funding whose
                         // broadcast times out is still found by its txid once it shows.
+                        // The transaction the review built goes out as it is: its fee is the one the review showed.
                         else -> walletViewModel.send(
                             flow,
                             draft.address,
-                            draft.amount + linkFeeReserve,
+                            prepared?.amount ?: (draft.amount + linkFeeReserve),
                             memo = "Payment link",
-                            beforeCommit = { signed -> paymentLinks.fundingSigned(id, signed.txids) }
+                            beforeCommit = { signed -> paymentLinks.fundingSigned(id, signed.txids) },
+                            prepared = prepared
                         )
                     }
                 } else {

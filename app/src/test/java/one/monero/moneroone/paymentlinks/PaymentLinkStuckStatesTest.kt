@@ -165,7 +165,7 @@ class PaymentLinkStuckStatesTest {
 
     @Test
     fun `a sweep that left locked money keeps checking until it unlocks`() {
-        val reclaimed = LinkStatusRules.reclaimSigned(funded("l", "w", scan()), "ours", at = 10, height = 500)
+        val reclaimed = LinkStatusRules.reclaimSigned(funded("l", "w", scan()), listOf("ours"), at = 10, height = 500)
         // Our reclaim in a block, a second funding still locked.
         val locked = scan(at = 20, height = 520, balance = 5, unlocked = 0, mined = listOf("ours"))
         val kept = LinkStatusRules.withCheck(reclaimed, locked)
@@ -182,7 +182,7 @@ class PaymentLinkStuckStatesTest {
     fun `a reclaim saved before its broadcast reads Reclaimed after an app kill`() {
         val before = funded("l", "w", scan(spends = listOf("old"), mined = listOf("old")))
         // Killed right after the save: no outcome was ever recorded.
-        val saved = LinkStatusRules.reclaimSigned(before, "ours", at = 10, height = 500)
+        val saved = LinkStatusRules.reclaimSigned(before, listOf("ours"), at = 10, height = 500)
         assertEquals("ours", saved.reclaimTxid)
         assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(saved))
         assertEquals(listOf("old"), saved.spendsBeforeReclaim)
@@ -200,7 +200,7 @@ class PaymentLinkStuckStatesTest {
         val before = ReceivedLink(
             id = "r", words = null, height = 100, amount = 0, expiry = 0, receivedAtMillis = 1, lastCheck = scan(), secret = secret
         )
-        val saved = before.claimSigned("ours", amount = 6, to = "Main", at = 10, height = 500)
+        val saved = before.claimSigned(listOf("ours"), amount = 6, to = "Main", at = 10, height = 500)
         assertEquals(ReceivedState.CLAIMED, saved.state)
         assertEquals(listOf("ours"), saved.settleTxids)
         assertTrue(saved.claimedHere)
@@ -210,7 +210,7 @@ class PaymentLinkStuckStatesTest {
 
     @Test
     fun `a sweep saved and never broadcast reopens after its grace when the money is still there`() {
-        val saved = LinkStatusRules.reclaimSigned(funded("l", "w", scan()), "ours", at = 10, height = 500)
+        val saved = LinkStatusRules.reclaimSigned(funded("l", "w", scan()), listOf("ours"), at = 10, height = 500)
         val within = LinkStatusRules.withCheck(saved, scan(height = 530))
         assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(within))
         val past = LinkStatusRules.withCheck(within, scan(height = 531))
@@ -224,7 +224,7 @@ class PaymentLinkStuckStatesTest {
         val opened = ReceivedLink(
             id = "r", words = null, height = 100, amount = 0, expiry = 0, receivedAtMillis = 1, lastCheck = scan(), secret = secret
         )
-        val ours = opened.claimSigned("ours", amount = 6, to = "Main", at = 10, height = 500)
+        val ours = opened.claimSigned(listOf("ours"), amount = 6, to = "Main", at = 10, height = 500)
         // Ours dropped from the pool; the other device's claim is in a block; nothing left.
         val lost = scan(at = 20, height = 503, balance = 0, mined = listOf("theirs"), failed = listOf("ours"), spends = listOf("theirs"))
         val settled = ours.noting(lost)
@@ -241,12 +241,12 @@ class PaymentLinkStuckStatesTest {
     fun `a claim race is not lost while the other spend waits in the pool, our own is live, or money is left`() {
         val ours = ReceivedLink(
             id = "r", words = null, height = 100, amount = 0, expiry = 0, receivedAtMillis = 1, lastCheck = scan(), secret = secret
-        ).claimSigned("ours", amount = 6, to = "Main", at = 10, height = 500)
-        assertFalse(LinkStatusRules.claimLost("ours", emptyList(), scan(balance = 0, spends = listOf("theirs"))))
-        assertFalse(LinkStatusRules.claimLost("ours", emptyList(), scan(balance = 0, mined = listOf("theirs"), spends = listOf("theirs", "ours"))))
-        assertFalse(LinkStatusRules.claimLost("ours", emptyList(), scan(balance = 3, mined = listOf("theirs"))))
+        ).claimSigned(listOf("ours"), amount = 6, to = "Main", at = 10, height = 500)
+        assertFalse(LinkStatusRules.claimLost(listOf("ours"), emptyList(), scan(balance = 0, spends = listOf("theirs"))))
+        assertFalse(LinkStatusRules.claimLost(listOf("ours"), emptyList(), scan(balance = 0, mined = listOf("theirs"), spends = listOf("theirs", "ours"))))
+        assertFalse(LinkStatusRules.claimLost(listOf("ours"), emptyList(), scan(balance = 3, mined = listOf("theirs"))))
         // An earlier settle of ours is not a claim that beat this one.
-        assertFalse(LinkStatusRules.claimLost("ours", listOf("earlier"), scan(balance = 0, mined = listOf("earlier"))))
+        assertFalse(LinkStatusRules.claimLost(listOf("ours"), listOf("earlier"), scan(balance = 0, mined = listOf("earlier"))))
         assertFalse(ours.noting(scan(balance = 0, spends = listOf("theirs"))).claimLostRace)
     }
 
@@ -276,10 +276,76 @@ class PaymentLinkStuckStatesTest {
     fun `received claims count their grace in blocks too`() {
         val ours = ReceivedLink(
             id = "r", words = null, height = 100, amount = 0, expiry = 0, receivedAtMillis = 1, lastCheck = scan(), secret = secret
-        ).claimSigned("ours", amount = 6, to = "Main", at = 10, height = 500)
+        ).claimSigned(listOf("ours"), amount = 6, to = "Main", at = 10, height = 500)
         // Seen nowhere, money still there.
         assertEquals(ReceivedState.CLAIMED, ours.noting(scan(at = 10 * LinkStatusRules.SETTLE_GRACE_MS, height = 530)).state)
         assertEquals(ReceivedState.PENDING, ours.noting(scan(at = 11, height = 531)).state)
+    }
+
+    // ------------------------------------------------------------ multi-tx: every txid of our own send is ours
+
+    private fun incoming(hash: String) = TransactionInfo(
+        0, false, false, 20_000_000_000, 0, 130, hash, now - 5, "", 0, 0, 3, 0, "", emptyList()
+    )
+
+    @Test
+    fun `a funding split in several transactions is found and counted by any of them`() {
+        val split = attempt().copy(attemptTxids = listOf("t1", "t2"))
+        // Only the second shows (the first is not in this history yet): it is the funding.
+        assertEquals(mapOf(split.id to "t2"), LinkStatusRules.fundingsToAdopt(listOf(split), setOf("t2")) { null })
+        // The first failed, the second is live: the live one, so the link is funded.
+        assertEquals(mapOf(split.id to "t2"), LinkStatusRules.fundingsToAdopt(listOf(split), setOf("t1", "t2"), setOf("t2")) { null })
+        // A known funding txid whose sibling is live sent money; failed only when every one failed.
+        val known = split.copy(fundingTxid = "t1", fundingFailed = true, state = SentState.FUNDED)
+        assertEquals(mapOf(known.id to false), LinkStatusRules.fundingFailures(listOf(known), failed = setOf("t1"), live = setOf("t2")))
+        val ok = known.copy(fundingFailed = false)
+        assertEquals(mapOf(ok.id to true), LinkStatusRules.fundingFailures(listOf(ok), failed = setOf("t1", "t2"), live = emptySet()))
+        // Activity labels both; the Links filter shows the link once, on its funding txid's row.
+        val index = PaymentLinkIndex(listOf(ok), emptyList())
+        assertEquals(LinkActivityKind.FUNDING, index.match(outgoing("t2"))?.kind)
+        val sections = LinkListRules.sections(listOf(outgoing("t2"), outgoing("t1")), index, emptyList(), now)
+        assertEquals(listOf("t1"), (sections.open + sections.history).map { it.transaction?.hash })
+        assertEquals(1, sections.linkCount)
+    }
+
+    @Test
+    fun `a reclaim split in several transactions settles only when all are in a block, and stays ours after`() {
+        val link = LinkStatusRules.reclaimSigned(funded("l", "w", scan(spends = emptyList())), listOf("r1", "r2"), at = 10, height = 500)
+        assertEquals(listOf("r1", "r2"), LinkStatusRules.settleTxids(link))
+        // One of two in a block, nothing left: not final yet, and never lost to a claim.
+        val half = scan(balance = 0, mined = listOf("r1"), spends = listOf("r1", "r2"), height = 505)
+        assertFalse(LinkStatusRules.settleFinal(LinkStatusRules.settleTxids(link), half))
+        assertFalse(LinkStatusRules.lostToClaim(link, scan(balance = 0, mined = listOf("r2"))))
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(link, half)))
+        assertTrue(LinkStatusRules.settleFinal(LinkStatusRules.settleTxids(link), scan(balance = 0, mined = listOf("r1", "r2"))))
+        // A later reclaim keeps both earlier txids as ours: they never read as a claim that beat it.
+        val again = LinkStatusRules.reclaimSigned(link, listOf("r3"), at = 20, height = 600)
+        assertTrue(again.spendsBeforeReclaim.containsAll(listOf("r1", "r2")))
+        assertFalse(LinkStatusRules.lostToClaim(again, scan(balance = 0, mined = listOf("r1", "r2"))))
+        assertTrue(LinkStatusRules.lostToClaim(again, scan(balance = 0, mined = listOf("r1", "theirs"))))
+        // Each one is a reclaim row; the node refusing puts both back.
+        val index = PaymentLinkIndex(listOf(link), emptyList())
+        assertEquals(LinkActivityKind.RECLAIM, index.match(incoming("r2"))?.kind)
+        assertEquals(listOf("r1", "r2"), LinkStatusRules.ownReclaimTxids(LinkStatusRules.reclaimRefused(again, link)))
+    }
+
+    @Test
+    fun `a claim split in several transactions is ours by any of them`() {
+        val opened = ReceivedLink(
+            id = "r", words = null, height = 100, amount = 0, expiry = 0, receivedAtMillis = 1, lastCheck = scan(), secret = secret
+        )
+        val ours = opened.claimSigned(listOf("c1", "c2"), amount = 6, to = "Main", at = 10, height = 500)
+        assertEquals("c1", ours.claimTxid)
+        assertEquals(listOf("c1", "c2"), ours.settleTxids)
+        // Our second transaction in a block is our claim, not a lost race.
+        assertFalse(LinkStatusRules.claimLost(ours.ownClaimTxids, ours.spendsBeforeClaim, scan(balance = 0, mined = listOf("c2"))))
+        assertTrue(LinkStatusRules.claimLost(ours.ownClaimTxids, ours.spendsBeforeClaim, scan(balance = 0, mined = listOf("theirs"))))
+        // A claim read as dropped that is in a block after all (by its second transaction) reads claimed here again.
+        val reopened = ours.copy(state = ReceivedState.PENDING)
+        assertEquals(ReceivedState.CLAIMED, reopened.noting(scan(balance = 0, mined = listOf("c2"))).state)
+        assertEquals(LinkActivityKind.CLAIM, PaymentLinkIndex(emptyList(), listOf(ours)).match(incoming("c2"))?.kind)
+        // A second claim keeps both as earlier spends of ours.
+        assertTrue(ours.claimSigned(listOf("c3"), amount = 1, to = "Main", at = 20, height = 600).spendsBeforeClaim.containsAll(listOf("c1", "c2")))
     }
 
     @Test
@@ -292,5 +358,8 @@ class PaymentLinkStuckStatesTest {
         val received = json.decodeFromString(ReceivedLink.serializer(), """{"id":"r","words":null,"height":1,"amount":0,"expiry":0,"receivedAtMillis":1}""")
         assertFalse(received.claimLostRace)
         assertNull(received.claimSentHeight)
+        assertEquals(emptyList<String>(), received.claimTxids)
+        // A record with one reclaim txid (before reclaimTxids) keeps it as its own.
+        assertEquals(listOf("cd"), LinkStatusRules.ownReclaimTxids(link.copy(reclaimTxid = "cd")))
     }
 }

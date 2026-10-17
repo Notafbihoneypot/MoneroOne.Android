@@ -158,7 +158,7 @@ class LinkStatusRulesTest {
         val mined = check(confirmations = 30, balance = 7, unlocked = 7).copy(spendTxids = listOf("ab"), minedSpendTxids = listOf("ab"))
         val reopened = LinkStatusRules.withCheck(sent(check = check(confirmations = 12), reclaimTxid = "ab"), mined)
         assertEquals(LinkStatus.READY, LinkStatusRules.baseStatus(reopened))
-        val again = reopened.copy(reclaimTxid = "cd", spendsBeforeReclaim = LinkStatusRules.spendsBeforeReclaim(reopened, "cd"))
+        val again = reopened.copy(reclaimTxid = "cd", spendsBeforeReclaim = LinkStatusRules.spendsBeforeReclaim(reopened, listOf("cd")))
         assertEquals(listOf("ab"), again.spendsBeforeReclaim)
         // A fresh scan that does not see "cd" in the pool yet: still reclaimed.
         val after = LinkStatusRules.withCheck(again, mined)

@@ -94,6 +94,11 @@ data class SentLink(
      */
     val fundingFailed: Boolean = false,
     val reclaimTxid: String? = null,
+    /**
+     * Every transaction of our reclaim in [reclaimTxid] (the first of them), saved signed before the
+     * broadcast: a sweep wallet2 splits in several is ours in full. Empty on older records: [reclaimTxid] only.
+     */
+    val reclaimTxids: List<String> = emptyList(),
     /** The reclaim lost a race to a claim: the link reads Claimed. */
     val reclaimLostRace: Boolean = false,
     val lastCheck: EnvelopeSnapshot? = null,
@@ -157,6 +162,11 @@ data class ReceivedLink(
     val receivedAtMillis: Long,
     val state: ReceivedState = ReceivedState.PENDING,
     val claimTxid: String? = null,
+    /**
+     * Every transaction of our claim in [claimTxid] (the first of them), saved signed before the broadcast:
+     * a sweep wallet2 splits in several is ours in full. Empty on older records: [claimTxid] only.
+     */
+    val claimTxids: List<String> = emptyList(),
     val claimedAmount: Long? = null,
     val claimedTo: String? = null,
     val lastCheck: EnvelopeSnapshot? = null,
@@ -228,7 +238,7 @@ data class ReceivedLink(
     fun noting(check: EnvelopeSnapshot, wallet: WalletHistory = WalletHistory()): ReceivedLink {
         val read = LinkStatusRules.annotated(settleTxids, settledAt, check, wallet, settledHeight)
         // Another device's claim is in a block, ours is not live, and nothing is left: final, no more checks.
-        if (state == ReceivedState.CLAIMED && !claimLostRace && LinkStatusRules.claimLost(claimTxid, spendsBeforeClaim, read)) {
+        if (state == ReceivedState.CLAIMED && !claimLostRace && LinkStatusRules.claimLost(ownClaimTxids, spendsBeforeClaim, read)) {
             return copy(claimLostRace = true, lastCheck = read)
         }
         if (isSettled && !LinkStatusRules.reopens(settleTxids, read)) {
@@ -239,30 +249,33 @@ data class ReceivedLink(
             read.balance != lastCheck?.balance -> null
             else -> netAmount
         }
-        val ours = claimTxid?.takeIf { it.isNotEmpty() }
+        val ours = ownClaimTxids
         val next = when {
             // Past the guard, a settled link has money its settle left behind, or its claim dropped: it is open again.
             isSettled -> ReceivedState.PENDING
             // A claim read as dropped is in a block after all, and took the money: claimed here again.
-            ours != null && ours in read.minedSpendTxids && LinkStatusRules.claimView(read) == ClaimView.AlreadyClaimed -> ReceivedState.CLAIMED
+            ours.any { it in read.minedSpendTxids } && LinkStatusRules.claimView(read) == ClaimView.AlreadyClaimed -> ReceivedState.CLAIMED
             else -> state
         }
         return copy(lastCheck = read, netAmount = net, state = next)
     }
 
     /**
-     * Our claim [txid] is signed and about to go out ([at], chain [height]): the record reads claimed into
-     * [to] for [amount] before the broadcast, so an app killed mid-flight or a broadcast that timed out still
-     * knows the spend is ours. Earlier spends stay apart from it ([spendsBeforeClaim]).
+     * Our claim [txids] (one sweep, every transaction wallet2 split it in) is signed and about to go out ([at],
+     * chain [height]): the record reads claimed into [to] for [amount] before the broadcast, so an app killed
+     * mid-flight or a broadcast that timed out still knows the spend is ours. Earlier spends stay apart from
+     * it ([spendsBeforeClaim]).
      */
-    fun claimSigned(txid: String, amount: Long, to: String, at: Long, height: Long?): ReceivedLink = copy(
-        state = ReceivedState.CLAIMED, claimTxid = txid, claimedAmount = amount, claimedTo = to, claimSentAt = at,
-        claimSentHeight = height, spendsBeforeClaim = LinkStatusRules.spendsBeforeClaim(this, txid), claimLostRace = false
+    fun claimSigned(txids: List<String>, amount: Long, to: String, at: Long, height: Long?): ReceivedLink = copy(
+        state = ReceivedState.CLAIMED, claimTxid = txids.first(), claimTxids = txids, claimedAmount = amount, claimedTo = to,
+        claimSentAt = at, claimSentHeight = height, spendsBeforeClaim = LinkStatusRules.spendsBeforeClaim(this, txids),
+        claimLostRace = false
     )
 
     /** The node refused the claim [claimSigned] saved, so nothing went out: the claim fields go back to [before]'s. */
     fun claimRefused(before: ReceivedLink): ReceivedLink = copy(
-        state = before.state, claimTxid = before.claimTxid, claimedAmount = before.claimedAmount, claimedTo = before.claimedTo,
+        state = before.state, claimTxid = before.claimTxid, claimTxids = before.claimTxids, claimedAmount = before.claimedAmount,
+        claimedTo = before.claimedTo,
         claimSentAt = before.claimSentAt, claimSentHeight = before.claimSentHeight, spendsBeforeClaim = before.spendsBeforeClaim,
         claimLostRace = before.claimLostRace
     )
@@ -290,9 +303,13 @@ data class ReceivedLink(
         get() = when {
             // Another device's claim beat ours: final, nothing to follow.
             state == ReceivedState.CLAIMED && claimLostRace -> emptyList()
-            state == ReceivedState.CLAIMED -> listOfNotNull(claimTxid?.takeIf { it.isNotEmpty() })
+            state == ReceivedState.CLAIMED -> ownClaimTxids
             else -> lastCheck?.spendTxids.orEmpty()
         }
+
+    /** Every transaction of our claim ([claimTxids]; older records: [claimTxid]). Empty without one. */
+    val ownClaimTxids: List<String>
+        get() = claimTxids.ifEmpty { listOfNotNull(claimTxid) }.filter { it.isNotEmpty() }.distinct()
 
     /** This device's own claim (its transaction or amount is known), not one that lost to another claim. */
     val claimedHere: Boolean
@@ -498,14 +515,22 @@ object LinkStatusRules {
      * history ([historyHashes], every state) holds. wallet2 lists a transaction it committed after a timeout,
      * or found again in a seed restore, without its destinations, so its address cannot match.
      * [fundingTxidFor] finds the open wallet's outgoing transaction to an envelope address (each envelope has
-     * its own address): only for records saved before attempts had txids.
+     * its own address): only for records saved before attempts had txids. [liveHashes]: the hashes in
+     * [historyHashes] the wallet does not mark failed.
      */
-    fun fundingsToAdopt(sent: List<SentLink>, historyHashes: Set<String> = emptySet(), fundingTxidFor: (String) -> String?): Map<String, String> =
+    fun fundingsToAdopt(
+        sent: List<SentLink>,
+        historyHashes: Set<String> = emptySet(),
+        liveHashes: Set<String> = historyHashes,
+        fundingTxidFor: (String) -> String?
+    ): Map<String, String> =
         sent.filter { it.reclaimTxid == null }
             .mapNotNull { link ->
                 val txid = if (link.attemptTxids.isNotEmpty()) {
-                    // A known funding txid stays: its state follows the history ([fundingFailures]).
-                    if (link.fundingTxid != null) null else link.attemptTxids.firstOrNull { it in historyHashes }
+                    // A known funding txid stays: its state follows the history ([fundingFailures]). Of a
+                    // funding wallet2 split in several transactions, a live one first ([liveHashes]).
+                    if (link.fundingTxid != null) null
+                    else link.attemptTxids.firstOrNull { it in liveHashes } ?: link.attemptTxids.firstOrNull { it in historyHashes }
                 } else {
                     if (link.fundingTxid == null || link.fundingFailed) fundingTxidFor(link.envelopeAddress) else null
                 }
@@ -513,17 +538,23 @@ object LinkStatusRules {
             }
             .toMap()
 
+    /** Every funding transaction of [link]: its funding txid and each transaction of its signed attempt. */
+    fun ownFundingTxids(link: SentLink): List<String> = (listOfNotNull(link.fundingTxid) + link.attemptTxids).distinct()
+
     /**
      * Records whose [SentLink.fundingFailed] changes with the open wallet's history: id to the new value.
-     * [failed]: hashes the wallet marks failed; [live]: every other hash it holds. A txid it does not hold
-     * (another wallet funded the link) keeps its value.
+     * [failed]: hashes the wallet marks failed; [live]: every other hash it holds. Every funding transaction
+     * counts ([ownFundingTxids]): failed only when none is live. Txids it does not hold (another wallet funded
+     * the link) keep the value.
      */
     fun fundingFailures(sent: List<SentLink>, failed: Set<String>, live: Set<String>): Map<String, Boolean> =
         sent.mapNotNull { link ->
-            val txid = link.fundingTxid ?: return@mapNotNull null
-            val now = when (txid) {
-                in live -> false
-                in failed -> true
+            if (link.fundingTxid == null) return@mapNotNull null
+            // A funding wallet2 split in several transactions sent money while any of them is live.
+            val ours = ownFundingTxids(link)
+            val now = when {
+                ours.any { it in live } -> false
+                ours.any { it in failed } -> true
                 else -> return@mapNotNull null
             }
             if (now != link.fundingFailed) link.id to now else null
@@ -596,46 +627,52 @@ object LinkStatusRules {
      * Final: the link reads Claimed. Not for a reclaim whose txid never showed.
      */
     fun lostToClaim(link: SentLink, check: EnvelopeSnapshot): Boolean {
-        val ours = link.reclaimTxid?.takeIf { it.isNotEmpty() } ?: return false
-        return ours !in check.spendTxids && check.spendTxids.any { it != ours && it !in link.spendsBeforeReclaim }
+        val ours = ownReclaimTxids(link).ifEmpty { return false }
+        return ours.none { it in check.spendTxids } && check.spendTxids.any { it !in ours && it !in link.spendsBeforeReclaim }
     }
 
-    /** What [SentLink.spendsBeforeReclaim] holds when a new reclaim [txid] of [link] goes out. */
-    fun spendsBeforeReclaim(link: SentLink, txid: String?): List<String> =
-        (link.spendsBeforeReclaim + link.lastCheck?.spendTxids.orEmpty() + listOfNotNull(link.reclaimTxid?.takeIf { it.isNotEmpty() }))
-            .distinct().filter { it != txid }
+    /** Every transaction of our reclaim ([SentLink.reclaimTxids]; older records: [SentLink.reclaimTxid]). Empty without one. */
+    fun ownReclaimTxids(link: SentLink): List<String> =
+        link.reclaimTxids.ifEmpty { listOfNotNull(link.reclaimTxid) }.filter { it.isNotEmpty() }.distinct()
+
+    /** What [SentLink.spendsBeforeReclaim] holds when a new reclaim of [link] ([txids]) goes out: every earlier spend, ours too. */
+    fun spendsBeforeReclaim(link: SentLink, txids: Collection<String>): List<String> =
+        (link.spendsBeforeReclaim + link.lastCheck?.spendTxids.orEmpty() + ownReclaimTxids(link))
+            .distinct().filter { it !in txids }
 
     /**
-     * Our reclaim [txid] is signed and about to go out ([at], chain [height]): the record reads reclaimed before
-     * the broadcast, so an app killed mid-flight or a broadcast that timed out still knows the spend is ours,
-     * and a second tap never double-spends it. Earlier spends stay apart from it ([spendsBeforeReclaim]).
+     * Our reclaim [txids] (one sweep, every transaction wallet2 split it in) is signed and about to go out
+     * ([at], chain [height]): the record reads reclaimed before the broadcast, so an app killed mid-flight or a
+     * broadcast that timed out still knows the spend is ours, and a second tap never double-spends it. Earlier
+     * spends stay apart from it ([spendsBeforeReclaim]).
      */
-    fun reclaimSigned(link: SentLink, txid: String, at: Long, height: Long?): SentLink = link.copy(
-        reclaimTxid = txid, reclaimSentAt = at, reclaimSentHeight = height, spendsBeforeReclaim = spendsBeforeReclaim(link, txid)
+    fun reclaimSigned(link: SentLink, txids: List<String>, at: Long, height: Long?): SentLink = link.copy(
+        reclaimTxid = txids.first(), reclaimTxids = txids, reclaimSentAt = at, reclaimSentHeight = height,
+        spendsBeforeReclaim = spendsBeforeReclaim(link, txids)
     )
 
     /** The node refused the reclaim [reclaimSigned] saved, so nothing went out: the reclaim fields go back to [before]'s. */
     fun reclaimRefused(link: SentLink, before: SentLink): SentLink = link.copy(
-        reclaimTxid = before.reclaimTxid, reclaimSentAt = before.reclaimSentAt, reclaimSentHeight = before.reclaimSentHeight,
-        spendsBeforeReclaim = before.spendsBeforeReclaim
+        reclaimTxid = before.reclaimTxid, reclaimTxids = before.reclaimTxids, reclaimSentAt = before.reclaimSentAt,
+        reclaimSentHeight = before.reclaimSentHeight, spendsBeforeReclaim = before.spendsBeforeReclaim
     )
 
-    /** What [ReceivedLink.spendsBeforeClaim] holds when a new claim [txid] of [link] goes out. */
-    fun spendsBeforeClaim(link: ReceivedLink, txid: String?): List<String> =
-        (link.spendsBeforeClaim + link.lastCheck?.spendTxids.orEmpty() + listOfNotNull(link.claimTxid?.takeIf { it.isNotEmpty() }))
-            .distinct().filter { it != txid }
+    /** What [ReceivedLink.spendsBeforeClaim] holds when a new claim of [link] ([txids]) goes out: every earlier spend, ours too. */
+    fun spendsBeforeClaim(link: ReceivedLink, txids: Collection<String>): List<String> =
+        (link.spendsBeforeClaim + link.lastCheck?.spendTxids.orEmpty() + link.ownClaimTxids)
+            .distinct().filter { it !in txids }
 
     /**
      * Two devices claimed one link, and the other one won: [check] shows a spend in a block that is neither our
-     * claim [ours] nor one from before it ([before]), our claim is not live in the envelope (it dropped, or the
-     * node refused it as a double spend), and nothing is left. Final: the link reads claimed and is checked no
+     * claim (any transaction of it, [ours]) nor one from before it ([before]), no transaction of our claim is
+     * live in the envelope (it dropped, or the node refused it as a double spend), and nothing is left. Final: the link reads claimed and is checked no
      * more, so the losing device stops pausing its main wallet for checks. A spend still in the pool can drop,
      * so it never counts.
      */
-    fun claimLost(ours: String?, before: List<String>, check: EnvelopeSnapshot): Boolean {
-        val txid = ours?.takeIf { it.isNotEmpty() } ?: return false
-        return txid !in check.spendTxids && check.balance == 0L &&
-            check.minedSpendTxids.any { it != txid && it !in before }
+    fun claimLost(ours: List<String>, before: List<String>, check: EnvelopeSnapshot): Boolean {
+        val txids = ours.filter { it.isNotEmpty() }.ifEmpty { return false }
+        return txids.none { it in check.spendTxids } && check.balance == 0L &&
+            check.minedSpendTxids.any { it !in txids && it !in before }
     }
 
     /** When our reclaim in [SentLink.reclaimTxid] went out (older records: when it began); null without one. */
@@ -742,7 +779,7 @@ object LinkStatusRules {
      */
     fun settleTxids(link: SentLink): List<String> = when {
         link.reclaimLostRace -> emptyList()
-        link.reclaimTxid != null -> listOfNotNull(link.reclaimTxid.takeIf { it.isNotEmpty() })
+        link.reclaimTxid != null -> ownReclaimTxids(link)
         else -> link.lastCheck?.spendTxids.orEmpty()
     }
 

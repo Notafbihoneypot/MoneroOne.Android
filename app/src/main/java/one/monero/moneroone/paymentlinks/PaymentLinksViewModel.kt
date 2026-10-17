@@ -101,7 +101,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 val liveHashes = live.mapNotNull { it.hash }.toSet()
                 Triple(
                     LinkStatusRules.fundingFailures(sent, failedHashes, liveHashes),
-                    LinkStatusRules.fundingsToAdopt(sent, failedHashes + liveHashes) { address -> fundingTxid(address, txs) },
+                    LinkStatusRules.fundingsToAdopt(sent, failedHashes + liveHashes, liveHashes) { address -> fundingTxid(address, txs) },
                     failedHashes
                 )
             }.collect { (failures, found, failedHashes) ->
@@ -214,9 +214,9 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 tx.transfers?.any { it.address == envelopeAddress } == true
         }?.hash
 
-    /** The block of [link]'s funding in the open wallet's history; null when it is not in a block there. */
+    /** The block of [link]'s funding in the open wallet's history (its first, when split); null when none is in a block there. */
     private fun fundingBlock(link: SentLink): Long? =
-        fundingTransaction(link, WalletManager.transactionsFlow.value)?.takeIf { !it.isPending && it.blockheight > 0 }?.blockheight
+        fundingTransactions(link, WalletManager.transactionsFlow.value).filter { !it.isPending && it.blockheight > 0 }.minOfOrNull { it.blockheight }
 
     /**
      * Rescans started in this run, per link. Two at most: a rescan cut short (a detail opened, the node
@@ -459,18 +459,19 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     /**
      * Saves the signed sweep [signed] on [id]'s record as its settle, before the broadcast: the claim or reclaim
-     * txid, when it went out and the chain [height] then (its grace counts blocks from there). An app killed
+     * txids (every transaction of the sweep), when it went out and the chain [height] then (its grace counts
+     * blocks from there). An app killed
      * mid-flight, or a broadcast that timed out, still knows the spend is ours. Throws when the save fails: then
      * nothing is broadcast. Returns what puts the record back, for a sweep the node refuses (nothing went out).
      */
     private fun saveSettle(id: String, kind: SweepKind, signed: SignedTransaction, height: Long?, unlocked: Long, walletName: String): () -> Unit {
-        val txid = signed.txids.first()
+        val txids = signed.txids
         val now = System.currentTimeMillis()
         val failure = { IllegalStateException(if (kind == SweepKind.RECLAIM) tr("Could not save the reclaim. Nothing was sent.") else tr("Could not save the claim. Nothing was sent.")) }
         when (kind) {
             SweepKind.RECLAIM -> {
                 val before = store.sent(id) ?: throw failure()
-                store.updateSent(id) { LinkStatusRules.reclaimSigned(it, txid, now, height) } ?: throw failure()
+                store.updateSent(id) { LinkStatusRules.reclaimSigned(it, txids, now, height) } ?: throw failure()
                 return { store.updateSent(id) { LinkStatusRules.reclaimRefused(it, before) } }
             }
             SweepKind.CLAIM -> {
@@ -478,7 +479,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 val before = store.received(id) ?: throw failure()
                 // The secret stays after the claim: a reorg or newer locked funding can leave money in this envelope.
                 val amount = signed.amount.takeIf { it > 0 } ?: unlocked
-                store.updateReceived(id) { it.claimSigned(txid, amount, walletName, now, height) } ?: throw failure()
+                store.updateReceived(id) { it.claimSigned(txids, amount, walletName, now, height) } ?: throw failure()
                 return { store.updateReceived(id) { it.claimRefused(before) } }
             }
         }

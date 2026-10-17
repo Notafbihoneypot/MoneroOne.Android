@@ -116,19 +116,31 @@ internal enum class LinkHue { RED, BRAND, GREEN, GRAY, YELLOW }
  * [link]'s funding in the open wallet's history: its funding txid, else an outgoing transaction to its
  * envelope (a record whose txid was never saved). Null when that wallet did not fund it.
  */
-internal fun fundingTransaction(link: SentLink, transactions: List<TransactionInfo>): TransactionInfo? {
+internal fun fundingTransaction(link: SentLink, transactions: List<TransactionInfo>): TransactionInfo? =
+    fundingTransactions(link, transactions).firstOrNull()
+
+/**
+ * Every transaction of [link]'s funding in the open wallet's history (wallet2 can split a send in several):
+ * its funding txid's first, then the rest of its signed attempt; else (a record whose txids were never
+ * saved) its outgoing transaction to the envelope. Empty when that wallet did not fund it.
+ */
+internal fun fundingTransactions(link: SentLink, transactions: List<TransactionInfo>): List<TransactionInfo> {
     val outgoing = transactions.filter { it.direction == TransactionInfo.Direction.Direction_Out && !it.isFailed }
-    link.fundingTxid?.let { txid -> outgoing.firstOrNull { it.hash == txid }?.let { return it } }
-    return outgoing.firstOrNull { tx -> tx.transfers?.any { it.address == link.envelopeAddress } == true }
+    val ours = LinkStatusRules.ownFundingTxids(link).mapNotNull { txid -> outgoing.firstOrNull { it.hash == txid } }
+    if (ours.isNotEmpty()) return ours
+    return listOfNotNull(outgoing.firstOrNull { tx -> tx.transfers?.any { it.address == link.envelopeAddress } == true })
 }
 
-/** The live confirmations of [link]'s funding in the open wallet's history; null when that wallet did not fund it. */
+/**
+ * The live confirmations of [link]'s funding in the open wallet's history (its least confirmed transaction);
+ * null when that wallet did not fund it.
+ */
 internal fun fundingConfirmations(link: SentLink, transactions: List<TransactionInfo>): Long? =
-    fundingTransaction(link, transactions)?.confirmations
+    fundingTransactions(link, transactions).minOfOrNull { it.confirmations }
 
-/** The network fee of [link]'s funding, from the open wallet's history; null when that wallet did not fund it. */
+/** The network fee of [link]'s funding (every transaction of it), from the open wallet's history; null when that wallet did not fund it. */
 internal fun fundingFee(link: SentLink, transactions: List<TransactionInfo>): Long? =
-    fundingTransaction(link, transactions)?.fee?.takeIf { it > 0 }
+    fundingTransactions(link, transactions).sumOf { it.fee }.takeIf { it > 0 }
 
 /** [LinkStatusRules.sentView] with the open wallet's history and daemon height. */
 internal fun sentView(link: SentLink, transactions: List<TransactionInfo>, daemonHeight: Long?, nowSeconds: Long = nowSeconds()): SentView =
