@@ -107,6 +107,24 @@ internal fun linkFundingUnconfirmed(): String =
 
 private const val SEND_COMMIT_FAILED = "Send Transaction failed"
 
+/**
+ * The funding failed before anything reached the network: the kit never built the transaction, or the
+ * wallet or the send flow was not ready. Its hidden attempt needs no envelope scan. Any other error
+ * (a failed commit, an unknown one) may come after the node took the funding.
+ */
+internal fun fundingFailedBeforeBroadcast(sendError: String): Boolean =
+    PRE_BROADCAST_ERRORS.any { sendError.startsWith(it) }
+
+private val PRE_BROADCAST_ERRORS = listOf(
+    // The kit: the transaction was never built, or its wallet was not connected.
+    "Create Transaction failed",
+    "Wallet is not connected",
+    // SendCoordinator.begin: the send never started.
+    "The wallet changed.",
+    "A transaction is still in progress.",
+    "Invalid amount"
+)
+
 /** Opens the system share sheet with the spec's share text. The link never goes to the clipboard. */
 internal fun shareLink(context: Context, amountXmr: String, link: PaymentLink) {
     val send = Intent(Intent.ACTION_SEND).apply {

@@ -127,6 +127,7 @@ import one.monero.moneroone.paymentlinks.PaymentLinkReadyPhase
 import one.monero.moneroone.paymentlinks.PaymentLinkRecipientToken
 import one.monero.moneroone.paymentlinks.PaymentLinkReview
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
+import one.monero.moneroone.paymentlinks.fundingFailedBeforeBroadcast
 import one.monero.moneroone.paymentlinks.linkFundingErrorText
 import one.monero.moneroone.paymentlinks.linkFundingUnconfirmed
 import one.monero.moneroone.ui.components.AuthGateDialog
@@ -271,7 +272,11 @@ fun SendScreen(
                 phase = SendPhase.SUCCESS; sendInProgress = false
             }
             is SendState.Error -> {
-                if (linkMode) linkDraft?.let { paymentLinks?.fundingFinished(it.link.id, success = false) }
+                // A failure before the broadcast needs no envelope scan; any other may have reached the network.
+                val error = (sendState as? SendState.Error)?.message.orEmpty()
+                if (linkMode) linkDraft?.let {
+                    paymentLinks?.fundingFinished(it.link.id, success = false, beforeBroadcast = fundingFailedBeforeBroadcast(error))
+                }
                 phase = SendPhase.ERROR; sendInProgress = false
             }
             else -> {}

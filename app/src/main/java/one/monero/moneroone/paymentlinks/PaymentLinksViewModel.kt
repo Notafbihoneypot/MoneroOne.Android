@@ -159,9 +159,16 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         )
     }
 
-    /** The funding broadcast ended. On success the funding txid is read from the wallet's history. */
-    fun fundingFinished(id: String, success: Boolean) {
-        store.updateSent(id) { it.copy(state = if (success) SentState.FUNDED else SentState.NOT_FUNDED) }
+    /**
+     * The funding broadcast ended. On success the funding txid is read from the wallet's history.
+     * [beforeBroadcast]: the failure came before anything reached the network, so the hidden attempt
+     * needs no envelope scan ([LinkStatusRules.hiddenScanDue]).
+     */
+    fun fundingFinished(id: String, success: Boolean, beforeBroadcast: Boolean = false) {
+        store.updateSent(id) {
+            if (success) it.copy(state = SentState.FUNDED)
+            else it.copy(state = SentState.NOT_FUNDED, failedBeforeBroadcast = beforeBroadcast)
+        }
         if (!success) return
         viewModelScope.launch {
             val address = store.sent(id)?.envelopeAddress ?: return@launch
@@ -195,10 +202,12 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     private val rescans = mutableMapOf<String, Int>()
 
     /**
-     * Hidden links (no funding anywhere) checked in this run. Each check stops the main wallet, so a hidden
-     * link gets one per run, in case money reached its envelope from outside this wallet's history.
+     * Transaction hashes the open wallet's history shows in the pool: a claim or reclaim into this wallet
+     * that waits there is not dropped ([LinkStatusRules.droppedSettles]). Read before an envelope opens:
+     * the main wallet stops while it runs.
      */
-    private val hiddenChecked = mutableSetOf<String>()
+    private fun poolHashes(): Set<String> =
+        WalletManager.transactionsFlow.value.filter { it.isPending && !it.isFailed }.mapNotNull { it.hash }.toSet()
 
     /**
      * Opens envelope [id] ([link]) and waits for its first full sync. [hold] gets each envelope as it
@@ -242,6 +251,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         sessionJob?.cancel()
         sessionJob = viewModelScope.launch {
             var estimatesClaim = false
+            val inPool = poolHashes()
             sessionLock.withLock {
                 closeEnvelopeLocked()
                 val link = store.sent(id)?.link ?: store.received(id)?.link
@@ -272,7 +282,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = message)
                     return@withLock
                 }
-                publish(id, if (estimatesClaim) first.copy(sweepFee = opened.sweepFee(first.balance)) else first)
+                publish(id, if (estimatesClaim) first.copy(sweepFee = opened.sweepFee(first.balance)) else first, inPool)
             }
             // Live: confirmations and balance as blocks arrive. A received link's claim fee is
             // estimated again when the balance moves, and every FEE_EVERY_MS.
@@ -296,7 +306,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                     // The estimate suspends: a claim may have started meanwhile.
                     val still = _session.value
                     if (sweeping || still?.id != id || still.phase == EnvelopeSession.Phase.SWEEPING) continue
-                    if (next.copy(checkedAt = 0) != last?.copy(checkedAt = 0)) publish(id, next)
+                    if (next.copy(checkedAt = 0) != last?.copy(checkedAt = 0)) publish(id, next, inPool)
                 }
             }
         }
@@ -315,10 +325,10 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         Timber.d("PaymentLinks: %s", LinkStatusRules.checkLogLine(number, snapshot))
     }
 
-    private fun publish(id: String, snapshot: EnvelopeSnapshot) {
+    private fun publish(id: String, snapshot: EnvelopeSnapshot, inPool: Set<String>) {
         logCheck(store.sent(id)?.number ?: store.received(id)?.number, snapshot)
-        store.updateSent(id) { LinkStatusRules.withCheck(it, snapshot) }
-        store.updateReceived(id) { it.noting(snapshot) }
+        store.updateSent(id) { LinkStatusRules.withCheck(it, snapshot, inPool) }
+        store.updateReceived(id) { it.noting(snapshot, inPool) }
         _session.value = EnvelopeSession(id, EnvelopeSession.Phase.LIVE, snapshot)
     }
 
@@ -412,7 +422,9 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     private fun record(id: String, kind: SweepKind, outcome: SweepOutcome, amount: Long, walletName: String, earlierAttempt: Boolean) {
         when (kind) {
             SweepKind.RECLAIM -> when (outcome) {
-                is SweepOutcome.Sent -> store.updateSent(id) { it.copy(reclaimTxid = outcome.txid ?: "") }
+                is SweepOutcome.Sent -> store.updateSent(id) {
+                    it.copy(reclaimTxid = outcome.txid ?: "", reclaimSentAt = System.currentTimeMillis())
+                }
                 // After a reclaim the app lost, the spend that beat this one may be our own: the open
                 // wallet's history decides (see init). Otherwise a claim won the race.
                 SweepOutcome.AlreadyClaimed -> if (!earlierAttempt) store.updateSent(id) { it.copy(reclaimLostRace = true) }
@@ -424,7 +436,10 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 // locked funding can leave money in this envelope.
                 val claimed: (ReceivedLink) -> ReceivedLink = {
                     if (outcome is SweepOutcome.Sent) {
-                        it.copy(state = ReceivedState.CLAIMED, claimTxid = outcome.txid, claimedAmount = amount, claimedTo = walletName)
+                        it.copy(
+                            state = ReceivedState.CLAIMED, claimTxid = outcome.txid, claimedAmount = amount, claimedTo = walletName,
+                            claimSentAt = System.currentTimeMillis()
+                        )
                     } else {
                         it.copy(state = ReceivedState.CLAIMED)
                     }
@@ -449,10 +464,11 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     /**
      * A settled link's detail opened (founder decision 2026-10-17): one quiet check of its envelope for
-     * money its claim or reclaim left behind (a later funding, outputs still locked at the sweep). The
-     * link reopens only when [LinkStatusRules.reopens] says so: the settle is in a block and spendable
-     * money is still there. Each check stops the main wallet for a moment, so a link is checked at most
-     * every [LOOK_AGAIN_AFTER_MS], and not again in this run once a check was conclusive.
+     * money its claim or reclaim left behind (a later funding, outputs still locked at the sweep), or never
+     * moved (a dropped settle). The link reopens only when [LinkStatusRules.reopens] says so: the settle is
+     * in a block or dropped, and spendable money is still there. Each check stops the main wallet for a
+     * moment, so a link is checked at most every [LOOK_AGAIN_AFTER_MS], and not again in this run once a
+     * check was conclusive.
      */
     fun checkLeftover(id: String) {
         if (sweeping || _session.value != null || leftoverJob?.isActive == true || id in leftoverDone) return
@@ -467,29 +483,30 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         if (now - (leftoverAt[id] ?: 0L) < LOOK_AGAIN_AFTER_MS) return
         leftoverAt[id] = now
         val number = sent?.number ?: received?.number
+        val settledAt = sent?.let(LinkStatusRules::settledAt) ?: received?.settledAt
+        val inPool = poolHashes()
         leftoverJob = viewModelScope.launch {
             sessionLock.withLock {
                 // A claim sheet or detail took the envelope runtime meanwhile.
                 if (_session.value != null) return@withLock
                 var opened: EnvelopeWallet? = null
+                var stale = false
                 try {
                     openChecked(id, link) { opened = it }?.let { snapshot ->
                         logCheck(number, snapshot)
+                        stale = LinkStatusRules.staleSettleCache(txids, settledAt, snapshot, inPool)
                         val mined = snapshot.minedSpendTxids.containsAll(txids)
                         if (mined && (snapshot.balance == 0L || snapshot.unlocked > 0)) leftoverDone.add(id)
-                        store.updateSent(id) { LinkStatusRules.withCheck(it, snapshot) }
-                        store.updateReceived(id) { it.noting(snapshot) }
+                        store.updateSent(id) { LinkStatusRules.withCheck(it, snapshot, inPool) }
+                        store.updateReceived(id) { it.noting(snapshot, inPool) }
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Timber.w(e, "PaymentLinks: link %s: envelope open failed (leftover check)", number)
                 } finally {
-                    withContext(NonCancellable) {
-                        opened?.close()
-                        // Still settled: its files are no longer needed.
-                        if (id !in store.liveEnvelopeIds()) withContext(Dispatchers.IO) { EnvelopeFiles.delete(context, id) }
-                    }
+                    // Settled and final: its files are no longer needed.
+                    withContext(NonCancellable) { closeChecked(id, opened, stale) }
                 }
             }
         }
@@ -520,10 +537,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     private suspend fun checkDueSent() {
         val now = System.currentTimeMillis()
-        checkSent(store.sent.value.filter {
-            !LinkStatusRules.isSettled(it) && now - (it.lastCheck?.checkedAt ?: 0) > REFRESH_AFTER_MS &&
-                (!LinkStatusRules.isHidden(it) || it.id !in hiddenChecked)
-        })
+        checkSent(store.sent.value.filter { now - (it.lastCheck?.checkedAt ?: 0) > REFRESH_AFTER_MS && LinkStatusRules.checkDue(it) })
+        checkReceived(store.received.value.filter { now - (it.lastCheck?.checkedAt ?: 0) > REFRESH_AFTER_MS && it.settleUnconfirmed })
     }
 
     /**
@@ -542,15 +557,18 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         }
         fillNetAmounts()
         val now = System.currentTimeMillis()
+        // Open links, and links that can still come back: a hidden funding attempt, a settle not in a block yet.
         val due = store.sent.value.filter {
-            it.walletId == walletId && OpenLinkRules.isOpen(it, now / 1000) &&
-                now - (it.lastCheck?.checkedAt ?: 0) > LOOK_AGAIN_AFTER_MS
+            it.walletId == walletId && now - (it.lastCheck?.checkedAt ?: 0) > LOOK_AGAIN_AFTER_MS &&
+                (OpenLinkRules.isOpen(it, now / 1000) || LinkStatusRules.hiddenScanDue(it) || LinkStatusRules.settleUnconfirmed(it))
         }
-        if (due.isEmpty()) return@coroutineScope
+        val dueReceived = store.received.value.filter { it.settleUnconfirmed && now - (it.lastCheck?.checkedAt ?: 0) > LOOK_AGAIN_AFTER_MS }
+        if (due.isEmpty() && dueReceived.isEmpty()) return@coroutineScope
         val look = launch {
             _holdSyncStatus.value = walletId
             try {
                 checkSent(due)
+                checkReceived(dueReceived)
                 // The main wallet reconnects after the look: wait for it to leave Synced, then come back.
                 withTimeoutOrNull(HOLD_AFTER_MS) {
                     WalletManager.syncStateFlow.dropWhile { it is SyncState.Synced }.first { it is SyncState.Synced }
@@ -593,24 +611,70 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private suspend fun checkSent(due: List<SentLink>) {
+        if (due.isEmpty()) return
+        val inPool = poolHashes()
         for (link in due) {
             // A claim sheet or detail screen has the envelope runtime: leave it alone.
             if (_session.value != null) return
             sessionLock.withLock {
                 var opened: EnvelopeWallet? = null
+                var stale = false
                 try {
                     openChecked(link.id, link.link) { opened = it }?.let { snapshot ->
                         logCheck(link.number, snapshot)
-                        store.updateSent(link.id) { LinkStatusRules.withCheck(it, snapshot) }
-                        if (LinkStatusRules.isHidden(link)) hiddenChecked.add(link.id)
+                        stale = LinkStatusRules.staleSettleCache(
+                            LinkStatusRules.settleTxids(link), LinkStatusRules.settledAt(link), snapshot, inPool
+                        )
+                        store.updateSent(link.id) { LinkStatusRules.withCheck(it, snapshot, inPool) }
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Timber.w(e, "PaymentLinks: link %s: envelope open failed (sent link check)", link.number)
                 } finally {
-                    withContext(NonCancellable) { opened?.close() }
+                    withContext(NonCancellable) { closeChecked(link.id, opened, stale) }
                 }
+            }
+        }
+    }
+
+    /** Received links whose claim no check has seen in a block yet ([ReceivedLink.settleUnconfirmed]). */
+    private suspend fun checkReceived(due: List<ReceivedLink>) {
+        if (due.isEmpty()) return
+        val inPool = poolHashes()
+        for (record in due) {
+            if (_session.value != null) return
+            val link = record.link ?: continue
+            sessionLock.withLock {
+                var opened: EnvelopeWallet? = null
+                var stale = false
+                try {
+                    openChecked(record.id, link) { opened = it }?.let { snapshot ->
+                        logCheck(record.number, snapshot)
+                        stale = LinkStatusRules.staleSettleCache(record.settleTxids, record.settledAt, snapshot, inPool)
+                        store.updateReceived(record.id) { it.noting(snapshot, inPool) }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.w(e, "PaymentLinks: link %s: envelope open failed (received link check)", record.number)
+                } finally {
+                    withContext(NonCancellable) { closeChecked(record.id, opened, stale) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Closes a check's envelope. A settled link's files go. [stale]: the cache hides money a dropped settle
+     * never moved ([LinkStatusRules.staleSettleCache]), so its wallet files go and the next check restores it.
+     */
+    private suspend fun closeChecked(id: String, opened: EnvelopeWallet?, stale: Boolean = false) {
+        opened?.close() ?: return
+        withContext(Dispatchers.IO) {
+            when {
+                id !in store.liveEnvelopeIds() -> EnvelopeFiles.delete(context, id)
+                stale -> EnvelopeFiles.deleteWallet(context, id)
             }
         }
     }

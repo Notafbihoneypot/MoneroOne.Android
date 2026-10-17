@@ -131,6 +131,18 @@ class PaymentLinkShapesTest {
     }
 
     @Test
+    fun `only errors from before the broadcast skip the hidden attempt's scans`() {
+        assertTrue(fundingFailedBeforeBroadcast("Create Transaction failed: not enough money"))
+        assertTrue(fundingFailedBeforeBroadcast("Wallet is not connected yet. Wait for the wallet to reconnect and try again."))
+        assertTrue(fundingFailedBeforeBroadcast("Wallet is not connected"))
+        assertTrue(fundingFailedBeforeBroadcast("The wallet changed. Close this payment and start again."))
+        assertTrue(fundingFailedBeforeBroadcast("A transaction is still in progress. Wait for it to finish before sending again."))
+        assertFalse(fundingFailedBeforeBroadcast("Send Transaction failed: daemon is busy"))
+        assertFalse(fundingFailedBeforeBroadcast("Transaction failed"))
+        assertFalse(fundingFailedBeforeBroadcast(""))
+    }
+
+    @Test
     fun `a failed commit reads unclear and other link errors read as they are`() {
         val unclear = "The payment could not be confirmed. If it went through, the link appears in Activity."
         assertEquals(unclear, linkFundingUnconfirmed())

@@ -49,7 +49,16 @@ data class EnvelopeSnapshot(
     /** The envelope's incoming transactions, oldest first (one in the pool last): the funding as the envelope sees it. */
     val fundingTxids: List<String> = emptyList(),
     /** The envelope's outgoing transactions that are in a block: a claim or reclaim that can no longer drop. */
-    val minedSpendTxids: List<String> = emptyList()
+    val minedSpendTxids: List<String> = emptyList(),
+    /** The envelope's outgoing transactions wallet2 marks failed: they left the pool unmined, and their money is back. */
+    val failedSpendTxids: List<String> = emptyList(),
+    /**
+     * The settle transactions this check reads as dropped ([LinkStatusRules.droppedSettles]): failed, or past
+     * [LinkStatusRules.SETTLE_GRACE_MS] in no block and not in the pool. Set when a record takes the check.
+     */
+    val droppedSpendTxids: List<String> = emptyList(),
+    /** The block height the envelope's scan reached (the daemon height when it reported synced). 0: not known. */
+    val scannedHeight: Long = 0
 )
 
 /**
@@ -85,6 +94,13 @@ data class SentLink(
     val reclaimStartedAt: Long? = null,
     /** The kit wallet that reclaim swept into (WalletManager.currentWalletId). */
     val reclaimWallet: String? = null,
+    /** When the node took the reclaim in [reclaimTxid]: its grace before an unmined reclaim reads as dropped. */
+    val reclaimSentAt: Long? = null,
+    /**
+     * The funding failed before anything reached the network (the transaction was never built, or the
+     * wallet was not connected), so its envelope needs no scan. False when the broadcast may have gone out.
+     */
+    val failedBeforeBroadcast: Boolean = false,
     /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links. */
     val secret: String? = null,
     /** This device's number for the link, shared with received links ([LinkNames]). */
@@ -135,6 +151,8 @@ data class ReceivedLink(
     /** The wallet that claim went to: its name, and its kit wallet (WalletManager.currentWalletId). */
     val claimStartedTo: String? = null,
     val claimWallet: String? = null,
+    /** When the node took the claim in [claimTxid]: its grace before an unmined claim reads as dropped. */
+    val claimSentAt: Long? = null,
     /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links, or legacy records that discarded their secret. */
     val secret: String? = null,
     /**
@@ -180,18 +198,38 @@ data class ReceivedLink(
      *
      * A settled link keeps its record unless [check] reopens it ([LinkStatusRules.reopens]):
      * a check made before the claim is in a block still sees the money, and must never turn
-     * Claimed back into Ready (a second claim would fail as a double spend).
+     * Claimed back into Ready (a second claim would fail as a double spend). It takes a check
+     * that shows the settle in a block and the envelope empty, so it is checked no more.
+     * [inPool]: transaction hashes the open wallet's history shows in the pool.
      */
-    fun noting(check: EnvelopeSnapshot): ReceivedLink {
-        if (isSettled && !LinkStatusRules.reopens(settleTxids, check)) return this
+    fun noting(check: EnvelopeSnapshot, inPool: Set<String> = emptySet()): ReceivedLink {
+        val read = LinkStatusRules.annotated(settleTxids, settledAt, check, inPool)
+        if (isSettled && !LinkStatusRules.reopens(settleTxids, read)) {
+            return if (LinkStatusRules.settleFinal(settleTxids, read)) copy(lastCheck = read) else this
+        }
         val net = when {
-            check.sweepFee != null -> net(check.balance, check.sweepFee)
-            check.balance != lastCheck?.balance -> null
+            read.sweepFee != null -> net(read.balance, read.sweepFee)
+            read.balance != lastCheck?.balance -> null
             else -> netAmount
         }
-        // Past the guard, a settled link has money its settle left behind: it is open again.
-        return copy(lastCheck = check, netAmount = net, state = if (isSettled) ReceivedState.PENDING else state)
+        val ours = claimTxid?.takeIf { it.isNotEmpty() }
+        val next = when {
+            // Past the guard, a settled link has money its settle left behind, or its claim dropped: it is open again.
+            isSettled -> ReceivedState.PENDING
+            // A claim read as dropped is in a block after all, and took the money: claimed here again.
+            ours != null && ours in read.minedSpendTxids && LinkStatusRules.claimView(read) == ClaimView.AlreadyClaimed -> ReceivedState.CLAIMED
+            else -> state
+        }
+        return copy(lastCheck = read, netAmount = net, state = next)
     }
+
+    /** When the claim in [claimTxid] went out (older records: when it began). */
+    val settledAt: Long?
+        get() = if (state == ReceivedState.CLAIMED) claimSentAt ?: claimStartedAt else null
+
+    /** Settled by a spend that no check has seen in a block yet: the link is checked until one does. */
+    val settleUnconfirmed: Boolean
+        get() = isSettled && LinkStatusRules.unconfirmed(settleTxids, lastCheck)
 
     /**
      * The spends that settled the link: our claim, else (claimed elsewhere) the envelope's spends as the
@@ -301,7 +339,7 @@ object LinkStatusRules {
      * Not funded: until a check sees the money, it waits ([LinkStatus.PENDING]). [inWallet]: as [hasFunding].
      */
     fun baseStatus(link: SentLink, inWallet: Boolean = false): LinkStatus {
-        // Reclaimed, unless a check saw our reclaim in a block and money it left behind.
+        // Reclaimed, unless a check saw money left behind by our reclaim (in a block, or dropped).
         if (link.reclaimTxid != null && !reopens(settleTxids(link), link.lastCheck)) return LinkStatus.RECLAIMED
         if (link.reclaimLostRace) return LinkStatus.CLAIMED
         val funded = hasFunding(link, inWallet)
@@ -439,15 +477,81 @@ object LinkStatusRules {
      * marks failed) takes the one the envelope saw (iOS parity), so its Activity row matches it.
      * A settled link keeps its record unless [check] reopens it ([reopens]).
      */
-    fun withCheck(link: SentLink, check: EnvelopeSnapshot): SentLink {
-        if (isSettled(link) && !reopens(settleTxids(link), check)) return link
-        val seen = check.fundingTxids.firstOrNull()
+    fun withCheck(link: SentLink, check: EnvelopeSnapshot, inPool: Set<String> = emptySet()): SentLink {
+        val read = annotated(settleTxids(link), settledAt(link), check, inPool)
+        if (isSettled(link) && !reopens(settleTxids(link), read)) {
+            // A settle in a block with the envelope empty is final: the link is checked no more.
+            return if (settleFinal(settleTxids(link), read)) link.copy(lastCheck = read) else link
+        }
+        val seen = read.fundingTxids.firstOrNull()
         return if (seen != null && (link.fundingTxid == null || link.fundingFailed)) {
-            link.copy(lastCheck = check, fundingTxid = seen, fundingFailed = false, state = SentState.FUNDED)
+            link.copy(lastCheck = read, fundingTxid = seen, fundingFailed = false, state = SentState.FUNDED)
         } else {
-            link.copy(lastCheck = check)
+            link.copy(lastCheck = read)
         }
     }
+
+    /**
+     * A sent link the check cycle scans: one that can still change (a hidden attempt only while
+     * [hiddenScanDue]), or a settled one whose settle no check has seen in a block ([settleUnconfirmed]).
+     */
+    fun checkDue(link: SentLink): Boolean =
+        if (isSettled(link)) settleUnconfirmed(link) else !isHidden(link) || hiddenScanDue(link)
+
+    /** When our reclaim in [SentLink.reclaimTxid] went out (older records: when it began); null without one. */
+    fun settledAt(link: SentLink): Long? =
+        if (link.reclaimTxid != null) link.reclaimSentAt ?: link.reclaimStartedAt else null
+
+    /** Settled by a spend that no check has seen in a block yet: the link is checked until one does. */
+    fun settleUnconfirmed(link: SentLink): Boolean = isSettled(link) && unconfirmed(settleTxids(link), link.lastCheck)
+
+    /** [txids] are known and [check] (the last one) does not show them all in a block. */
+    fun unconfirmed(txids: List<String>, check: EnvelopeSnapshot?): Boolean =
+        txids.isNotEmpty() && check?.minedSpendTxids?.containsAll(txids) != true
+
+    /** [check] shows every settle in [txids] in a block and the envelope empty: nothing more can move. */
+    fun settleFinal(txids: List<String>, check: EnvelopeSnapshot): Boolean =
+        txids.isNotEmpty() && check.minedSpendTxids.containsAll(txids) && check.balance == 0L
+
+    /** A settled claim or reclaim gets this long to reach a block before it can read as dropped (30 blocks). */
+    const val SETTLE_GRACE_MS = 60 * 60_000L
+
+    /**
+     * The settle transactions in [txids] that will not confirm (requirement 2026-10-17): in no block, and
+     * wallet2 marks them failed, or more than [SETTLE_GRACE_MS] after [settledAt] they are not in the pool
+     * ([inPool]: the open wallet's history shows them there). While one waits in the pool, or within its
+     * grace, it is not dropped, so a check never reopens the link for it. No [settledAt] (a claim made
+     * elsewhere): only wallet2's mark counts.
+     */
+    fun droppedSettles(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, inPool: Set<String>): List<String> =
+        txids.filter { txid ->
+            txid !in check.minedSpendTxids && (txid in check.failedSpendTxids ||
+                (settledAt != null && check.checkedAt - settledAt > SETTLE_GRACE_MS && txid !in inPool))
+        }
+
+    /**
+     * [check] came from a cache that still counts a dropped settle as spent (wallet2 has not marked it
+     * failed), so the money it never moved stays hidden: the envelope is restored afresh before its next check.
+     */
+    fun staleSettleCache(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, inPool: Set<String>): Boolean =
+        droppedSettles(txids, settledAt, check, inPool).any { it in check.spendTxids }
+
+    /** [check] with [droppedSettles] of [txids]: what a record keeps. */
+    fun annotated(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, inPool: Set<String>): EnvelopeSnapshot =
+        check.copy(droppedSpendTxids = droppedSettles(txids, settledAt, check, inPool))
+
+    /** The scan of a hidden funding attempt covers this many blocks (about a day) past the attempt. */
+    const val HIDDEN_SCAN_BLOCKS = 720L
+
+    /**
+     * A hidden funding attempt still to scan (requirement 2026-10-17): the node may have taken the funding
+     * with no txid in this wallet's history, so each check cycle scans the envelope until a scan covered
+     * [HIDDEN_SCAN_BLOCKS] past the attempt with no funding. Then it stops; the secret stays. An attempt
+     * that failed before any broadcast needs no scan.
+     */
+    fun hiddenScanDue(link: SentLink): Boolean =
+        isHidden(link) && !link.failedBeforeBroadcast &&
+            (link.lastCheck?.scannedHeight ?: 0L) < link.height + EnvelopeFactory.HEIGHT_MARGIN + HIDDEN_SCAN_BLOCKS
 
     /** The sender's link has settled: nothing more can move (its files can go). */
     fun isSettled(link: SentLink): Boolean =
@@ -465,13 +569,15 @@ object LinkStatusRules {
     }
 
     /**
-     * A settled link opens again (founder decision 2026-10-17) only when [check] sees every spend that
-     * settled it ([txids]) in a block and spendable money still in the envelope: money that settle did
-     * not spend (a later funding, or outputs still locked when it swept). A check from before the settle
-     * is mined still sees the money it spends, so it never reopens the link.
+     * A settled link opens again (founder decision 2026-10-17) only when [check] sees spendable money in
+     * the envelope and every spend that settled it ([txids]) in a block or dropped ([droppedSettles]):
+     * money that settle did not spend (a later funding, outputs still locked when it swept), or money a
+     * dropped settle never moved. A check from before the settle is mined still sees the money it spends,
+     * so while that settle waits in the pool or within its grace, it never reopens the link.
      */
     fun reopens(txids: List<String>, check: EnvelopeSnapshot?): Boolean =
-        check != null && txids.isNotEmpty() && check.unlocked > 0 && check.minedSpendTxids.containsAll(txids)
+        check != null && txids.isNotEmpty() && check.unlocked > 0 &&
+            txids.all { it in check.minedSpendTxids || it in check.droppedSpendTxids }
 
     fun claimView(check: EnvelopeSnapshot): ClaimView = when {
         !check.fundingSeen -> ClaimView.NoMoney

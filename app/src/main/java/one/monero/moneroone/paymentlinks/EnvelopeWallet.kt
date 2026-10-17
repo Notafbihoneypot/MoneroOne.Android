@@ -100,7 +100,10 @@ class EnvelopeWallet private constructor(
             fundingHeight = mined.minOfOrNull { it.blockheight },
             // Oldest first; one still in the pool last.
             fundingTxids = incoming.sortedBy { if (!it.isPending && it.blockheight > 0) it.blockheight else Long.MAX_VALUE }.mapNotNull { it.hash },
-            minedSpendTxids = outgoing().filter { !it.isPending && it.blockheight > 0 }.mapNotNull { it.hash }.sorted()
+            minedSpendTxids = outgoing().filter { !it.isPending && it.blockheight > 0 }.mapNotNull { it.hash }.sorted(),
+            failedSpendTxids = kit.allTransactionsFlow.value
+                .filter { it.direction == TransactionInfo.Direction.Direction_Out && it.isFailed }.mapNotNull { it.hash }.sorted(),
+            scannedHeight = chainHeight
         )
     }
 

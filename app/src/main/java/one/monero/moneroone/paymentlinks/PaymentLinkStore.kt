@@ -210,10 +210,13 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         _intakeProblem.value = null
     }
 
-    /** Envelope ids whose files must stay: every link that can still move money. */
+    /**
+     * Envelope ids whose files must stay: every link that can still move money, and every settled link
+     * whose settle no check has seen in a block yet (its checks go on from the cache).
+     */
     fun liveEnvelopeIds(): Set<String> =
-        (_sent.value.filterNot { LinkStatusRules.isSettled(it) }.map { it.id } +
-            _received.value.filter { it.state == ReceivedState.PENDING }.map { it.id }).toSet()
+        (_sent.value.filter { !LinkStatusRules.isSettled(it) || LinkStatusRules.settleUnconfirmed(it) }.map { it.id } +
+            _received.value.filter { it.state == ReceivedState.PENDING || it.settleUnconfirmed }.map { it.id }).toSet()
 
     private fun <T> read(slot: String, serializer: kotlinx.serialization.KSerializer<T>): List<T> {
         val text = prefs.getString(slot, null) ?: return emptyList()

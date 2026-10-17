@@ -490,7 +490,8 @@ private fun SentLinkDetail(
                     DetailDivider()
                     TransactionRow(tr("Funding transaction"), it, incoming = false, walletState.transactions, onOpenTransaction)
                 }
-                link.reclaimTxid?.takeIf { it.isNotEmpty() }?.let {
+                // A dropped reclaim moved nothing: no row for it.
+                link.reclaimTxid?.takeIf { it.isNotEmpty() && it !in link.lastCheck?.droppedSpendTxids.orEmpty() }?.let {
                     DetailDivider()
                     TransactionRow(tr("Reclaim transaction"), it, incoming = true, walletState.transactions, onOpenTransaction)
                 }
@@ -606,7 +607,9 @@ private fun ReceivedLinkDetail(
         val canClaim = !link.isSettled && link.link != null
         val waiting = link.lastCheck?.let { LinkStatusRules.claimView(it) } is ClaimView.Waiting
         val confirmations = PaymentLinkActivityRules.receivedConfirmations(link, daemonHeight) ?: 0L
-        val amount = (link.claimedAmount ?: link.claimAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" }
+        // Open again (a dropped claim, money left behind): what a claim delivers now.
+        val amount = (link.claimedAmount?.takeIf { link.state == ReceivedState.CLAIMED } ?: link.claimAmount)
+            ?.let { "${walletViewModel.formatXmr(it)} XMR" }
         Spacer(Modifier.height(16.dp))
         GlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp) {
             Column {
@@ -634,11 +637,11 @@ private fun ReceivedLinkDetail(
                     DetailDivider()
                     DetailRow(tr("Claim by"), formatLinkDate(link.expiry))
                 }
-                link.claimTxid?.let {
+                link.claimTxid?.takeIf { it !in link.lastCheck?.droppedSpendTxids.orEmpty() }?.let {
                     DetailDivider()
                     TransactionRow(tr("Claim transaction"), it, incoming = true, walletState.transactions, onOpenTransaction)
                 }
-                link.claimedTo?.takeIf { link.claimTxid != null && it.isNotEmpty() }?.let {
+                link.claimedTo?.takeIf { link.state == ReceivedState.CLAIMED && link.claimTxid != null && it.isNotEmpty() }?.let {
                     DetailDivider()
                     DetailRow(tr("Claimed to"), it)
                 }
