@@ -127,6 +127,8 @@ import one.monero.moneroone.paymentlinks.PaymentLinkReadyPhase
 import one.monero.moneroone.paymentlinks.PaymentLinkRecipientToken
 import one.monero.moneroone.paymentlinks.PaymentLinkReview
 import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
+import one.monero.moneroone.paymentlinks.linkFundingErrorText
+import one.monero.moneroone.paymentlinks.linkFundingUnconfirmed
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
@@ -501,7 +503,9 @@ fun SendScreen(
                     }
                 }
                 SendPhase.ERROR -> ErrorPhase(
-                    message = linkFundingError ?: (sendState as? SendState.Error)?.message ?: tr("Transaction Failed"),
+                    message = linkFundingError
+                        ?: (sendState as? SendState.Error)?.message?.let { if (linkMode) linkFundingErrorText(it) else it }
+                        ?: tr("Transaction Failed"),
                     canRetry = !linkMode,
                     onRetry = {
                         linkFundingError = null
@@ -529,9 +533,9 @@ fun SendScreen(
                     val id = draft.link.id
                     val record = paymentLinks.store.sent(id)
                     when {
-                        // A saved record consumed this link's one funding attempt.
+                        // A saved record consumed this link's one funding attempt, which may have gone out.
                         record != null -> {
-                            linkFundingError = tr("This link already has a funding attempt. Check Activity before sending again.")
+                            linkFundingError = linkFundingUnconfirmed()
                             phase = SendPhase.ERROR
                             sendInProgress = false
                         }
@@ -539,6 +543,7 @@ fun SendScreen(
                         !paymentLinks.recordBeforeFunding(
                             draft, walletViewModel.activeWallet.value?.id.orEmpty(), linkFeeReserve, note = linkNote
                         ) -> {
+                            // Send flow error: the link's record could not be saved, so no funding went out.
                             linkFundingError = tr("Could not save the payment link. Nothing was sent.")
                             phase = SendPhase.ERROR
                             sendInProgress = false

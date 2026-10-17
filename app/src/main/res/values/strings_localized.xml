@@ -245,6 +245,9 @@
     <string name="l10n_copy_seed_phrase_to_clipboard_f0ad8786" formatted="false">"Copy seed phrase to clipboard"</string>
     <string name="l10n_copy_to_clipboard_fa8f2b6c" formatted="false">"Copy to Clipboard"</string>
     <string name="l10n_copy_transaction_id_5d9172fe" formatted="false">"Copy transaction ID"</string>
+    <string name="l10n_could_not_save_the_claim_nothing_was_sent_fae573d7" formatted="false">"Could not save the claim. Nothing was sent."</string>
+    <string name="l10n_could_not_save_the_payment_link_nothing_was_sent_0c31ef71" formatted="false">"Could not save the payment link. Nothing was sent."</string>
+    <string name="l10n_could_not_save_the_reclaim_nothing_was_sent_74335914" formatted="false">"Could not save the reclaim. Nothing was sent."</string>
     <string name="l10n_couldn_t_connect_a6d2a167" formatted="false">"Couldn\'t Connect"</string>
     <string name="l10n_couldn_t_create_address_7db005a4" formatted="false">"Couldn\'t Create Address"</string>
     <string name="l10n_couldn_t_complete_f3d83cda" formatted="false">"Couldn\'t complete"</string>
@@ -893,6 +896,7 @@
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"The Price widget works without this."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"The amount in this link is not a valid XMR amount."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"The clipboard clears in %s."</string>
+    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"The payment could not be confirmed. If it went through, the link appears in Activity."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"The price feed has no %s quote."</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"The value of Monero can fluctuate significantly. Only use funds you can afford to lose."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"The wallet couldn\'t load its keys, so no receive address can be shown. Do not send funds to any address from this app until this is resolved. Force-quit and reopen the app; if this persists, restore the wallet from its seed."</string>

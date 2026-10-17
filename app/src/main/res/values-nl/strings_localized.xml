@@ -245,6 +245,9 @@
     <string name="l10n_copy_seed_phrase_to_clipboard_f0ad8786" formatted="false">"Kopieer seedzin naar klembord"</string>
     <string name="l10n_copy_to_clipboard_fa8f2b6c" formatted="false">"Kopieer naar klembord"</string>
     <string name="l10n_copy_transaction_id_5d9172fe" formatted="false">"Kopieer transactie-ID"</string>
+    <string name="l10n_could_not_save_the_claim_nothing_was_sent_fae573d7" formatted="false">"De inwisseling kon niet worden opgeslagen. Er is niets verzonden."</string>
+    <string name="l10n_could_not_save_the_payment_link_nothing_was_sent_0c31ef71" formatted="false">"De betaallink kon niet worden opgeslagen. Er is niets verzonden."</string>
+    <string name="l10n_could_not_save_the_reclaim_nothing_was_sent_74335914" formatted="false">"Het terughalen kon niet worden opgeslagen. Er is niets verzonden."</string>
     <string name="l10n_couldn_t_connect_a6d2a167" formatted="false">"Verbinden mislukt"</string>
     <string name="l10n_couldn_t_create_address_7db005a4" formatted="false">"Adres aanmaken mislukt"</string>
     <string name="l10n_couldn_t_complete_f3d83cda" formatted="false">"Voltooien mislukt"</string>
@@ -893,6 +896,7 @@
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"De prijswidget werkt ook zonder deze instelling."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Het bedrag in deze link is geen geldig XMR-bedrag."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Het klembord wordt over %1$s gewist."</string>
+    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"De betaling kon niet worden bevestigd. Als ze is gelukt, verschijnt de link bij Activiteit."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"De prijsfeed heeft geen koers voor %1$s."</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"De waarde van Monero kan sterk schommelen. Gebruik alleen bedragen die je kunt missen."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"De portemonnee kon zijn sleutels niet laden, dus er kan geen ontvangstadres worden getoond. Stuur geen geld naar een adres uit deze app totdat dit is opgelost. Stop de app geforceerd en open hem opnieuw. Blijft het probleem, herstel de portemonnee dan met de seedzin."</string>

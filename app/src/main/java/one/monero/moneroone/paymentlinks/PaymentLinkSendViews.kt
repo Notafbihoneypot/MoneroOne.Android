@@ -92,6 +92,21 @@ internal fun formatRecordDate(epochMillis: Long): String =
 internal fun shareText(amountXmr: String, link: PaymentLink): String =
     tr("I sent you %s XMR. Tap to claim it in Monero One: %s", amountXmr, link.url())
 
+/**
+ * The Send flow's error for a link's funding (founder decision 2026-10-17). The kit's failed
+ * commit ("Send Transaction failed: ...") may still have reached the network, so it reads as
+ * [linkFundingUnconfirmed]. Any other error shows as it does for a normal send.
+ */
+internal fun linkFundingErrorText(sendError: String): String =
+    if (sendError.startsWith(SEND_COMMIT_FAILED)) linkFundingUnconfirmed() else sendError
+
+/** A link's funding may or may not have reached the network. The same words as iOS. */
+internal fun linkFundingUnconfirmed(): String =
+    // Send flow error: a payment link's funding may or may not have reached the network.
+    tr("The payment could not be confirmed. If it went through, the link appears in Activity.")
+
+private const val SEND_COMMIT_FAILED = "Send Transaction failed"
+
 /** Opens the system share sheet with the spec's share text. The link never goes to the clipboard. */
 internal fun shareLink(context: Context, amountXmr: String, link: PaymentLink) {
     val send = Intent(Intent.ACTION_SEND).apply {

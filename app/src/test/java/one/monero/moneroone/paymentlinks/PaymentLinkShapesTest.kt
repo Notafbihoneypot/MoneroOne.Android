@@ -129,4 +129,19 @@ class PaymentLinkShapesTest {
         // "monero.one" at the end of a sentence is no claim link.
         assertSame(PaymentLinkParse.NotALink, PaymentLinkCodec.parse("monero.one"))
     }
+
+    @Test
+    fun `a failed commit reads unclear and other link errors read as they are`() {
+        val unclear = "The payment could not be confirmed. If it went through, the link appears in Activity."
+        assertEquals(unclear, linkFundingUnconfirmed())
+        assertEquals(unclear, linkFundingErrorText("Send Transaction failed: daemon is busy"))
+        assertEquals(
+            "Create Transaction failed: not enough money",
+            linkFundingErrorText("Create Transaction failed: not enough money")
+        )
+        assertEquals(
+            "Wallet is not connected yet. Wait for the wallet to reconnect and try again.",
+            linkFundingErrorText("Wallet is not connected yet. Wait for the wallet to reconnect and try again.")
+        )
+    }
 }
