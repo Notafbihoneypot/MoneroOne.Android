@@ -237,9 +237,13 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
     companion object {
         /** Remove All: closes an open envelope, then deletes every link record, its words and every envelope's files. */
         suspend fun wipe(context: Context) {
-            EnvelopeWallet.closeCurrent()
-            get(context).removeAll()
-            withContext(Dispatchers.IO) { EnvelopeFiles.sweep(context, emptySet()) }
+            try {
+                EnvelopeWallet.closeCurrent()
+                get(context).removeAll()
+            } finally {
+                // The envelope files go even when the records could not be removed.
+                withContext(Dispatchers.IO) { EnvelopeFiles.sweep(context, emptySet()) }
+            }
         }
 
         private const val KEY_SENT = "paymentlinks.sent.v1"

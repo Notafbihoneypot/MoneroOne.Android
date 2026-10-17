@@ -17,6 +17,7 @@ import io.horizontalsystems.monerokit.model.TransactionInfo
 import io.horizontalsystems.monerokit.toElectrum
 import io.horizontalsystems.monerokit.util.Helper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
@@ -1400,8 +1401,15 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }.apply()
                 store.deleteAll()
-                // The full wipe takes the payment links and their envelope words too.
-                PaymentLinkStore.wipe(context)
+                // The full wipe takes the payment links and their envelope words too. A failed
+                // wipe must not keep the app unlocked with the old state: the reset below still runs.
+                try {
+                    PaymentLinkStore.wipe(context)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.e(e, "Remove All: could not remove the payment links")
+                }
                 resetFailedAttempts()
 
                 // Widget cache holds the removed wallets' balance and recent tx hashes.
