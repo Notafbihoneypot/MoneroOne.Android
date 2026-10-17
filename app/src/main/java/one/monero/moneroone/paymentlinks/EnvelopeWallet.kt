@@ -82,7 +82,8 @@ class EnvelopeWallet private constructor(
         }
         return EnvelopeSnapshot(
             checkedAt = System.currentTimeMillis(),
-            fundingSeen = incoming.isNotEmpty(),
+            // A balance is money that arrived, even before the history lists its transaction.
+            fundingSeen = incoming.isNotEmpty() || balance.all > 0,
             fundingMined = mined.isNotEmpty(),
             confirmations = confirmations.coerceAtLeast(0),
             balance = balance.all,
@@ -186,15 +187,16 @@ class EnvelopeWallet private constructor(
 
         /**
          * Opens the envelope of [link] and starts its sync. The main wallet's kit
-         * stops first and starts again on [close].
+         * stops first and starts again on [close]. [restoreHeight]: where a new
+         * cache starts its scan (a rescan passes a lower one after deleting the cache).
          */
-        suspend fun open(context: Context, link: PaymentLink): EnvelopeWallet {
+        suspend fun open(context: Context, link: PaymentLink, restoreHeight: Long = link.height): EnvelopeWallet {
             current?.close()
             // One unit: a cancel between the main kit's stop and the return would leave the
             // envelope kit running and the main wallet stopped, with no one to close them.
             var opened: EnvelopeWallet? = null
             try {
-                withContext(NonCancellable) { opened = openLocked(context, link) }
+                withContext(NonCancellable) { opened = openLocked(context, link, restoreHeight) }
             } catch (e: CancellationException) {
                 opened?.close()
                 throw e
@@ -212,7 +214,7 @@ class EnvelopeWallet private constructor(
             current?.close()
         }
 
-        private suspend fun openLocked(context: Context, link: PaymentLink): EnvelopeWallet =
+        private suspend fun openLocked(context: Context, link: PaymentLink, restoreHeight: Long): EnvelopeWallet =
             runtimeLock.withLock {
                 val app = context.applicationContext
                 val node = EnvelopeNode.kitNodeString(app)
@@ -222,7 +224,7 @@ class EnvelopeWallet private constructor(
                     MoneroKit.getInstance(
                         context = app,
                         seed = Seed.Electrum(link.words, ""),
-                        restoreDateOrHeight = link.height.toString(),
+                        restoreDateOrHeight = restoreHeight.toString(),
                         walletId = EnvelopeFiles.kitWalletId(app, link.id),
                         node = node,
                         trustNode = false,

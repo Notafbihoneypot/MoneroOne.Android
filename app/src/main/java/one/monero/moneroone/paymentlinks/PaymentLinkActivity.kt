@@ -297,8 +297,10 @@ object LinkListRules {
 
 /** The payment link records of this device, to match Activity rows against. */
 class PaymentLinkIndex(val sent: List<SentLink>, val received: List<ReceivedLink>) {
+    /** A funding the wallet marks failed sent no money: it stays a plain failed transaction, and its link stays hidden. */
     fun match(tx: TransactionInfo): LinkActivity? =
         PaymentLinkActivityRules.match(tx.hash, tx.direction == TransactionInfo.Direction.Direction_In, sent, received)
+            ?.takeUnless { tx.isFailed && it.kind == LinkActivityKind.FUNDING }
 }
 
 @Composable

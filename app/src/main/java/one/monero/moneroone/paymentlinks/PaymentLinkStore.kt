@@ -60,12 +60,6 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         return if (putSent(updated)) updated else null
     }
 
-    @Synchronized
-    fun removeSent(id: String) {
-        val next = _sent.value.filterNot { it.id == id }
-        if (write(KEY_SENT, next, SentLink.serializer())) _sent.value = next
-    }
-
     /** Saves [link], keeping a saved record's number and note, as [putSent]. */
     @Synchronized
     fun putReceived(link: ReceivedLink): Boolean {
@@ -113,12 +107,6 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         val current = received(id) ?: return null
         val updated = change(current)
         return if (putReceived(updated)) updated else null
-    }
-
-    @Synchronized
-    fun removeReceived(id: String) {
-        val next = _received.value.filterNot { it.id == id }
-        if (write(KEY_RECEIVED, next, ReceivedLink.serializer())) _received.value = next
     }
 
     private val _pendingOpen = MutableStateFlow(prefs.getString(KEY_PENDING_OPEN, null))

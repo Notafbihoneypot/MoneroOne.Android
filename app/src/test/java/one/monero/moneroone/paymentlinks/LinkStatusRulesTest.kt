@@ -29,10 +29,15 @@ class LinkStatusRulesTest {
     ) = EnvelopeSnapshot(0, seen, mined, confirmations, balance, unlocked, spent)
 
     @Test
-    fun `no funding seen is not funded`() {
+    fun `no funding anywhere is not funded`() {
         assertEquals(LinkStatus.NOT_FUNDED, LinkStatusRules.status(sent(SentState.CREATED), before))
         assertEquals(LinkStatus.NOT_FUNDED, LinkStatusRules.status(sent(SentState.NOT_FUNDED), before))
-        assertEquals(LinkStatus.NOT_FUNDED, LinkStatusRules.status(sent(check = check(seen = false, mined = false)), before))
+        assertEquals(LinkStatus.NOT_FUNDED, LinkStatusRules.status(sent(SentState.NOT_FUNDED, check(seen = false, mined = false)), before))
+    }
+
+    @Test
+    fun `a broadcast that went out waits while the check has not seen it`() {
+        assertEquals(LinkStatus.PENDING, LinkStatusRules.status(sent(check = check(seen = false, mined = false)), before))
     }
 
     @Test
@@ -147,10 +152,15 @@ class LinkStatusRulesTest {
         // Not checked yet, with its funding in the open wallet: pending, then ready at 10.
         assertEquals(LinkStatus.PENDING, view(sent(SentState.NOT_FUNDED), funding = 2).status)
         assertEquals(LinkStatus.READY, view(sent(SentState.CREATED), funding = 10).status)
-        // A check that found no funding stays not funded, and its row waits.
-        val unseen = view(sent(check = check(seen = false, mined = false)), funding = 12)
-        assertEquals(LinkStatus.NOT_FUNDED, unseen.status)
+        // A check that did not see a funding the open wallet holds (iOS Link 10): never Not funded. The
+        // wallet's count wins, so it waits, then is ready at 10 (Reclaim checks the envelope again first).
+        val unseen = view(sent(SentState.NOT_FUNDED, check(seen = false, mined = false)), funding = 4)
+        assertEquals(LinkStatus.PENDING, unseen.status)
         assertEquals("Waiting", row(unseen))
+        assertEquals("Pending 4/10", sentDisplay(unseen).label)
+        val deep = view(sent(SentState.NOT_FUNDED, check(seen = false, mined = false)), funding = 12)
+        assertEquals(LinkStatus.READY, deep.status)
+        assertTrue(deep.canReclaim)
     }
 
     @Test

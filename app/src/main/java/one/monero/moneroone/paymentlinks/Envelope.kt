@@ -1,6 +1,7 @@
 package one.monero.moneroone.paymentlinks
 
 import android.content.Context
+import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.model.WalletManager as NativeWalletManager
 import one.monero.moneroone.core.node.NodeCredentialStore
 import one.monero.moneroone.core.wallet.DefaultNodes
@@ -31,7 +32,21 @@ object EnvelopeFiles {
     fun kitWalletId(context: Context, id: String): String {
         val walletRoot = File(context.filesDir, "wallets").absoluteFile
         val dir = dir(context, id).absoluteFile.apply { mkdirs() }
-        return File(dir, "envelope").relativeTo(walletRoot).path
+        return File(dir, KIT_WALLET_NAME).relativeTo(walletRoot).path
+    }
+
+    private const val KIT_WALLET_NAME = "envelope"
+
+    /**
+     * Deletes the envelope's kit wallet (keys and cache; its secret stays in the record), so the next
+     * open restores it and scans from a new height. Waits for a close still writing the cache. Off Main.
+     */
+    fun deleteWallet(context: Context, id: String) {
+        if (!MoneroKit.deleteWallet(context.applicationContext, kitWalletId(context, id))) {
+            Timber.w("PaymentLinks: could not delete an envelope cache")
+        }
+        // wallet2 also leaves an `.unportable` marker next to the cache.
+        dir(context, id).listFiles()?.filter { it.name.startsWith(KIT_WALLET_NAME) }?.forEach { it.delete() }
     }
 
     fun delete(context: Context, id: String) {

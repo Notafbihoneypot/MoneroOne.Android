@@ -47,12 +47,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,12 +69,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import io.horizontalsystems.monerokit.model.TransactionInfo
-import kotlinx.coroutines.launch
 import one.monero.moneroone.core.locale.tr
-import one.monero.moneroone.core.wallet.SendFlow
-import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.WalletViewModel
-import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ProminentButton
@@ -114,17 +108,23 @@ internal class LinkDisplay(val label: String, val hue: LinkHue)
 /** Chip hues; yellow keeps the label color, as the brand rule asks. */
 internal enum class LinkHue { RED, BRAND, GREEN, GRAY, YELLOW }
 
+/**
+ * [link]'s funding in the open wallet's history: its funding txid, else an outgoing transaction to its
+ * envelope (a record whose txid was never saved). Null when that wallet did not fund it.
+ */
+internal fun fundingTransaction(link: SentLink, transactions: List<TransactionInfo>): TransactionInfo? {
+    val outgoing = transactions.filter { it.direction == TransactionInfo.Direction.Direction_Out && !it.isFailed }
+    link.fundingTxid?.let { txid -> outgoing.firstOrNull { it.hash == txid }?.let { return it } }
+    return outgoing.firstOrNull { tx -> tx.transfers?.any { it.address == link.envelopeAddress } == true }
+}
+
 /** The live confirmations of [link]'s funding in the open wallet's history; null when that wallet did not fund it. */
 internal fun fundingConfirmations(link: SentLink, transactions: List<TransactionInfo>): Long? =
-    link.fundingTxid?.let { txid ->
-        transactions.firstOrNull { it.hash == txid && it.direction == TransactionInfo.Direction.Direction_Out }
-    }?.confirmations
+    fundingTransaction(link, transactions)?.confirmations
 
 /** The network fee of [link]'s funding, from the open wallet's history; null when that wallet did not fund it. */
 internal fun fundingFee(link: SentLink, transactions: List<TransactionInfo>): Long? =
-    link.fundingTxid?.let { txid ->
-        transactions.firstOrNull { it.hash == txid && it.direction == TransactionInfo.Direction.Direction_Out }
-    }?.fee?.takeIf { it > 0 }
+    fundingTransaction(link, transactions)?.fee?.takeIf { it > 0 }
 
 /** [LinkStatusRules.sentView] with the open wallet's history and daemon height. */
 internal fun sentView(link: SentLink, transactions: List<TransactionInfo>, daemonHeight: Long?, nowSeconds: Long = nowSeconds()): SentView =
@@ -279,33 +279,8 @@ private fun TransactionRow(
     }
 }
 
-/** What Remove warns about (iOS removeMessage). */
-private fun removeMessage(settled: Boolean, received: Boolean): String = when {
-    settled -> tr("The link holds no money. This removes it from this list.")
-    received -> tr("If the link holds money, open the link again to claim it.")
-    else -> tr("If the link holds money, this phone can no longer take it back. Anyone who has the link can still claim it.")
-}
-
 @Composable
 private fun DetailDivider() = HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(start = 16.dp))
-
-@Composable
-private fun RemoveButton(onClick: () -> Unit, enabled: Boolean = true) {
-    TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-        Text(tr("Remove"), color = if (enabled) ErrorRed else MoneroTheme.colors.gray, style = MaterialTheme.typography.labelLarge)
-    }
-}
-
-@Composable
-private fun ConfirmRemove(message: String, onConfirm: () -> Unit, onCancel: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        title = { Text(tr("Remove this link?")) },
-        text = { Text(message) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(tr("Remove"), color = ErrorRed) } },
-        dismissButton = { TextButton(onClick = onCancel) { Text(tr("Cancel")) } }
-    )
-}
 
 /** The link's name over its amount (Apple Card: the merchant over the amount). */
 @Composable
@@ -434,62 +409,30 @@ private fun SentLinkDetail(
     onOpenTransaction: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val sentList by paymentLinks.sent.collectAsState()
     val link = sentList.firstOrNull { it.id == id }
     val session by paymentLinks.session.collectAsState()
     val sweep by paymentLinks.sweep.collectAsState()
     val pendingOpen by paymentLinks.store.pendingOpen.collectAsState()
     val daemonHeight = rememberDaemonHeight()
-    val activeWallet by walletViewModel.activeWallet.collectAsState()
     val walletState by walletViewModel.walletState.collectAsState()
-    val sharedSendState by walletViewModel.sendState.collectAsState()
-    val flow = remember(id) { SendFlow(walletViewModel.activeWallet.value?.id) }
-    val sendState = sharedSendState.takeIf { it.flow == flow }
 
-    var showAuthGate by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
-    var confirmRemove by remember { mutableStateOf(false) }
-    var confirmRetry by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
-    val wallets by walletViewModel.wallets.collectAsState()
     val currentPrice by walletViewModel.currentPrice.collectAsState()
     val currency by walletViewModel.selectedCurrency.collectAsState()
 
     // The envelope is open only while this screen is on screen: leaving or going to the background
-    // closes it, so the main wallet runs again. A settled link needs no check, and a funding send in
-    // flight needs the main wallet.
+    // closes it, so the main wallet runs again. A settled link needs no check.
     val wantsSession = link != null && !LinkStatusRules.isSettled(link)
-    val fundingInFlight by rememberUpdatedState(busy)
     // Reclaim opens the claim sheet over this screen (iOS parity): the sheet takes this envelope session
     // while it is up, and this screen checks again once it closes.
     val sheetOpen = pendingOpen == id
     val sheetUp by rememberUpdatedState(sheetOpen)
     LifecycleStartEffect(id, wantsSession, sheetOpen) {
-        if (wantsSession && !fundingInFlight && !sheetOpen) paymentLinks.openSession(id)
+        if (wantsSession && !sheetOpen) paymentLinks.openSession(id)
         onStopOrDispose { if (!sheetUp) paymentLinks.closeSession() }
     }
     DisposableEffect(id) { onDispose { paymentLinks.clearSweep() } }
-    LaunchedEffect(sendState) {
-        when (sendState) {
-            is SendState.Success -> {
-                paymentLinks.fundingFinished(id, success = true)
-                walletViewModel.resetSendState(flow)
-                busy = false
-                message = null
-                paymentLinks.recheck(id)
-            }
-            is SendState.Error -> {
-                paymentLinks.fundingFinished(id, success = false)
-                message = sendState.message
-                walletViewModel.resetSendState(flow)
-                busy = false
-                paymentLinks.recheck(id)
-            }
-            else -> {}
-        }
-    }
 
     LinksScaffold(tr("Payment Link"), onBack) {
         if (link == null) return@LinksScaffold
@@ -563,7 +506,7 @@ private fun SentLinkDetail(
             ) {
                 Text(tr("Could not check this link."), style = MaterialTheme.typography.bodyMedium, color = ErrorRed, modifier = Modifier.weight(1f))
                 IconButton(onClick = { paymentLinks.recheck(id) }) {
-                    Icon(Icons.Default.Refresh, contentDescription = tr("Retry"), tint = MoneroOrange)
+                    Icon(Icons.Default.Refresh, contentDescription = tr("Try Again"), tint = MoneroOrange)
                 }
             }
             current?.phase == EnvelopeSession.Phase.SWEEPING -> Row(
@@ -588,116 +531,31 @@ private fun SentLinkDetail(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
         }
-        message?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = ErrorRed, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-        }
 
         Spacer(Modifier.height(16.dp))
-        val live = current?.phase == EnvelopeSession.Phase.LIVE
         // Ready by the funding's count or by a check. Reclaim opens the claim sheet: it picks the wallet (the
         // funding wallet first), checks the envelope again, and its Reclaim button confirms.
         val canReclaim = view.canReclaim && current?.phase != EnvelopeSession.Phase.SWEEPING
         val reclaim = { paymentLinks.store.openClaim(id) }
         val share = { shareLink(context, walletViewModel.formatXmr(link.amount), link.link) }
+        // No Retry (nothing funds a saved link again) and no Remove (the secret stays). Share and Reclaim
+        // stay while the link has a funding transaction and is not claimed or reclaimed, whatever the last check said.
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            when (status) {
-                LinkStatus.NOT_FUNDED -> {
-                    // Only the wallet that funded it retries: its history is where a lost broadcast shows.
-                    val fundingWallet = link.walletId == activeWallet?.id
-                    PrimaryButton(
-                        onClick = { confirmRetry = true },
-                        enabled = !busy && fundingWallet && activeWallet?.isViewOnly == false,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (busy) CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Text(tr("Retry"))
-                    }
-                    if (!fundingWallet) {
-                        val name = wallets.firstOrNull { it.id == link.walletId }?.name
-                        Text(
-                            if (name != null) tr("Switch to %s to retry this link.", name) else tr("The wallet that funded this link is gone."),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                    }
-                    // Words go with the record: remove only after a check that found no funding.
-                    RemoveButton(
-                        onClick = { confirmRemove = true },
-                        enabled = live && current?.snapshot?.fundingSeen == false && !busy
-                    )
+            for (action in LinkStatusRules.sentActions(status)) when (action) {
+                SentLinkAction.SHARE_AGAIN -> PrimaryButton(onClick = share, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Text(tr("Share again"))
                 }
-                LinkStatus.PENDING, LinkStatus.READY -> {
-                    PrimaryButton(onClick = share, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Text(tr("Share again"))
+                SentLinkAction.RECLAIM -> if (status == LinkStatus.EXPIRED) {
+                    ProminentButton(onClick = reclaim, enabled = canReclaim, modifier = Modifier.fillMaxWidth()) {
+                        Text(tr("Reclaim"))
                     }
+                } else {
                     PrimaryButton(onClick = reclaim, enabled = canReclaim, modifier = Modifier.fillMaxWidth()) {
                         Text(if (status == LinkStatus.PENDING) tr("Reclaim when unlocked") else tr("Reclaim"))
                     }
                 }
-                LinkStatus.EXPIRED -> {
-                    ProminentButton(onClick = reclaim, enabled = canReclaim, modifier = Modifier.fillMaxWidth()) {
-                        Text(tr("Reclaim"))
-                    }
-                    PrimaryButton(onClick = share, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Text(tr("Share again"))
-                    }
-                }
-                LinkStatus.CLAIMED, LinkStatus.RECLAIMED -> RemoveButton(onClick = { confirmRemove = true })
             }
-        }
-        if (confirmRetry) {
-            AlertDialog(
-                onDismissRequest = { confirmRetry = false },
-                title = { Text(tr("Fund this link again?")) },
-                text = {
-                    Text(
-                        tr(
-                            "%s XMR and the network fee go from %s to this link.",
-                            walletViewModel.formatXmr(link.amount + link.feeReserve),
-                            activeWallet?.name.orEmpty()
-                        )
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        confirmRetry = false
-                        scope.launch {
-                            busy = true
-                            message = null
-                            // A fresh check first: the failed broadcast may have gone out after all.
-                            val seen = paymentLinks.fundingSeenNow(id)
-                            when {
-                                seen == null -> {
-                                    message = tr("Could not check this link.")
-                                    busy = false
-                                    paymentLinks.recheck(id)
-                                }
-                                paymentLinks.fundingAlreadySent(id) -> {
-                                    busy = false
-                                    paymentLinks.recheck(id)
-                                }
-                                else -> showAuthGate = true
-                            }
-                        }
-                    }) { Text(tr("Retry")) }
-                },
-                dismissButton = { TextButton(onClick = { confirmRetry = false }) { Text(tr("Cancel")) } }
-            )
-        }
-        if (confirmRemove) {
-            ConfirmRemove(
-                // Remove shows only for a link that holds nothing: settled, or checked and never funded.
-                message = removeMessage(settled = LinkStatusRules.isSettled(link) || status == LinkStatus.NOT_FUNDED, received = false),
-                onConfirm = {
-                    confirmRemove = false
-                    paymentLinks.removeSent(id)
-                    onBack()
-                },
-                onCancel = { confirmRemove = false }
-            )
         }
         if (renaming) {
             RenameLinkDialog(
@@ -708,33 +566,11 @@ private fun SentLinkDetail(
             )
         }
     }
-
-    if (showAuthGate && link != null) {
-        AuthGateDialog(
-            walletViewModel = walletViewModel,
-            title = tr("Confirm transaction"),
-            subtitle = tr("Confirm this transaction"),
-            onAuthenticated = {
-                showAuthGate = false
-                if (paymentLinks.retryFunding(id, activeWallet?.id)) {
-                    walletViewModel.send(flow, link.envelopeAddress, link.amount + link.feeReserve, memo = "Payment link")
-                } else {
-                    busy = false
-                    paymentLinks.recheck(id)
-                }
-            },
-            onCancel = {
-                showAuthGate = false
-                busy = false
-                paymentLinks.recheck(id)
-            }
-        )
-    }
 }
 
 /**
  * A received link (iOS receivedContent): the amount when known, the status,
- * the time left, the claim transaction, Claim and Remove.
+ * the time left, the claim transaction and Claim.
  */
 @Composable
 private fun ReceivedLinkDetail(
@@ -748,7 +584,6 @@ private fun ReceivedLinkDetail(
     val walletState by walletViewModel.walletState.collectAsState()
     val daemonHeight = rememberDaemonHeight()
     val link = receivedList.firstOrNull { it.id == id }
-    var confirmRemove by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
 
     LinksScaffold(tr("Payment Link"), onBack) {
@@ -808,7 +643,6 @@ private fun ReceivedLinkDetail(
                     Text(tr("Claim"))
                 }
             }
-            RemoveButton(onClick = { confirmRemove = true })
             if (canClaim && waiting) {
                 Text(
                     tr("Claim opens when the link is ready, after 10 confirmations."),
@@ -817,17 +651,6 @@ private fun ReceivedLinkDetail(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
-        }
-        if (confirmRemove) {
-            ConfirmRemove(
-                message = removeMessage(settled = link.isSettled, received = true),
-                onConfirm = {
-                    confirmRemove = false
-                    paymentLinks.removeReceived(id)
-                    onBack()
-                },
-                onCancel = { confirmRemove = false }
-            )
         }
         if (renaming) {
             RenameLinkDialog(

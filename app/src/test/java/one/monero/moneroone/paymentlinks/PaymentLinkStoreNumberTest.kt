@@ -35,15 +35,6 @@ class PaymentLinkStoreNumberTest {
     }
 
     @Test
-    fun `a removed link's number is not used again`() {
-        val store = PaymentLinkStore(MemoryPrefs())
-        store.putSent(sent("a"))
-        store.putSent(sent("b"))
-        store.removeSent("b")
-        assertEquals("Link 3", store.nextName())
-    }
-
-    @Test
     fun `an older copy keeps the saved number and note, and rename changes the note`() {
         val store = PaymentLinkStore(MemoryPrefs())
         store.putSent(sent("a"))

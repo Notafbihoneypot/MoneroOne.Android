@@ -22,10 +22,11 @@ class OpenLinksTest {
         state: SentState = SentState.FUNDED,
         check: EnvelopeSnapshot? = null,
         reclaimTxid: String? = null,
-        expiresAt: Long = expiry
+        expiresAt: Long = expiry,
+        fundingTxid: String? = "f$id"
     ) = SentLink(
         id = id, height = 100, amount = amount, expiry = expiresAt, createdAtMillis = createdAt,
-        walletId = walletId, envelopeAddress = "4...", feeReserve = 1, state = state, fundingTxid = "f$id",
+        walletId = walletId, envelopeAddress = "4...", feeReserve = 1, state = state, fundingTxid = fundingTxid,
         reclaimTxid = reclaimTxid, lastCheck = check, secret = secret
     )
 
@@ -87,8 +88,10 @@ class OpenLinksTest {
     fun `claimed, reclaimed and unfunded links are not open`() {
         assertFalse(OpenLinkRules.isOpen(sent(check = claimed), before))
         assertFalse(OpenLinkRules.isOpen(sent(check = ready, reclaimTxid = "rc"), after))
-        assertFalse(OpenLinkRules.isOpen(sent(state = SentState.NOT_FUNDED), before))
-        assertFalse(OpenLinkRules.isOpen(sent(state = SentState.CREATED), before))
+        assertFalse(OpenLinkRules.isOpen(sent(state = SentState.NOT_FUNDED, fundingTxid = null), before))
+        assertFalse(OpenLinkRules.isOpen(sent(state = SentState.CREATED, fundingTxid = null), before))
+        // A failed broadcast with a funding txid did go out: the link holds money and is open.
+        assertTrue(OpenLinkRules.isOpen(sent(state = SentState.NOT_FUNDED), before))
     }
 
     @Test

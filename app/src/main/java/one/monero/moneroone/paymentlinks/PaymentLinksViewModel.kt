@@ -93,6 +93,22 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 ids.forEach { id -> store.updateReceived(id) { it.forgettingSecret() } }
             }
         }
+        // A record saved without its funding txid (the app quit mid-broadcast, or the error came after the node
+        // took it): the open wallet's outgoing transaction to its envelope is its funding. The link shows again,
+        // as Waiting, and the status never contradicts the wallet's own history.
+        // A funding the open wallet marks failed (dropped or rejected) sent no money: the link reads as not funded.
+        viewModelScope.launch {
+            combine(WalletManager.transactionsFlow, store.sent) { txs, sent ->
+                val (failed, live) = txs.filter { it.hash != null }.partition { it.isFailed }
+                LinkStatusRules.fundingFailures(sent, failed.mapNotNull { it.hash }.toSet(), live.mapNotNull { it.hash }.toSet()) to
+                    LinkStatusRules.fundingsToAdopt(sent) { address -> fundingTxid(address, txs) }
+            }.collect { (failures, found) ->
+                failures.forEach { (id, failed) -> store.updateSent(id) { it.copy(fundingFailed = failed) } }
+                found.forEach { (id, txid) ->
+                    store.updateSent(id) { it.copy(fundingTxid = txid, fundingFailed = false, state = SentState.FUNDED) }
+                }
+            }
+        }
         // A sweep the app lost mid-flight (killed, swiped away): its envelope's spend shows up in the open wallet.
         viewModelScope.launch {
             combine(WalletManager.transactionsFlow, store.sent, store.received) { txs, sent, received ->
@@ -163,15 +179,58 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 }
                 found
             }
-            if (txid != null) store.updateSent(id) { it.copy(fundingTxid = txid) }
+            if (txid != null) store.updateSent(id) { it.copy(fundingTxid = txid, fundingFailed = false) }
         }
     }
 
-    /** The main wallet's outgoing transaction to [envelopeAddress], if its history holds one. */
-    fun fundingTxid(envelopeAddress: String): String? = WalletManager.transactionsFlow.value.firstOrNull { tx ->
-        tx.direction == TransactionInfo.Direction.Direction_Out && !tx.isFailed &&
-            tx.transfers?.any { it.address == envelopeAddress } == true
-    }?.hash
+    /** The main wallet's outgoing transaction to [envelopeAddress], if its history ([transactions]) holds one. */
+    fun fundingTxid(envelopeAddress: String, transactions: List<TransactionInfo> = WalletManager.transactionsFlow.value): String? =
+        transactions.firstOrNull { tx ->
+            tx.direction == TransactionInfo.Direction.Direction_Out && !tx.isFailed &&
+                tx.transfers?.any { it.address == envelopeAddress } == true
+        }?.hash
+
+    /** The block of [link]'s funding in the open wallet's history; null when it is not in a block there. */
+    private fun fundingBlock(link: SentLink): Long? =
+        fundingTransaction(link, WalletManager.transactionsFlow.value)?.takeIf { !it.isPending && it.blockheight > 0 }?.blockheight
+
+    /**
+     * Rescans started in this run, per link. Two at most: a rescan cut short (a detail opened, the node
+     * went, the sync timed out) gets one more, and one that still misses the funding is not repeated.
+     */
+    private val rescans = mutableMapOf<String, Int>()
+
+    /**
+     * Hidden links (no funding anywhere) checked in this run. Each check stops the main wallet, so a hidden
+     * link gets one per run, in case money reached its envelope from outside this wallet's history.
+     */
+    private val hiddenChecked = mutableSetOf<String>()
+
+    /**
+     * Opens envelope [id] ([link]) and waits for its first full sync. [hold] gets each envelope as it
+     * opens, so the caller closes it whatever happens. When the open wallet shows a sent link's funding
+     * in a block and the sync did not see it, the envelope's cache goes and it is scanned again from no
+     * later than that block ([LinkStatusRules.rescanFrom]), once per run; no UI changes. Call under
+     * [sessionLock]. Returns the first snapshot (null: the sync failed or timed out). Throws when an open fails.
+     */
+    private suspend fun openChecked(id: String, link: PaymentLink, hold: (EnvelopeWallet) -> Unit): EnvelopeSnapshot? {
+        // Read before the open: the main wallet stops while the envelope runs.
+        val record = store.sent(id)
+        val fundingBlock = record?.let(::fundingBlock)
+        val opened = EnvelopeWallet.open(context, link).also(hold)
+        val first = opened.awaitSnapshot()
+        val from = if (record != null && first != null) LinkStatusRules.rescanFrom(record, first, fundingBlock) else null
+        val tries = rescans[id] ?: 0
+        if (from == null || tries >= MAX_RESCANS) return first
+        rescans[id] = tries + 1
+        Timber.w("PaymentLinks: link %s: funding in block %d not seen; rescanning from %d", record?.number, fundingBlock, from)
+        withContext(NonCancellable) {
+            opened.close()
+            withContext(Dispatchers.IO) { EnvelopeFiles.deleteWallet(context, id) }
+        }
+        val again = EnvelopeWallet.open(context, link, restoreHeight = from).also(hold)
+        return again.awaitSnapshot()
+    }
 
     /**
      * Before a retry funds [id] again: true when a funding of this envelope is
@@ -182,7 +241,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         val link = store.sent(id) ?: return false
         val txid = fundingTxid(link.envelopeAddress)
         if (txid == null && link.lastCheck?.fundingSeen != true) return false
-        store.updateSent(id) { it.copy(state = SentState.FUNDED, fundingTxid = txid ?: it.fundingTxid) }
+        store.updateSent(id) { if (txid != null) it.copy(state = SentState.FUNDED, fundingTxid = txid, fundingFailed = false) else it.copy(state = SentState.FUNDED) }
         return true
     }
 
@@ -197,18 +256,19 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         val link = store.sent(id) ?: return null
         closeSession()
         val seen = sessionLock.withLock {
-            val opened = try {
-                EnvelopeWallet.open(context, link.link)
+            var opened: EnvelopeWallet? = null
+            try {
+                openChecked(id, link.link) { opened = it }?.also { snapshot ->
+                    logCheck(link.number, snapshot)
+                    store.updateSent(id) { it.copy(lastCheck = snapshot) }
+                }?.fundingSeen
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Timber.w(e, "PaymentLinks: envelope open failed (funding check)")
-                return@withLock null
-            }
-            try {
-                opened.awaitSnapshot()?.also { snapshot -> store.updateSent(id) { it.copy(lastCheck = snapshot) } }?.fundingSeen
+                null
             } finally {
-                withContext(NonCancellable) { opened.close() }
+                withContext(NonCancellable) { opened?.close() }
             }
         }
         if (!awaitMainWalletSynced()) return null
@@ -216,31 +276,14 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /**
-     * A retry from Payment Links: only from the wallet that funded it first (its
-     * history is where a lost broadcast shows), after [fundingSeenNow] found nothing.
+     * The Send flow's own retry after its funding broadcast failed (its error step, before the link
+     * was ever shown): only from the wallet that funded it first (its history is where a lost
+     * broadcast shows), after [fundingSeenNow] found nothing. A saved link's detail never funds it again.
      */
     fun retryFunding(id: String, activeWalletId: String?): Boolean {
         val link = store.sent(id) ?: return false
         if (link.walletId != activeWalletId) return false
         return store.updateSent(id) { it.copy(state = SentState.CREATED) } != null
-    }
-
-    fun removeSent(id: String) {
-        viewModelScope.launch {
-            if (_session.value?.id == id) closeSession()
-            store.removeSent(id)
-            withContext(Dispatchers.IO) { EnvelopeFiles.delete(context, id) }
-        }
-    }
-
-    // ------------------------------------------------------------- recipient
-
-    fun removeReceived(id: String) {
-        viewModelScope.launch {
-            if (_session.value?.id == id) closeSession()
-            store.removeReceived(id)
-            withContext(Dispatchers.IO) { EnvelopeFiles.delete(context, id) }
-        }
     }
 
     // --------------------------------------------------------------- session
@@ -264,17 +307,17 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 // A link sent to us: its checks carry the claim's fee estimate (what a claim delivers).
                 estimatesClaim = store.sent(id) == null
                 _session.value = EnvelopeSession(id, EnvelopeSession.Phase.CHECKING)
-                val opened = try {
-                    EnvelopeWallet.open(context, link)
+                val first = try {
+                    openChecked(id, link) { envelope = it }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Timber.w(e, "PaymentLinks: envelope open failed")
+                    closeEnvelopeLocked()
                     _session.value = EnvelopeSession(id, EnvelopeSession.Phase.ERROR, error = e.message)
                     return@withLock
                 }
-                envelope = opened
-                val first = opened.awaitSnapshot()
+                val opened = checkNotNull(envelope)
                 if (first == null) {
                     val state = opened.syncState.value
                     val message = (state as? SyncState.NotSynced)?.error?.message
@@ -322,16 +365,13 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         openSession(id)
     }
 
-    private fun logCheck(snapshot: EnvelopeSnapshot) {
-        Timber.d(
-            "PaymentLinks: envelope check seen=%b mined=%b conf=%d balance=%s unlocked=%s spent=%b",
-            snapshot.fundingSeen, snapshot.fundingMined, snapshot.confirmations,
-            if (snapshot.balance > 0) "yes" else "none", if (snapshot.unlocked > 0) "yes" else "none", snapshot.spendSeen
-        )
+    /** Debug builds only (Timber plants no tree in release). The line carries the link's number, never its note, address or secret. */
+    private fun logCheck(number: Int?, snapshot: EnvelopeSnapshot) {
+        Timber.d("PaymentLinks: %s", LinkStatusRules.checkLogLine(number, snapshot))
     }
 
     private fun publish(id: String, snapshot: EnvelopeSnapshot) {
-        logCheck(snapshot)
+        logCheck(store.sent(id)?.number ?: store.received(id)?.number, snapshot)
         store.updateSent(id) { it.copy(lastCheck = snapshot) }
         store.updateReceived(id) { it.noting(snapshot) }
         _session.value = EnvelopeSession(id, EnvelopeSession.Phase.LIVE, snapshot)
@@ -467,7 +507,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     private suspend fun checkDueSent() {
         val now = System.currentTimeMillis()
         checkSent(store.sent.value.filter {
-            !LinkStatusRules.isSettled(it) && now - (it.lastCheck?.checkedAt ?: 0) > REFRESH_AFTER_MS
+            !LinkStatusRules.isSettled(it) && now - (it.lastCheck?.checkedAt ?: 0) > REFRESH_AFTER_MS &&
+                (!LinkStatusRules.isHidden(it) || it.id !in hiddenChecked)
         })
     }
 
@@ -542,21 +583,19 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             // A claim sheet or detail screen has the envelope runtime: leave it alone.
             if (_session.value != null) return
             sessionLock.withLock {
-                val opened = try {
-                    EnvelopeWallet.open(context, link.link)
+                var opened: EnvelopeWallet? = null
+                try {
+                    openChecked(link.id, link.link) { opened = it }?.let { snapshot ->
+                        logCheck(link.number, snapshot)
+                        store.updateSent(link.id) { it.copy(lastCheck = snapshot) }
+                        if (LinkStatusRules.isHidden(link)) hiddenChecked.add(link.id)
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Timber.w(e, "PaymentLinks: envelope open failed (sent link check)")
-                    return@withLock
-                }
-                try {
-                    opened.awaitSnapshot()?.let { snapshot ->
-                        logCheck(snapshot)
-                        store.updateSent(link.id) { it.copy(lastCheck = snapshot) }
-                    }
                 } finally {
-                    withContext(NonCancellable) { opened.close() }
+                    withContext(NonCancellable) { opened?.close() }
                 }
             }
         }
@@ -596,6 +635,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         /** Old received records with no net amount: the active wallet's estimate, at most this often. */
         private const val NET_FILL_EVERY_MS = 10 * 60_000L
         private const val REFRESH_AFTER_MS = 20_000L
+        private const val MAX_RESCANS = 2
         private const val REFRESH_INTERVAL_MS = 30_000L
         /** A little under a block (about 2 minutes). */
         /** A link the Wallet tab looked at this recently is not looked at again (a tab switch back and forth). */

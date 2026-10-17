@@ -68,6 +68,11 @@ data class SentLink(
     val feeReserve: Long,
     val state: SentState,
     val fundingTxid: String? = null,
+    /**
+     * The open wallet's history marks [fundingTxid] failed (the network dropped or rejected it), so no
+     * money left. Cleared when that history shows the transaction live again or a new funding.
+     */
+    val fundingFailed: Boolean = false,
     val reclaimTxid: String? = null,
     /** The reclaim lost a race to a claim: the link reads Claimed. */
     val reclaimLostRace: Boolean = false,
@@ -195,8 +200,17 @@ data class ReceivedLink(
     }
 }
 
-/** The status a sent link shows (spec "Status"). [EXPIRED] is a label over pending or ready. */
+/**
+ * The status a sent link shows (spec "Status"). [EXPIRED] is a label over pending or ready.
+ * [NOT_FUNDED]: no funding anywhere ([LinkStatusRules.isHidden]); such a link shows nowhere.
+ */
 enum class LinkStatus { NOT_FUNDED, PENDING, READY, CLAIMED, RECLAIMED, EXPIRED }
+
+/**
+ * What a sent link's detail offers, in order. There is no Retry (nothing funds a saved link again) and
+ * no Remove (a link's secret stays on this phone; Remove All Wallets wipes everything).
+ */
+enum class SentLinkAction { SHARE_AGAIN, RECLAIM }
 
 /**
  * A sent link as its row, detail and Reclaim read it ([LinkStatusRules.sentView]). [confirmations]: the
@@ -250,14 +264,34 @@ object LinkStatusRules {
     /** About 2 minutes a block. */
     const val MINUTES_PER_BLOCK = 2L
 
-    /** The status of a sent link, without the expiry label. */
-    fun baseStatus(link: SentLink): LinkStatus {
+    /**
+     * A funding transaction exists for [link]: its txid is known, its broadcast went out, or a check saw
+     * money arrive. [inWallet]: the open wallet's history holds an outgoing transaction to its envelope.
+     * A funding the wallet marks failed does not count.
+     */
+    fun hasFunding(link: SentLink, inWallet: Boolean = false): Boolean =
+        inWallet || link.lastCheck?.fundingSeen == true ||
+            (!link.fundingFailed && (link.fundingTxid != null || link.state == SentState.FUNDED))
+
+    /**
+     * A link whose funding failed with no funding anywhere: no txid, no outgoing transaction to its
+     * envelope in the open wallet, and no check saw money. It shows nowhere (Activity, the Links counts,
+     * the balance card's line). Its record and secret stay: a funding found later brings it back as Waiting.
+     */
+    fun isHidden(link: SentLink, inWallet: Boolean = false): Boolean = baseStatus(link, inWallet) == LinkStatus.NOT_FUNDED
+
+    /**
+     * The status of a sent link, without the expiry label. A link with a funding transaction is never
+     * Not funded: until a check sees the money, it waits ([LinkStatus.PENDING]). [inWallet]: as [hasFunding].
+     */
+    fun baseStatus(link: SentLink, inWallet: Boolean = false): LinkStatus {
         if (link.reclaimTxid != null) return LinkStatus.RECLAIMED
         if (link.reclaimLostRace) return LinkStatus.CLAIMED
-        val check = link.lastCheck
-            ?: return if (link.state == SentState.FUNDED) LinkStatus.PENDING else LinkStatus.NOT_FUNDED
+        val funded = hasFunding(link, inWallet)
+        val check = link.lastCheck ?: return if (funded) LinkStatus.PENDING else LinkStatus.NOT_FUNDED
         return when {
-            !check.fundingSeen -> LinkStatus.NOT_FUNDED
+            // The scan has not seen the funding (in the pool, or a check that ran too early).
+            !check.fundingSeen -> if (funded) LinkStatus.PENDING else LinkStatus.NOT_FUNDED
             !check.fundingMined -> LinkStatus.PENDING
             // Funding mined, balance spent, and not by our reclaim: someone claimed it.
             check.balance == 0L && check.spendSeen -> LinkStatus.CLAIMED
@@ -285,9 +319,8 @@ object LinkStatusRules {
      * claimed before anything moves, and the next check corrects the record.
      */
     fun sentView(link: SentLink, fundingConfirmations: Long?, daemonHeight: Long?, nowSeconds: Long): SentView {
-        var base = baseStatus(link)
-        // Not checked yet, and its funding is in the open wallet's history: it waits to be claimed.
-        if (base == LinkStatus.NOT_FUNDED && link.lastCheck == null && fundingConfirmations != null) base = LinkStatus.PENDING
+        // Its funding in the open wallet's history counts as a funding transaction.
+        var base = baseStatus(link, inWallet = fundingConfirmations != null)
         val checked = link.lastCheck?.takeIf { it.fundingMined }?.confirmations
         val byHeight = link.lastCheck?.fundingHeight?.takeIf { fundingConfirmations == null }
             ?.let { height -> daemonHeight?.takeIf { it > height }?.minus(height) }
@@ -298,6 +331,65 @@ object LinkStatusRules {
         val status = if (live && nowSeconds > link.expiry) LinkStatus.EXPIRED else base
         return SentView(status, confirmations, canReclaim = base == LinkStatus.READY)
     }
+
+    /**
+     * The detail's actions. A link with a funding transaction that is not claimed or reclaimed always
+     * offers Share, whatever the last check said, so it can be claimed on any device.
+     */
+    fun sentActions(status: LinkStatus): List<SentLinkAction> = when (status) {
+        LinkStatus.PENDING, LinkStatus.READY -> listOf(SentLinkAction.SHARE_AGAIN, SentLinkAction.RECLAIM)
+        LinkStatus.EXPIRED -> listOf(SentLinkAction.RECLAIM, SentLinkAction.SHARE_AGAIN)
+        LinkStatus.CLAIMED, LinkStatus.RECLAIMED, LinkStatus.NOT_FUNDED -> emptyList()
+    }
+
+    /**
+     * The envelope check's log line: the link's number and what the check saw. Never the note, the
+     * address, the secret or a hash.
+     */
+    fun checkLogLine(number: Int?, check: EnvelopeSnapshot): String =
+        "link ${number ?: "?"} check seen=${check.fundingSeen} mined=${check.fundingMined} conf=${check.confirmations} " +
+            "balance=${if (check.balance > 0) "yes" else "none"} unlocked=${if (check.unlocked > 0) "yes" else "none"} spent=${check.spendSeen}"
+
+    /** A rescan starts this many blocks under the funding's block. */
+    const val RESCAN_MARGIN = 10L
+
+    /**
+     * Where a sent link's envelope is scanned again: a full sync ([check]) did not see the funding that
+     * the open wallet's history shows in block [fundingBlock] (a cache that started too late or went
+     * stale). The rescan starts at the restore height or lower, never later than that block. Null: no
+     * rescan (the check saw the funding, the funding is not in a block, or the link is settled).
+     */
+    fun rescanFrom(link: SentLink, check: EnvelopeSnapshot, fundingBlock: Long?): Long? {
+        if (check.fundingSeen || fundingBlock == null || fundingBlock <= 0) return null
+        if (link.reclaimTxid != null || link.reclaimLostRace) return null
+        return minOf(link.height, fundingBlock - RESCAN_MARGIN).coerceAtLeast(0)
+    }
+
+    /**
+     * Records saved without a funding txid (the app quit mid-broadcast, or the error came after the node
+     * took it) whose funding the open wallet now shows: id to txid. [fundingTxidFor] finds the open
+     * wallet's outgoing transaction to an envelope address (each envelope has its own address).
+     */
+    fun fundingsToAdopt(sent: List<SentLink>, fundingTxidFor: (String) -> String?): Map<String, String> =
+        sent.filter { (it.fundingTxid == null || it.fundingFailed) && it.reclaimTxid == null }
+            .mapNotNull { link -> fundingTxidFor(link.envelopeAddress)?.let { link.id to it } }
+            .toMap()
+
+    /**
+     * Records whose [SentLink.fundingFailed] changes with the open wallet's history: id to the new value.
+     * [failed]: hashes the wallet marks failed; [live]: every other hash it holds. A txid it does not hold
+     * (another wallet funded the link) keeps its value.
+     */
+    fun fundingFailures(sent: List<SentLink>, failed: Set<String>, live: Set<String>): Map<String, Boolean> =
+        sent.mapNotNull { link ->
+            val txid = link.fundingTxid ?: return@mapNotNull null
+            val now = when (txid) {
+                in live -> false
+                in failed -> true
+                else -> return@mapNotNull null
+            }
+            if (now != link.fundingFailed) link.id to now else null
+        }.toMap()
 
     /** The sender's link has settled: nothing more can move (its files can go). */
     fun isSettled(link: SentLink): Boolean =
