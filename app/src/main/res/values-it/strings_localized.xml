@@ -566,6 +566,7 @@
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"Nessun portafoglio a cui passare"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Dettagli del nodo"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"URI del nodo"</string>
+    <string name="l10n_node_login_failed_check_the_username_and_password_a89c0811" formatted="false">"Accesso al nodo non riuscito. Controlla nome utente e password."</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"Il nodo ha restituito una risposta non valida. Prova un altro nodo."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Nodo non disponibile. Prova un altro nodo."</string>
     <string name="l10n_nodes_7ac36206" formatted="false">"Nodi"</string>

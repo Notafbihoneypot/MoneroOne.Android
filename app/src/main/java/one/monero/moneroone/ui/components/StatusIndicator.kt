@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.horizontalsystems.monerokit.SyncState
@@ -34,6 +35,7 @@ import one.monero.moneroone.ui.theme.MoneroOrange
 import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.PendingOrange
 import one.monero.moneroone.ui.theme.SuccessGreen
+import kotlin.math.ceil
 
 enum class SyncStatus {
     Synced,
@@ -77,6 +79,10 @@ private fun syncStateToStage(syncState: SyncState): Pair<Int, String> = when (sy
     is SyncState.Synced -> 5 to "Synced"
 }
 
+/** The red sync error: a node that rejected the RPC login says so (iOS friendlyErrorMessage). */
+internal fun syncErrorText(nodeLoginFailed: Boolean): String =
+    if (nodeLoginFailed) tr("Node login failed. Check the username and password.") else tr("Not connected")
+
 private const val TOTAL_STEPS = 6
 
 /** Sync and status dots (tokens.json size.statusDot). */
@@ -94,7 +100,9 @@ fun SyncStatusIndicator(
     progress: Double? = null,
     modifier: Modifier = Modifier,
     syncState: SyncState? = null,
-    isOnline: Boolean = true
+    isOnline: Boolean = true,
+    /** The sync stopped on a node that rejected the RPC login. */
+    nodeLoginFailed: Boolean = false
 ) {
     if (status == SyncStatus.Synced) {
         // Simple synced display: green dot + "Synced"
@@ -117,15 +125,23 @@ fun SyncStatusIndicator(
         val (currentStage, statusText) = syncStateToStage(syncState)
         ConnectionStepIndicator(currentStage = currentStage, statusText = statusText, modifier = modifier)
     } else if (status == SyncStatus.NotConnected) {
+        // A wrapped error keeps the dot on its first line: the dot is centred in a box one line
+        // tall (the line box of bodySmall), so one line sits exactly as with centred alignment.
+        val textStyle = MaterialTheme.typography.bodySmall
+        val firstLineHeight = with(LocalDensity.current) {
+            if (textStyle.lineHeight.isSp) ceil(textStyle.lineHeight.toPx()).toDp() else StatusDotSize
+        }
         Row(
             modifier = modifier,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
-            StatusDot(color = ErrorRed)
+            Box(modifier = Modifier.height(firstLineHeight), contentAlignment = Alignment.Center) {
+                StatusDot(color = ErrorRed)
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = tr("Not connected"),
-                style = MaterialTheme.typography.bodySmall,
+                text = syncErrorText(nodeLoginFailed),
+                style = textStyle,
                 color = ErrorRed
             )
         }

@@ -569,6 +569,7 @@ internal val localizedStrings: Map<String, Int> = mapOf(
     "No wallet to switch" to R.string.l10n_no_wallet_to_switch_12a9813a,
     "Node Details" to R.string.l10n_node_details_3fd9c66e,
     "Node URI" to R.string.l10n_node_uri_e63aa085,
+    "Node login failed. Check the username and password." to R.string.l10n_node_login_failed_check_the_username_and_password_a89c0811,
     "Node returned invalid response. Try another node." to R.string.l10n_node_returned_invalid_response_try_another_node_30ae1c17,
     "Node unavailable. Try a different node." to R.string.l10n_node_unavailable_try_a_different_node_bbaf93aa,
     "Nodes" to R.string.l10n_nodes_7ac36206,

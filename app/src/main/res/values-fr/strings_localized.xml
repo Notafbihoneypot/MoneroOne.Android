@@ -566,6 +566,7 @@
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"Aucun portefeuille vers lequel basculer"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Détails du nœud"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"URI du nœud"</string>
+    <string name="l10n_node_login_failed_check_the_username_and_password_a89c0811" formatted="false">"Échec de l’authentification auprès du nœud. Vérifiez le nom d’utilisateur et le mot de passe."</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"Le nœud a renvoyé une réponse non valide. Essayez un autre nœud."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Nœud indisponible. Essayez un autre nœud."</string>
     <string name="l10n_nodes_7ac36206" formatted="false">"Nœuds"</string>

@@ -366,6 +366,7 @@ fun WalletScreen(
                                 fiatMode = fiatMode,
                                 syncState = walletState.syncState,
                                 isOnline = isOnline,
+                                nodeLoginFailed = walletState.nodeLoginFailed,
                                 history = history,
                                 historicalPoint = historicalPoint
                             ) { isActive ->
@@ -541,6 +542,8 @@ internal fun BalanceCard(
     fiatMode: Boolean,
     syncState: SyncState,
     isOnline: Boolean,
+    /** The sync stopped on a node that rejected the RPC login: the status names the login. */
+    nodeLoginFailed: Boolean = false,
     history: BalanceHistoryState,
     /** The past moment picked on the chart; null is now. */
     historicalPoint: PortfolioPoint?,
@@ -615,6 +618,7 @@ internal fun BalanceCard(
                         progress = (syncState as? SyncState.Syncing)?.progress,
                         syncState = syncState,
                         isOnline = isOnline,
+                        nodeLoginFailed = nodeLoginFailed,
                         modifier = Modifier
                             .graphicsLayer { alpha = if (isPast) 0f else 1f }
                             .then(if (isPast) Modifier.clearAndSetSemantics {} else Modifier)

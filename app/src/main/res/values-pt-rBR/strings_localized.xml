@@ -566,6 +566,7 @@
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"Nenhuma carteira para trocar"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Detalhes do Nó"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"URI do nó"</string>
+    <string name="l10n_node_login_failed_check_the_username_and_password_a89c0811" formatted="false">"Falha ao entrar no nó. Verifique o nome de usuário e a senha."</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"O nó retornou uma resposta inválida. Tente outro nó."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Nó indisponível. Tente outro nó."</string>
     <string name="l10n_nodes_7ac36206" formatted="false">"Nós"</string>

@@ -566,6 +566,7 @@
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"Geen portemonnee om naar te wisselen"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Nodegegevens"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"Node-URI"</string>
+    <string name="l10n_node_login_failed_check_the_username_and_password_a89c0811" formatted="false">"Inloggen op de node mislukt. Controleer de gebruikersnaam en het wachtwoord."</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"Node gaf een ongeldig antwoord. Probeer een andere node."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Node niet beschikbaar. Probeer een andere node."</string>
     <string name="l10n_nodes_7ac36206" formatted="false">"Nodes"</string>

@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import one.monero.moneroone.core.node.NodeCredentialStore
+import one.monero.moneroone.core.node.NodeCredentials
 import one.monero.moneroone.core.util.NetworkMonitor
 import timber.log.Timber
 
@@ -56,6 +58,15 @@ object WalletManager {
     /** Cache id (walletId) the current kit was opened with, null when no kit. */
     var currentWalletId: String? = null
         private set
+
+    /** Bare node URI and login the current kit was opened with, null when no kit. */
+    private var currentNode: Pair<String, NodeCredentials?>? = null
+
+    /**
+     * The bare node URI and login [kit] was opened with, or null when [kit] is no longer the running kit.
+     * The saved node setting can already name another node while this kit still runs on its own.
+     */
+    fun nodeOf(kit: MoneroKit): Pair<String, NodeCredentials?>? = currentNode.takeIf { kit === this.kit }
 
     private val _syncStateFlow = MutableStateFlow<SyncState>(
         SyncState.NotSynced(MoneroKit.SyncError.NotStarted)
@@ -106,6 +117,7 @@ object WalletManager {
 
         kit = newKit
         currentWalletId = walletId
+        currentNode = NodeCredentialStore.splitInline(node)
         resetFlows()
         observeKit(newKit)
         Timber.d("WalletManager: initialized kit for walletId=$walletId")
@@ -198,6 +210,7 @@ object WalletManager {
         }
         kit = null
         currentWalletId = null
+        currentNode = null
         Timber.d("WalletManager: stopped and released kit")
     }
 

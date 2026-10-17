@@ -566,6 +566,7 @@
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"Немає гаманця для перемикання"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Відомості про вузол"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"URI вузла"</string>
+    <string name="l10n_node_login_failed_check_the_username_and_password_a89c0811" formatted="false">"Не вдалося увійти до вузла. Перевірте ім’я користувача та пароль."</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"Вузол повернув недійсну відповідь. Спробуйте інший вузол."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Вузол недоступний. Спробуйте інший вузол."</string>
     <string name="l10n_nodes_7ac36206" formatted="false">"Вузли"</string>
