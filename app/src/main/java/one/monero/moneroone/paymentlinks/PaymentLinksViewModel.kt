@@ -23,6 +23,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import one.monero.moneroone.core.locale.tr
 import one.monero.moneroone.core.wallet.WalletManager
 import timber.log.Timber
 
@@ -237,6 +238,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         _sweep.value = null
         refreshJob?.cancel()
         openLookJob?.cancel()
+        leftoverJob?.cancel()
         sessionJob?.cancel()
         sessionJob = viewModelScope.launch {
             var estimatesClaim = false
@@ -376,7 +378,10 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             }
         }
         if (saved == null) {
-            _sweep.value = SweepResult(id, kind, SweepOutcome.Failed("Could not save the claim. Nothing was sent."), walletName)
+            // The attempt could not be saved before the broadcast, so nothing went out.
+            val message = if (kind == SweepKind.RECLAIM) tr("Could not save the reclaim. Nothing was sent.")
+            else tr("Could not save the claim. Nothing was sent.")
+            _sweep.value = SweepResult(id, kind, SweepOutcome.Failed(message), walletName)
             return
         }
         sweeping = true
@@ -433,6 +438,67 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     fun clearSweep() {
         _sweep.value = null
+    }
+
+    // -------------------------------------------------------------- leftover
+
+    /** Settled links whose leftover check this run was conclusive (settle in a block, nothing locked left). */
+    private val leftoverDone = mutableSetOf<String>()
+    private val leftoverAt = mutableMapOf<String, Long>()
+    private var leftoverJob: Job? = null
+
+    /**
+     * A settled link's detail opened (founder decision 2026-10-17): one quiet check of its envelope for
+     * money its claim or reclaim left behind (a later funding, outputs still locked at the sweep). The
+     * link reopens only when [LinkStatusRules.reopens] says so: the settle is in a block and spendable
+     * money is still there. Each check stops the main wallet for a moment, so a link is checked at most
+     * every [LOOK_AGAIN_AFTER_MS], and not again in this run once a check was conclusive.
+     */
+    fun checkLeftover(id: String) {
+        if (sweeping || _session.value != null || leftoverJob?.isActive == true || id in leftoverDone) return
+        val sent = store.sent(id)
+        val received = if (sent == null) store.received(id) else null
+        val settled = sent?.let(LinkStatusRules::isSettled) ?: received?.isSettled ?: return
+        val txids = sent?.let(LinkStatusRules::settleTxids) ?: received?.settleTxids.orEmpty()
+        val link = sent?.link ?: received?.link ?: return
+        // A settle we cannot name (its txid never showed) can prove nothing: no check.
+        if (!settled || txids.isEmpty()) return
+        val now = System.currentTimeMillis()
+        if (now - (leftoverAt[id] ?: 0L) < LOOK_AGAIN_AFTER_MS) return
+        leftoverAt[id] = now
+        val number = sent?.number ?: received?.number
+        leftoverJob = viewModelScope.launch {
+            sessionLock.withLock {
+                // A claim sheet or detail took the envelope runtime meanwhile.
+                if (_session.value != null) return@withLock
+                var opened: EnvelopeWallet? = null
+                try {
+                    openChecked(id, link) { opened = it }?.let { snapshot ->
+                        logCheck(number, snapshot)
+                        val mined = snapshot.minedSpendTxids.containsAll(txids)
+                        if (mined && (snapshot.balance == 0L || snapshot.unlocked > 0)) leftoverDone.add(id)
+                        store.updateSent(id) { LinkStatusRules.withCheck(it, snapshot) }
+                        store.updateReceived(id) { it.noting(snapshot) }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.w(e, "PaymentLinks: link %s: envelope open failed (leftover check)", number)
+                } finally {
+                    withContext(NonCancellable) {
+                        opened?.close()
+                        // Still settled: its files are no longer needed.
+                        if (id !in store.liveEnvelopeIds()) withContext(Dispatchers.IO) { EnvelopeFiles.delete(context, id) }
+                    }
+                }
+            }
+        }
+    }
+
+    /** The settled link's detail went away: its check stops, so the main wallet runs again. */
+    fun stopLeftoverCheck() {
+        leftoverJob?.cancel()
+        leftoverJob = null
     }
 
     /**
@@ -567,6 +633,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         sessionJob?.cancel()
         refreshJob?.cancel()
         openLookJob?.cancel()
+        leftoverJob?.cancel()
         val open = envelope
         envelope = null
         if (open != null) {

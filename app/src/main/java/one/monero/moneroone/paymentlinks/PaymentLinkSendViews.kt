@@ -79,7 +79,7 @@ import java.util.Date
 /** The spec's bearer warning, shown before every link is funded. */
 internal val bearerWarning: String
     get() = tr(
-        "Anyone who has this link can claim the money. Send it to one person in a private chat. You can take the money back until someone claims it. Payment links are not restored by your wallet recovery phrase. Keep the link until the money is claimed or reclaimed."
+        "Anyone who has this link can claim the money. Send it to one person in a private chat. You can take the money back until someone claims it."
     )
 
 internal fun formatLinkDate(epochSeconds: Long): String =

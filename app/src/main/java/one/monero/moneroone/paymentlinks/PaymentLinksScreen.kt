@@ -423,15 +423,21 @@ private fun SentLinkDetail(
     val currency by walletViewModel.selectedCurrency.collectAsState()
 
     // The envelope is open only while this screen is on screen: leaving or going to the background
-    // closes it, so the main wallet runs again. A settled link needs no check.
-    val wantsSession = link != null && !LinkStatusRules.isSettled(link)
+    // closes it, so the main wallet runs again. A settled link gets one quiet check for money its
+    // settle left behind (founder 2026-10-17); a link that check reopens gets the live session.
+    val settled = link != null && LinkStatusRules.isSettled(link)
+    val wantsSession = link != null && !settled
     // Reclaim opens the claim sheet over this screen (iOS parity): the sheet takes this envelope session
     // while it is up, and this screen checks again once it closes.
     val sheetOpen = pendingOpen == id
     val sheetUp by rememberUpdatedState(sheetOpen)
     LifecycleStartEffect(id, wantsSession, sheetOpen) {
         if (wantsSession && !sheetOpen) paymentLinks.openSession(id)
-        onStopOrDispose { if (!sheetUp) paymentLinks.closeSession() }
+        if (settled && !sheetOpen) paymentLinks.checkLeftover(id)
+        onStopOrDispose {
+            paymentLinks.stopLeftoverCheck()
+            if (!sheetUp) paymentLinks.closeSession()
+        }
     }
     DisposableEffect(id) { onDispose { paymentLinks.clearSweep() } }
 
@@ -542,11 +548,6 @@ private fun SentLinkDetail(
         // No Retry (nothing funds a saved link again) and no Remove (the secret stays). Share and Reclaim
         // stay while the link has a funding transaction and is not claimed or reclaimed, whatever the last check said.
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (LinkStatusRules.isSettled(link)) {
-                PrimaryButton(onClick = reclaim, modifier = Modifier.fillMaxWidth()) {
-                    Text(tr("Check link"))
-                }
-            }
             for (action in LinkStatusRules.sentActions(status)) when (action) {
                 SentLinkAction.SHARE_AGAIN -> PrimaryButton(onClick = share, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -592,10 +593,17 @@ private fun ReceivedLinkDetail(
     val link = receivedList.firstOrNull { it.id == id }
     var renaming by remember { mutableStateOf(false) }
 
+    // A settled link gets one quiet check for money its claim left behind (founder 2026-10-17).
+    val settled = link?.isSettled == true
+    LifecycleStartEffect(id, settled) {
+        if (settled) paymentLinks.checkLeftover(id)
+        onStopOrDispose { paymentLinks.stopLeftoverCheck() }
+    }
+
     LinksScaffold(tr("Payment Link"), onBack) {
         if (link == null) return@LinksScaffold
         val display = receivedDisplay(link, daemonHeight)
-        val canClaim = link.link != null
+        val canClaim = !link.isSettled && link.link != null
         val waiting = link.lastCheck?.let { LinkStatusRules.claimView(it) } is ClaimView.Waiting
         val confirmations = PaymentLinkActivityRules.receivedConfirmations(link, daemonHeight) ?: 0L
         val amount = (link.claimedAmount ?: link.claimAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" }
@@ -646,7 +654,7 @@ private fun ReceivedLinkDetail(
                         onClick(label = tr("Opens the link and claims it when it is ready")) { paymentLinks.store.openClaim(id); true }
                     }
                 ) {
-                    Text(tr(if (link.isSettled) "Check link" else "Claim"))
+                    Text(tr("Claim"))
                 }
             }
             if (canClaim && waiting) {

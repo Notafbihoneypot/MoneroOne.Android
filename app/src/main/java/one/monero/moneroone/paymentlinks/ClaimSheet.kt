@@ -167,8 +167,11 @@ private fun ClaimSheet(
     // into the wallet that funded it.
     val own = sent != null
     val result = sweep?.takeIf { it.id == id }
-    val claimedBefore = received?.state == ReceivedState.CLAIMED && result == null
-    val reclaimedBefore = own && sent?.reclaimTxid != null && result == null
+    // A settled link opens to its result, with no check (iOS parity): checking would stop the main wallet on
+    // every open, and a check from before our claim is in a block still sees the money. The link's detail
+    // checks once for money left behind ([PaymentLinksViewModel.checkLeftover]).
+    val settledBefore = result == null && (sent?.let(LinkStatusRules::isSettled) ?: received?.isSettled ?: false)
+    val reclaimedBefore = settledBefore && own && sent?.let(LinkStatusRules::baseStatus) == LinkStatus.RECLAIMED
     val hasWords = sent != null || received?.link != null
     // Ours: the amount sent. Sent to us: what a claim delivers, else the v1 link's amount or the balance.
     val amount = sent?.amount ?: received?.claimAmount
@@ -191,7 +194,7 @@ private fun ClaimSheet(
     // The envelope is open only while the sheet is on screen and still has something to check: closing
     // the sheet or going to the background closes it, so the main wallet runs again. A finished claim
     // keeps its result on screen when the app comes back.
-    val wantsSession = hasWords && result == null
+    val wantsSession = hasWords && !settledBefore && result == null
     LifecycleStartEffect(id, wantsSession) {
         if (wantsSession) paymentLinks.openSession(id)
         onStopOrDispose { paymentLinks.closeSession() }
@@ -205,13 +208,16 @@ private fun ClaimSheet(
             SweepOutcome.AlreadyClaimed -> ClaimUi.AlreadyClaimed
             is SweepOutcome.Failed -> ClaimUi.Error(outcome.message)
         }
-        claimedBefore && !hasWords -> ClaimUi.Done(received?.claimedAmount, received?.claimTxid, received?.claimedTo, reclaim = false)
-        reclaimedBefore && !hasWords -> ClaimUi.Done(
+        // Our own claim reads Done; a link someone else claimed (or that beat our reclaim) reads Already claimed.
+        settledBefore && received?.claimedHere == true ->
+            ClaimUi.Done(received?.claimedAmount, received?.claimTxid, received?.claimedTo, reclaim = false)
+        reclaimedBefore -> ClaimUi.Done(
             null,
             sent?.reclaimTxid?.takeIf { it.isNotEmpty() },
             wallets.firstOrNull { it.derivedWalletId != null && it.derivedWalletId == sent?.reclaimWallet }?.name,
             reclaim = true
         )
+        settledBefore -> ClaimUi.AlreadyClaimed
         !hasWords -> ClaimUi.Missing
         current == null || current.phase == EnvelopeSession.Phase.CHECKING -> ClaimUi.Checking(amount)
         current.phase == EnvelopeSession.Phase.ERROR -> ClaimUi.Error(current.error)

@@ -47,7 +47,9 @@ data class EnvelopeSnapshot(
      */
     val sweepFee: Long? = null,
     /** The envelope's incoming transactions, oldest first (one in the pool last): the funding as the envelope sees it. */
-    val fundingTxids: List<String> = emptyList()
+    val fundingTxids: List<String> = emptyList(),
+    /** The envelope's outgoing transactions that are in a block: a claim or reclaim that can no longer drop. */
+    val minedSpendTxids: List<String> = emptyList()
 )
 
 /**
@@ -105,14 +107,14 @@ enum class ReceivedState {
     /** Opened, not claimed yet. */
     PENDING,
 
-    /** This device swept it. The secret stays until explicit Remove All. */
+    /** This device swept it. The secret stays until Remove All. */
     CLAIMED
 }
 
 /**
  * A link opened on this device. The secret ([words] of a v1 link, [secret] of
- * a v2 link) stays after this device claims it, until the claim settles. Keep it until explicit Remove All: reorgs and later locked funding
- * can leave money in the envelope that only this secret reaches.
+ * a v2 link) stays after this device claims it, until Remove All: a reorg, or
+ * money that arrives after the claim, can leave money that only the secret reaches.
  */
 @Serializable
 data class ReceivedLink(
@@ -175,17 +177,35 @@ data class ReceivedLink(
     /**
      * The record with [check] as its last check. A check with a sweep fee sets the net
      * amount; one without keeps the old net amount only while the balance holds.
+     *
+     * A settled link keeps its record unless [check] reopens it ([LinkStatusRules.reopens]):
+     * a check made before the claim is in a block still sees the money, and must never turn
+     * Claimed back into Ready (a second claim would fail as a double spend).
      */
     fun noting(check: EnvelopeSnapshot): ReceivedLink {
+        if (isSettled && !LinkStatusRules.reopens(settleTxids, check)) return this
         val net = when {
             check.sweepFee != null -> net(check.balance, check.sweepFee)
             check.balance != lastCheck?.balance -> null
             else -> netAmount
         }
-        // A prior sweep may have dropped or left newer locked outputs behind.
-        val nextState = if (check.balance > 0) ReceivedState.PENDING else state
-        return copy(lastCheck = check, netAmount = net, state = nextState)
+        // Past the guard, a settled link has money its settle left behind: it is open again.
+        return copy(lastCheck = check, netAmount = net, state = if (isSettled) ReceivedState.PENDING else state)
     }
+
+    /**
+     * The spends that settled the link: our claim, else (claimed elsewhere) the envelope's spends as the
+     * check that saw it empty read them. Empty when unknown: then the link never reopens.
+     */
+    val settleTxids: List<String>
+        get() = when {
+            state == ReceivedState.CLAIMED -> listOfNotNull(claimTxid?.takeIf { it.isNotEmpty() })
+            else -> lastCheck?.spendTxids.orEmpty()
+        }
+
+    /** This device's own claim (its transaction or amount is known), not one that lost to another claim. */
+    val claimedHere: Boolean
+        get() = state == ReceivedState.CLAIMED && (claimTxid != null || claimedAmount != null)
 
     /** Checked before records had a net amount: the active wallet's fee estimate stands in for the envelope's. */
     val needsNetAmount: Boolean
@@ -281,11 +301,8 @@ object LinkStatusRules {
      * Not funded: until a check sees the money, it waits ([LinkStatus.PENDING]). [inWallet]: as [hasFunding].
      */
     fun baseStatus(link: SentLink, inWallet: Boolean = false): LinkStatus {
-        val remaining = link.lastCheck?.let { check ->
-            check.balance > 0 && (link.reclaimTxid in check.spendTxids ||
-                link.reclaimStartedAt?.let { check.checkedAt - it > 30 * 60_000L } == true)
-        } == true
-        if (link.reclaimTxid != null && !remaining) return LinkStatus.RECLAIMED
+        // Reclaimed, unless a check saw our reclaim in a block and money it left behind.
+        if (link.reclaimTxid != null && !reopens(settleTxids(link), link.lastCheck)) return LinkStatus.RECLAIMED
         if (link.reclaimLostRace) return LinkStatus.CLAIMED
         val funded = hasFunding(link, inWallet)
         val check = link.lastCheck ?: return if (funded) LinkStatus.PENDING else LinkStatus.NOT_FUNDED
@@ -420,8 +437,10 @@ object LinkStatusRules {
     /**
      * The record with [check] as its last check. A record without a funding txid (or with one the wallet
      * marks failed) takes the one the envelope saw (iOS parity), so its Activity row matches it.
+     * A settled link keeps its record unless [check] reopens it ([reopens]).
      */
     fun withCheck(link: SentLink, check: EnvelopeSnapshot): SentLink {
+        if (isSettled(link) && !reopens(settleTxids(link), check)) return link
         val seen = check.fundingTxids.firstOrNull()
         return if (seen != null && (link.fundingTxid == null || link.fundingFailed)) {
             link.copy(lastCheck = check, fundingTxid = seen, fundingFailed = false, state = SentState.FUNDED)
@@ -433,6 +452,26 @@ object LinkStatusRules {
     /** The sender's link has settled: nothing more can move (its files can go). */
     fun isSettled(link: SentLink): Boolean =
         baseStatus(link).let { it == LinkStatus.CLAIMED || it == LinkStatus.RECLAIMED }
+
+    /**
+     * The spends that settled a sent link: our reclaim, else (claimed) the envelope's spends as the check
+     * that saw it empty read them. Empty when unknown, and after a claim beat our reclaim: then the link
+     * never reopens.
+     */
+    fun settleTxids(link: SentLink): List<String> = when {
+        link.reclaimTxid != null -> listOfNotNull(link.reclaimTxid.takeIf { it.isNotEmpty() })
+        link.reclaimLostRace -> emptyList()
+        else -> link.lastCheck?.spendTxids.orEmpty()
+    }
+
+    /**
+     * A settled link opens again (founder decision 2026-10-17) only when [check] sees every spend that
+     * settled it ([txids]) in a block and spendable money still in the envelope: money that settle did
+     * not spend (a later funding, or outputs still locked when it swept). A check from before the settle
+     * is mined still sees the money it spends, so it never reopens the link.
+     */
+    fun reopens(txids: List<String>, check: EnvelopeSnapshot?): Boolean =
+        check != null && txids.isNotEmpty() && check.unlocked > 0 && check.minedSpendTxids.containsAll(txids)
 
     fun claimView(check: EnvelopeSnapshot): ClaimView = when {
         !check.fundingSeen -> ClaimView.NoMoney

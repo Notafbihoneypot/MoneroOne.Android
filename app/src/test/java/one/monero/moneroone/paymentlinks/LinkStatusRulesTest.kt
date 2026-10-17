@@ -90,11 +90,56 @@ class LinkStatusRulesTest {
     }
 
     @Test
-    fun `remaining funding can be reclaimed after an earlier sweep`() {
-        val remaining = sent(check = check(confirmations = 12, balance = 7).copy(spendTxids = listOf("ab")), reclaimTxid = "ab")
-        assertEquals(LinkStatus.PENDING, LinkStatusRules.baseStatus(remaining))
-        assertFalse(LinkStatusRules.isSettled(remaining))
-        assertEquals(LinkStatus.READY, LinkStatusRules.baseStatus(remaining.copy(lastCheck = remaining.lastCheck!!.copy(unlocked = 7))))
+    fun `a check before our reclaim is mined never reopens the link`() {
+        val reclaimed = sent(check = check(confirmations = 12), reclaimTxid = "ab")
+        // The scan still sees the money our reclaim spends (it waits in the pool), even as spendable.
+        for (early in listOf(
+            check(confirmations = 12, balance = 7, unlocked = 7),
+            check(confirmations = 12, balance = 7, unlocked = 7).copy(spendTxids = listOf("ab")),
+            check(confirmations = 12, balance = 7, unlocked = 7).copy(checkedAt = 3_600_000)
+        )) {
+            val after = LinkStatusRules.withCheck(reclaimed, early)
+            assertEquals(reclaimed, after)
+            assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(after))
+        }
+    }
+
+    @Test
+    fun `money our mined reclaim left behind reopens the link`() {
+        val reclaimed = sent(check = check(confirmations = 12), reclaimTxid = "ab")
+        val mined = check(confirmations = 30, balance = 7, unlocked = 7).copy(spendTxids = listOf("ab"), minedSpendTxids = listOf("ab"))
+        val reopened = LinkStatusRules.withCheck(reclaimed, mined)
+        assertEquals(LinkStatus.READY, LinkStatusRules.baseStatus(reopened))
+        assertFalse(LinkStatusRules.isSettled(reopened))
+        // Locked money left behind is not spendable yet: the link stays reclaimed.
+        val locked = mined.copy(unlocked = 0)
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(reclaimed, locked)))
+        // A mined reclaim and nothing left: still reclaimed.
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(reclaimed, mined.copy(balance = 0, unlocked = 0))))
+        // The next reclaim settles it again.
+        val again = reopened.copy(reclaimTxid = "cd")
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(again))
+        // A reclaim whose txid never showed proves nothing.
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(reclaimed.copy(reclaimTxid = ""), mined)))
+    }
+
+    @Test
+    fun `a claim that beat our reclaim reads claimed and stays claimed`() {
+        val lost = sent(check = check(confirmations = 12, balance = 5, unlocked = 5), lostRace = true)
+        assertEquals(LinkStatus.CLAIMED, LinkStatusRules.baseStatus(lost))
+        val later = check(confirmations = 40, balance = 3, unlocked = 3).copy(spendTxids = listOf("ee"), minedSpendTxids = listOf("ee"))
+        assertEquals(LinkStatus.CLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(lost, later)))
+    }
+
+    @Test
+    fun `a link claimed elsewhere reopens only once that claim is mined and money remains`() {
+        val claimed = sent(check = check(confirmations = 12).copy(spendTxids = listOf("ee")))
+        assertEquals(LinkStatus.CLAIMED, LinkStatusRules.baseStatus(claimed))
+        // A fresh scan that misses the claim in the pool sees the money again: no change.
+        val early = check(confirmations = 12, balance = 5, unlocked = 5)
+        assertEquals(claimed, LinkStatusRules.withCheck(claimed, early))
+        val leftover = check(confirmations = 40, balance = 3, unlocked = 3).copy(spendTxids = listOf("ee"), minedSpendTxids = listOf("ee"))
+        assertEquals(LinkStatus.READY, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(claimed, leftover)))
     }
 
     @Test
@@ -183,16 +228,38 @@ class LinkStatusRulesTest {
     }
 
     @Test
-    fun `a claim with remaining funds reopens and retains its secret`() {
+    fun `a check before our claim is mined keeps the link claimed`() {
+        // Reviewer High (2026-10-17): any balance turned Claimed into Ready, and a second claim failed as a double spend.
         val claimed = ReceivedLink("0123456789abcdef", List(25) { "abbey" }, 100, 5, expiry, 0,
-            state = ReceivedState.CLAIMED, claimTxid = "aa")
-        val remaining = claimed.noting(check(confirmations = 11, balance = 7, unlocked = 0))
-        assertEquals(ReceivedState.PENDING, remaining.state)
-        assertEquals(claimed.words, remaining.words)
-        assertEquals(ClaimView.Waiting(9, 2), LinkStatusRules.claimView(remaining.lastCheck!!))
-        assertFalse(remaining.isSettled)
-        val unlocked = remaining.noting(check(confirmations = 12, balance = 7, unlocked = 7))
-        assertEquals(ClaimView.Ready(7), LinkStatusRules.claimView(unlocked.lastCheck!!))
+            state = ReceivedState.CLAIMED, claimTxid = "aa", claimedAmount = 5)
+        for (early in listOf(
+            check(confirmations = 11, balance = 7, unlocked = 7),
+            check(confirmations = 11, balance = 7, unlocked = 0),
+            check(confirmations = 11, balance = 7, unlocked = 7).copy(spendTxids = listOf("aa"))
+        )) {
+            val after = claimed.noting(early)
+            assertEquals(claimed, after)
+            assertTrue(after.isSettled)
+            assertTrue(after.claimedHere)
+        }
+    }
+
+    @Test
+    fun `money our mined claim left behind reopens the link and keeps its secret`() {
+        val claimed = ReceivedLink("0123456789abcdef", List(25) { "abbey" }, 100, 5, expiry, 0,
+            state = ReceivedState.CLAIMED, claimTxid = "aa", claimedAmount = 5)
+        val mined = check(confirmations = 30, balance = 7, unlocked = 7).copy(spendTxids = listOf("aa"), minedSpendTxids = listOf("aa"))
+        val reopened = claimed.noting(mined)
+        assertEquals(ReceivedState.PENDING, reopened.state)
+        assertEquals(claimed.words, reopened.words)
+        assertFalse(reopened.isSettled)
+        assertEquals(ClaimView.Ready(7), LinkStatusRules.claimView(reopened.lastCheck!!))
+        // Locked money left behind waits for a later check.
+        assertEquals(claimed, claimed.noting(mined.copy(unlocked = 0)))
+        // A claim that lost to another claim (no txid, no amount) is not ours and never reopens.
+        val beaten = claimed.copy(claimTxid = null, claimedAmount = null)
+        assertFalse(beaten.claimedHere)
+        assertEquals(beaten, beaten.noting(mined))
     }
 
     @Test

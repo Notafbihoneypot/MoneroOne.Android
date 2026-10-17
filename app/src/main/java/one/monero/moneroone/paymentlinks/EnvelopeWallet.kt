@@ -99,7 +99,8 @@ class EnvelopeWallet private constructor(
             spendTxids = outgoingHashes().sorted(),
             fundingHeight = mined.minOfOrNull { it.blockheight },
             // Oldest first; one still in the pool last.
-            fundingTxids = incoming.sortedBy { if (!it.isPending && it.blockheight > 0) it.blockheight else Long.MAX_VALUE }.mapNotNull { it.hash }
+            fundingTxids = incoming.sortedBy { if (!it.isPending && it.blockheight > 0) it.blockheight else Long.MAX_VALUE }.mapNotNull { it.hash },
+            minedSpendTxids = outgoing().filter { !it.isPending && it.blockheight > 0 }.mapNotNull { it.hash }.sorted()
         )
     }
 
