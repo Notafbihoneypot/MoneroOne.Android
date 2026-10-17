@@ -80,7 +80,7 @@ import java.util.Date
 /** The spec's bearer warning, shown before every link is funded. */
 internal val bearerWarning: String
     get() = tr(
-        "Anyone who has this link can claim the money. Send it to one person in a private chat. You can take the money back until someone claims it."
+        "Anyone who has this link can claim the money. Send it to one person in a private chat. You can take the money back until someone claims it. Payment links are not restored by your wallet recovery phrase. Keep the link until the money is claimed or reclaimed."
     )
 
 internal fun formatLinkDate(epochSeconds: Long): String =
@@ -91,8 +91,8 @@ internal fun formatRecordDate(epochMillis: Long): String =
 
 /**
  * "App-only payment links" (Settings, Privacy & Security), off by default. On, every share
- * shares the https://monero.one/a link, which never loads a web page (the site redirects it
- * to moneroone://c). Share again in a link's detail follows the setting as it is now, not as
+ * shares the https://monero.one/a link, which never loads a web page or redirects to a custom
+ * scheme. Only verified app-link routing opens it. Share again in a link's detail follows the setting as it is now, not as
  * it was when the link was made.
  */
 object LinkSharePrefs {

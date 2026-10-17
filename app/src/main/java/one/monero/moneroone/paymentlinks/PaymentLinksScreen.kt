@@ -542,6 +542,11 @@ private fun SentLinkDetail(
         // No Retry (nothing funds a saved link again) and no Remove (the secret stays). Share and Reclaim
         // stay while the link has a funding transaction and is not claimed or reclaimed, whatever the last check said.
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (LinkStatusRules.isSettled(link)) {
+                PrimaryButton(onClick = reclaim, modifier = Modifier.fillMaxWidth()) {
+                    Text(tr("Check link"))
+                }
+            }
             for (action in LinkStatusRules.sentActions(status)) when (action) {
                 SentLinkAction.SHARE_AGAIN -> PrimaryButton(onClick = share, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -590,7 +595,7 @@ private fun ReceivedLinkDetail(
     LinksScaffold(tr("Payment Link"), onBack) {
         if (link == null) return@LinksScaffold
         val display = receivedDisplay(link, daemonHeight)
-        val canClaim = !link.isSettled && link.link != null
+        val canClaim = link.link != null
         val waiting = link.lastCheck?.let { LinkStatusRules.claimView(it) } is ClaimView.Waiting
         val confirmations = PaymentLinkActivityRules.receivedConfirmations(link, daemonHeight) ?: 0L
         val amount = (link.claimedAmount ?: link.claimAmount)?.let { "${walletViewModel.formatXmr(it)} XMR" }
@@ -641,7 +646,7 @@ private fun ReceivedLinkDetail(
                         onClick(label = tr("Opens the link and claims it when it is ready")) { paymentLinks.store.openClaim(id); true }
                     }
                 ) {
-                    Text(tr("Claim"))
+                    Text(tr(if (link.isSettled) "Check link" else "Claim"))
                 }
             }
             if (canClaim && waiting) {

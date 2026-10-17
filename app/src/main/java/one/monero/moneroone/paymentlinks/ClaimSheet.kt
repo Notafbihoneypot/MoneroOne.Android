@@ -191,7 +191,7 @@ private fun ClaimSheet(
     // The envelope is open only while the sheet is on screen and still has something to check: closing
     // the sheet or going to the background closes it, so the main wallet runs again. A finished claim
     // keeps its result on screen when the app comes back.
-    val wantsSession = hasWords && !claimedBefore && !reclaimedBefore && result == null
+    val wantsSession = hasWords && result == null
     LifecycleStartEffect(id, wantsSession) {
         if (wantsSession) paymentLinks.openSession(id)
         onStopOrDispose { paymentLinks.closeSession() }
@@ -205,8 +205,8 @@ private fun ClaimSheet(
             SweepOutcome.AlreadyClaimed -> ClaimUi.AlreadyClaimed
             is SweepOutcome.Failed -> ClaimUi.Error(outcome.message)
         }
-        claimedBefore -> ClaimUi.Done(received?.claimedAmount, received?.claimTxid, received?.claimedTo, reclaim = false)
-        reclaimedBefore -> ClaimUi.Done(
+        claimedBefore && !hasWords -> ClaimUi.Done(received?.claimedAmount, received?.claimTxid, received?.claimedTo, reclaim = false)
+        reclaimedBefore && !hasWords -> ClaimUi.Done(
             null,
             sent?.reclaimTxid?.takeIf { it.isNotEmpty() },
             wallets.firstOrNull { it.derivedWalletId != null && it.derivedWalletId == sent?.reclaimWallet }?.name,

@@ -84,15 +84,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch(Dispatchers.IO) {
             if (envelope == null) EnvelopeFiles.sweep(context, store.liveEnvelopeIds())
         }
-        // A claim's secret goes once the claim is in a block, as the open wallet's history shows it.
-        viewModelScope.launch {
-            combine(WalletManager.transactionsFlow, store.received) { txs, received ->
-                val mined = txs.filter { !it.isPending && !it.isFailed && it.blockheight > 0 }.mapNotNull { it.hash }.toSet()
-                LinkStatusRules.claimWordsToForget(received, mined)
-            }.collect { ids ->
-                ids.forEach { id -> store.updateReceived(id) { it.forgettingSecret() } }
-            }
-        }
+        // Retain received secrets until explicit Remove All. A mined claim can
+        // reorg or leave newer locked funding behind.
         // A record saved without its funding txid (the app quit mid-broadcast, or the error came after the node
         // took it): the open wallet's outgoing transaction to its envelope is its funding. The link shows again,
         // as Waiting, and the status never contradicts the wallet's own history.
@@ -155,7 +148,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
     /** Saves the record before any broadcast (spec "Sender flow" step 2). False: do not fund. */
     fun recordBeforeFunding(draft: EnvelopeDraft, walletId: String, feeReserve: Long, note: String? = null): Boolean {
         val link = draft.link
-        return store.putSent(
+        return store.createSent(
             SentLink(
                 id = link.id, words = if (link.version == 1) link.words else emptyList(), secret = link.secretHex,
                 height = link.height, amount = draft.amount, expiry = draft.expiry,
@@ -234,64 +227,12 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         return again.awaitSnapshot()
     }
 
-    /**
-     * Before a retry funds [id] again: true when a funding of this envelope is
-     * already known (in the envelope's last check or the main wallet's history),
-     * so nothing may be sent twice. Marks the record funded in that case.
-     */
-    fun fundingAlreadySent(id: String): Boolean {
-        val link = store.sent(id) ?: return false
-        val txid = fundingTxid(link.envelopeAddress)
-        if (txid == null && link.lastCheck?.fundingSeen != true) return false
-        store.updateSent(id) { if (txid != null) it.copy(state = SentState.FUNDED, fundingTxid = txid, fundingFailed = false) else it.copy(state = SentState.FUNDED) }
-        return true
-    }
-
-    /**
-     * Before a retry funds [id] again: syncs its envelope once, so a broadcast
-     * that went out after all (the error came after the node took it) is
-     * seen, and records what it saw. Returns whether money reached the
-     * envelope, or null when the check or the main wallet's restart failed.
-     * The main wallet runs and is synced again when this returns true or false.
-     */
-    suspend fun fundingSeenNow(id: String): Boolean? {
-        val link = store.sent(id) ?: return null
-        closeSession()
-        val seen = sessionLock.withLock {
-            var opened: EnvelopeWallet? = null
-            try {
-                openChecked(id, link.link) { opened = it }?.also { snapshot ->
-                    logCheck(link.number, snapshot)
-                    store.updateSent(id) { LinkStatusRules.withCheck(it, snapshot) }
-                }?.fundingSeen
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Timber.w(e, "PaymentLinks: envelope open failed (funding check)")
-                null
-            } finally {
-                withContext(NonCancellable) { opened?.close() }
-            }
-        }
-        if (!awaitMainWalletSynced()) return null
-        return seen
-    }
-
-    /**
-     * The Send flow's own retry after its funding broadcast failed (its error step, before the link
-     * was ever shown): only from the wallet that funded it first (its history is where a lost
-     * broadcast shows), after [fundingSeenNow] found nothing. A saved link's detail never funds it again.
-     */
-    fun retryFunding(id: String, activeWalletId: String?): Boolean {
-        val link = store.sent(id) ?: return false
-        if (link.walletId != activeWalletId) return false
-        return store.updateSent(id) { it.copy(state = SentState.CREATED) } != null
-    }
-
     // --------------------------------------------------------------- session
 
     /** Opens the envelope of [id] (sent or received) and keeps its state current until [closeSession]. */
     fun openSession(id: String) {
+        // A second deep link must not close the wallet during a broadcast.
+        if (sweeping) return
         if (_session.value?.id == id && _session.value?.phase != EnvelopeSession.Phase.ERROR) return
         _sweep.value = null
         refreshJob?.cancel()
@@ -417,6 +358,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         val open = envelope ?: return
         if (current.phase != EnvelopeSession.Phase.LIVE || sweeping) return
         val id = current.id
+        if (open.id != id) return
         val amount = current.snapshot?.unlocked ?: 0L
         // Saved before the broadcast, so a sweep the app loses mid-flight is found later by its hash.
         val now = System.currentTimeMillis()
@@ -427,11 +369,15 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
         // The kit wallet the money lands in: the open one, or the closed wallet's own when it next opens.
         val into = if (destination.isOpen) WalletManager.currentWalletId else destination.kitWalletId
         Timber.d("PaymentLinks: sweep %s into %s wallet", kind, if (destination.isOpen) "the open" else "a closed")
-        when (kind) {
+        val saved = when (kind) {
             SweepKind.RECLAIM -> store.updateSent(id) { it.copy(reclaimStartedAt = it.reclaimStartedAt ?: now, reclaimWallet = into) }
             SweepKind.CLAIM -> store.updateReceived(id) {
                 it.copy(claimStartedAt = it.claimStartedAt ?: now, claimStartedTo = walletName, claimWallet = into)
             }
+        }
+        if (saved == null) {
+            _sweep.value = SweepResult(id, kind, SweepOutcome.Failed("Could not save the claim. Nothing was sent."), walletName)
+            return
         }
         sweeping = true
         closeAfterSweep = false
@@ -469,8 +415,8 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             }
             SweepKind.CLAIM -> {
                 if (outcome is SweepOutcome.Failed) return
-                // The secret stays until the claim is mined (see init): a claim that never confirms leaves the money
-                // in the envelope.
+                // Retain the secret even after confirmation: a reorg or newer
+                // locked funding can leave money in this envelope.
                 val claimed: (ReceivedLink) -> ReceivedLink = {
                     if (outcome is SweepOutcome.Sent) {
                         it.copy(state = ReceivedState.CLAIMED, claimTxid = outcome.txid, claimedAmount = amount, claimedTo = walletName)

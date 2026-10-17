@@ -14,12 +14,10 @@ import java.net.URLDecoder
  * WebKit hides everything after `:~:` from the page's script, so the page
  * sees only "2" (Chromium still exposes it through its navigation APIs: an
  * extra layer, not a boundary). With "App-only payment links" on, links take
- * the /a path with a plain fragment. The site answers /a with a bare redirect
- * to the app's own scheme, and the browser carries the fragment over, so no
- * page script ever runs:
+ * the /a path with a plain fragment. Verified OS App Links open it in Monero
+ * One. In a browser /a returns an empty 204 with no document or scheme redirect:
  *
- *     https://monero.one/a#2<secret><height>   (shared)
- *     moneroone://c#2<secret><height>          (where /a lands)
+ *     https://monero.one/a#2<secret><height>
  *
  * Older shapes still parse and claim (links made before must keep working):
  *
@@ -67,7 +65,7 @@ class PaymentLink private constructor(
 
     /**
      * The app-only link: `https://monero.one/a#2<secret><height>`. It opens only in Monero One:
-     * App Links open it in the app, and in a browser /a redirects to moneroone://c with no page.
+     * Verified App Links open it in the app; browsers receive an empty response.
      */
     fun appUrl(): String = "$APP_LINK_PREFIX#" + when (val s = secretBytes) {
         null -> v1Fragment()

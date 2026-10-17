@@ -90,6 +90,14 @@ class LinkStatusRulesTest {
     }
 
     @Test
+    fun `remaining funding can be reclaimed after an earlier sweep`() {
+        val remaining = sent(check = check(confirmations = 12, balance = 7).copy(spendTxids = listOf("ab")), reclaimTxid = "ab")
+        assertEquals(LinkStatus.PENDING, LinkStatusRules.baseStatus(remaining))
+        assertFalse(LinkStatusRules.isSettled(remaining))
+        assertEquals(LinkStatus.READY, LinkStatusRules.baseStatus(remaining.copy(lastCheck = remaining.lastCheck!!.copy(unlocked = 7))))
+    }
+
+    @Test
     fun `pending and ready expire, settled links do not`() {
         assertEquals(LinkStatus.EXPIRED, LinkStatusRules.status(sent(check = check(confirmations = 3, balance = 5)), after))
         assertEquals(LinkStatus.EXPIRED, LinkStatusRules.status(sent(check = check(confirmations = 10, balance = 5, unlocked = 5)), after))
@@ -175,16 +183,16 @@ class LinkStatusRulesTest {
     }
 
     @Test
-    fun `claim words go only once the claim is mined`() {
-        fun received(state: ReceivedState, txid: String?, words: List<String>? = List(25) { "abbey" }, id: String = "0123456789abcdef") =
-            ReceivedLink(id, words, 100, 5, expiry, 0, state = state, claimTxid = txid)
-        val claimed = received(ReceivedState.CLAIMED, "aa")
-        val pending = received(ReceivedState.PENDING, null, id = "1111111111111111")
-        val forgotten = received(ReceivedState.CLAIMED, "bb", words = null, id = "2222222222222222")
-        val list = listOf(claimed, pending, forgotten)
-        assertEquals(emptyList<String>(), LinkStatusRules.claimWordsToForget(list, emptySet()))
-        assertEquals(emptyList<String>(), LinkStatusRules.claimWordsToForget(list, setOf("cc")))
-        assertEquals(listOf(claimed.id), LinkStatusRules.claimWordsToForget(list, setOf("aa", "bb")))
+    fun `a claim with remaining funds reopens and retains its secret`() {
+        val claimed = ReceivedLink("0123456789abcdef", List(25) { "abbey" }, 100, 5, expiry, 0,
+            state = ReceivedState.CLAIMED, claimTxid = "aa")
+        val remaining = claimed.noting(check(confirmations = 11, balance = 7, unlocked = 0))
+        assertEquals(ReceivedState.PENDING, remaining.state)
+        assertEquals(claimed.words, remaining.words)
+        assertEquals(ClaimView.Waiting(9, 2), LinkStatusRules.claimView(remaining.lastCheck!!))
+        assertFalse(remaining.isSettled)
+        val unlocked = remaining.noting(check(confirmations = 12, balance = 7, unlocked = 7))
+        assertEquals(ClaimView.Ready(7), LinkStatusRules.claimView(unlocked.lastCheck!!))
     }
 
     @Test

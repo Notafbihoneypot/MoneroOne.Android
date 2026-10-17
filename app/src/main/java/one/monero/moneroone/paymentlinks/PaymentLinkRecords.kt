@@ -105,20 +105,19 @@ enum class ReceivedState {
     /** Opened, not claimed yet. */
     PENDING,
 
-    /** This device swept it. The words stay until the claim is mined ([LinkStatusRules.claimWordsToForget]). */
+    /** This device swept it. The secret stays until explicit Remove All. */
     CLAIMED
 }
 
 /**
  * A link opened on this device. The secret ([words] of a v1 link, [secret] of
- * a v2 link) stays after this device claims it, until the claim is in a block:
- * a claim that never confirms leaves the money in the envelope, and only the
- * secret reaches it.
+ * a v2 link) stays after this device claims it, until the claim settles. Keep it until explicit Remove All: reorgs and later locked funding
+ * can leave money in the envelope that only this secret reaches.
  */
 @Serializable
 data class ReceivedLink(
     val id: String,
-    /** v1 links: the 25 words. Null for v2 links, and once a claim from here is mined. */
+    /** v1 links: the 25 words. Null for v2 links, or legacy records that discarded their secret. */
     val words: List<String>?,
     val height: Long,
     val amount: Long,
@@ -134,7 +133,7 @@ data class ReceivedLink(
     /** The wallet that claim went to: its name, and its kit wallet (WalletManager.currentWalletId). */
     val claimStartedTo: String? = null,
     val claimWallet: String? = null,
-    /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links, and once a claim from here is mined. */
+    /** v2 links: the 16-byte link secret, lowercase hex. Null for v1 links, or legacy records that discarded their secret. */
     val secret: String? = null,
     /**
      * What a claim delivers, atomic units: the last balance less wallet2's fee estimate
@@ -154,7 +153,7 @@ data class ReceivedLink(
     val link: PaymentLink?
         get() = secret?.let { PaymentLink.v2(it, height) } ?: words?.let { PaymentLink(it, height, amount, expiry, id) }
 
-    /** The link with its secret dropped (a claim from here is mined). */
+    /** Legacy helper; automatic claim cleanup must never call this. */
     fun forgettingSecret(): ReceivedLink = copy(words = null, secret = null)
 
     /**
@@ -183,7 +182,9 @@ data class ReceivedLink(
             check.balance != lastCheck?.balance -> null
             else -> netAmount
         }
-        return copy(lastCheck = check, netAmount = net)
+        // A prior sweep may have dropped or left newer locked outputs behind.
+        val nextState = if (check.balance > 0) ReceivedState.PENDING else state
+        return copy(lastCheck = check, netAmount = net, state = nextState)
     }
 
     /** Checked before records had a net amount: the active wallet's fee estimate stands in for the envelope's. */
@@ -240,13 +241,6 @@ object LinkStatusRules {
     const val CONFIRMATIONS = 10L
 
     /**
-     * Ids of claimed links whose claim is now in a block ([minedHashes]: the
-     * open wallet's mined transactions): their words can go.
-     */
-    fun claimWordsToForget(received: List<ReceivedLink>, minedHashes: Set<String>): List<String> =
-        received.filter { it.state == ReceivedState.CLAIMED && it.link != null && it.claimTxid in minedHashes }.map { it.id }
-
-    /**
      * Reclaims the app started and lost (killed mid-flight) whose sweep now
      * shows as incoming ([incomingHashes]) in the wallet it went to, open now
      * as [openWallet]: id to txid. Proof by hash in that wallet, so a claim
@@ -287,7 +281,11 @@ object LinkStatusRules {
      * Not funded: until a check sees the money, it waits ([LinkStatus.PENDING]). [inWallet]: as [hasFunding].
      */
     fun baseStatus(link: SentLink, inWallet: Boolean = false): LinkStatus {
-        if (link.reclaimTxid != null) return LinkStatus.RECLAIMED
+        val remaining = link.lastCheck?.let { check ->
+            check.balance > 0 && (link.reclaimTxid in check.spendTxids ||
+                link.reclaimStartedAt?.let { check.checkedAt - it > 30 * 60_000L } == true)
+        } == true
+        if (link.reclaimTxid != null && !remaining) return LinkStatus.RECLAIMED
         if (link.reclaimLostRace) return LinkStatus.CLAIMED
         val funded = hasFunding(link, inWallet)
         val check = link.lastCheck ?: return if (funded) LinkStatus.PENDING else LinkStatus.NOT_FUNDED

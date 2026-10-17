@@ -20,6 +20,9 @@ import timber.log.Timber
 class PaymentLinkStore internal constructor(private val prefs: SharedPreferences) {
 
     private val json = Json { ignoreUnknownKeys = true }
+    // Never overwrite an unreadable collection with a new, nearly empty one:
+    // its saved secrets may still control funded envelopes.
+    private val unreadableSlots = mutableSetOf<String>()
 
     private val _sent = MutableStateFlow(read(KEY_SENT, SentLink.serializer()))
     val sent: StateFlow<List<SentLink>> = _sent.asStateFlow()
@@ -33,6 +36,10 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
     }
 
     fun sent(id: String): SentLink? = _sent.value.firstOrNull { it.id == id }
+
+    /** Reserves the sole funding attempt, durably, before any broadcast. */
+    @Synchronized
+    fun createSent(link: SentLink): Boolean = sent(link.id) == null && putSent(link)
 
     fun received(id: String): ReceivedLink? = _received.value.firstOrNull { it.id == id }
 
@@ -175,7 +182,7 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
                         )
                     )
                 } else if (known != null && known.link == null) {
-                    // Opened again after its claim: the secret comes back until that claim is mined.
+                    // Restore a secret discarded by an older build; retain it until explicit Remove All.
                     updateReceived(link.id) { it.copy(words = link.words.takeIf { link.version == 1 }, secret = link.secretHex) }
                 }
                 setPendingOpen(link.id)
@@ -192,7 +199,10 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
     /** Remove All (the full wipe): every record and its secret leave the encrypted store. */
     @Synchronized
     fun removeAll() {
-        prefs.edit().remove(KEY_SENT).remove(KEY_RECEIVED).remove(KEY_PENDING_OPEN).remove(KEY_LAST_NUMBER).commit()
+        check(prefs.edit().remove(KEY_SENT).remove(KEY_RECEIVED).remove(KEY_PENDING_OPEN).remove(KEY_LAST_NUMBER).commit()) {
+            "Could not remove the payment links"
+        }
+        unreadableSlots.clear()
         _sent.value = emptyList()
         _received.value = emptyList()
         _pendingOpen.value = null
@@ -212,11 +222,13 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
         } catch (e: Exception) {
             // Never log the text: it holds envelope words.
             Timber.e("PaymentLinks: could not read the stored records (%s)", e.javaClass.simpleName)
+            unreadableSlots.add(slot)
             emptyList()
         }
     }
 
     private fun <T> write(slot: String, list: List<T>, serializer: kotlinx.serialization.KSerializer<T>): Boolean {
+        if (slot in unreadableSlots) return false
         val ok = prefs.edit().putString(slot, json.encodeToString(ListSerializer(serializer), list)).commit()
         if (!ok) Timber.e("PaymentLinks: could not save the records")
         return ok

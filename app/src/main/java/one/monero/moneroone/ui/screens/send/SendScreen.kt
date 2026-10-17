@@ -257,8 +257,7 @@ fun SendScreen(
     var linkMode by remember { mutableStateOf(false) }
     var linkDraft by remember { mutableStateOf<EnvelopeDraft?>(null) }
     var linkFeeReserve by remember { mutableLongStateOf(0L) }
-    var linkRetryError by remember { mutableStateOf<String?>(null) }
-    val linkScope = rememberCoroutineScope()
+    var linkFundingError by remember { mutableStateOf<String?>(null) }
     val canSendWithLink = paymentLinks != null && walletViewModel.activeWallet.value?.isViewOnly == false
 
     // React to send state changes from ViewModel
@@ -502,9 +501,10 @@ fun SendScreen(
                     }
                 }
                 SendPhase.ERROR -> ErrorPhase(
-                    message = linkRetryError ?: (sendState as? SendState.Error)?.message ?: tr("Transaction Failed"),
+                    message = linkFundingError ?: (sendState as? SendState.Error)?.message ?: tr("Transaction Failed"),
+                    canRetry = !linkMode,
                     onRetry = {
-                        linkRetryError = null
+                        linkFundingError = null
                         walletViewModel.resetSendState(flow)
                         goBack(SendPhase.REVIEW)
                     },
@@ -529,35 +529,20 @@ fun SendScreen(
                     val id = draft.link.id
                     val record = paymentLinks.store.sent(id)
                     when {
-                        // A retry after a failed broadcast, which may have gone out after all: check the
-                        // envelope first, and never fund it twice or from another wallet.
+                        // A saved record consumed this link's one funding attempt.
                         record != null -> {
-                            phase = SendPhase.SENDING
-                            linkScope.launch {
-                                val seen = paymentLinks.fundingSeenNow(id)
-                                when {
-                                    seen == null -> {
-                                        linkRetryError = tr("Could not check this link.")
-                                        phase = SendPhase.ERROR
-                                        sendInProgress = false
-                                    }
-                                    paymentLinks.fundingAlreadySent(id) -> {
-                                        phase = SendPhase.SUCCESS
-                                        sendInProgress = false
-                                    }
-                                    !paymentLinks.retryFunding(id, walletViewModel.activeWallet.value?.id) -> {
-                                        linkRetryError = tr("Transaction Failed")
-                                        phase = SendPhase.ERROR
-                                        sendInProgress = false
-                                    }
-                                    else -> walletViewModel.send(flow, draft.address, draft.amount + record.feeReserve, memo = "Payment link")
-                                }
-                            }
+                            linkFundingError = tr("This link already has a funding attempt. Check Activity before sending again.")
+                            phase = SendPhase.ERROR
+                            sendInProgress = false
                         }
                         // The record is saved before any broadcast; without it, nothing is sent.
                         !paymentLinks.recordBeforeFunding(
                             draft, walletViewModel.activeWallet.value?.id.orEmpty(), linkFeeReserve, note = linkNote
-                        ) -> sendInProgress = false
+                        ) -> {
+                            linkFundingError = tr("Could not save the payment link. Nothing was sent.")
+                            phase = SendPhase.ERROR
+                            sendInProgress = false
+                        }
                         else -> walletViewModel.send(
                             flow,
                             draft.address,
@@ -1498,7 +1483,7 @@ private fun SuccessPhase(txHash: String, onDone: () -> Unit) {
 }
 
 @Composable
-private fun ErrorPhase(message: String, onRetry: () -> Unit, onClose: () -> Unit) {
+private fun ErrorPhase(message: String, onRetry: () -> Unit, onClose: () -> Unit, canRetry: Boolean = true) {
     Box(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
@@ -1524,12 +1509,14 @@ private fun ErrorPhase(message: String, onRetry: () -> Unit, onClose: () -> Unit
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // iOS: Retry is the glass action, Close a secondary text button under it.
-            PrimaryButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(tr("Retry"))
+            // Only ordinary address sends can retry. A link is funded once.
+            if (canRetry) {
+                PrimaryButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Text(tr("Retry"))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-            Spacer(modifier = Modifier.height(12.dp))
             DismissTextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
                 Text(tr("Close"))
             }
