@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import one.monero.moneroone.paymentlinks.PaymentLink
 import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.ui.navigation.MoneroOneNavHost
 import one.monero.moneroone.ui.theme.MoneroOneTheme
@@ -29,12 +28,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun acceptPaymentLink(intent: Intent) {
-        // A claim link (App Link or moneroone://) goes straight to the encrypted store; nothing keeps it
-        // in memory or the bundle.
-        val scheme = intent.data?.scheme
-        val claimLink = scheme.equals(PaymentLink.APP_SCHEME, ignoreCase = true) ||
-            scheme.equals("https", ignoreCase = true) && intent.data?.host.equals("monero.one", ignoreCase = true)
-        if (intent.action == Intent.ACTION_VIEW && claimLink) {
+        // A claim link (App Link) goes straight to the encrypted store; nothing keeps it in memory or the bundle.
+        if (intent.action == Intent.ACTION_VIEW && intent.data?.scheme.equals("https", ignoreCase = true) &&
+            intent.data?.host.equals("monero.one", ignoreCase = true)
+        ) {
             PaymentLinkStore.get(this).accept(intent.dataString.orEmpty())
             intent.data = null
             return

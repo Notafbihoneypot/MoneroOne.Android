@@ -13,11 +13,7 @@ import java.net.URLDecoder
  *
  * WebKit hides everything after `:~:` from the page's script, so the page
  * sees only "2" (Chromium still exposes it through its navigation APIs: an
- * extra layer, not a boundary). With "App-only payment links" on, links take
- * the /a path with a plain fragment. Verified OS App Links open it in Monero
- * One. In a browser /a returns an empty 204 with no document or scheme redirect:
- *
- *     https://monero.one/a#2<secret><height>
+ * extra layer, not a boundary). Every link the app makes has this shape.
  *
  * Older shapes still parse and claim (links made before must keep working):
  *
@@ -63,18 +59,6 @@ class PaymentLink private constructor(
         else -> "$PREFIX#${EnvelopeV2.VERSION}$DIRECTIVE" + EnvelopeV2.fragment(s, height).orEmpty().drop(1)
     }
 
-    /**
-     * The app-only link: `https://monero.one/a#2<secret><height>`. It opens only in Monero One:
-     * Verified App Links open it in the app; browsers receive an empty response.
-     */
-    fun appUrl(): String = "$APP_LINK_PREFIX#" + when (val s = secretBytes) {
-        null -> v1Fragment()
-        else -> EnvelopeV2.fragment(s, height).orEmpty()
-    }
-
-    /** The link to share: [appUrl] with "App-only payment links" on, else [url]. */
-    fun url(appOnly: Boolean): String = if (appOnly) appUrl() else url()
-
     private fun v1Fragment(): String = "v=1&s=${words.joinToString("-")}&h=$height&a=$amount&e=$expiry&n=$id"
 
     override fun toString(): String = "PaymentLink(v=$version, n=$id, h=$height, a=$amount, e=$expiry, s=<redacted>)"
@@ -88,8 +72,6 @@ class PaymentLink private constructor(
 
     companion object {
         const val PREFIX = "https://monero.one/c"
-        const val APP_LINK_PREFIX = "https://monero.one/a"
-        const val APP_SCHEME = "moneroone"
 
         /** The fragment directive the v2 body sits behind: `#2:~:m1=<body>`. */
         const val DIRECTIVE = ":~:m1="
@@ -130,10 +112,9 @@ object PaymentLinkCodec {
     private val WORD_SEPARATORS = Regex("[-+\\s]+")
 
     /**
-     * True when [text] is a claim link by its shape alone: `https://monero.one/c`
-     * or `/a`, either without a scheme (pasted), or `moneroone://c`, then `#`, `?`,
-     * `/` or the end. Such text opens the claim sheet, never the address field.
-     * `http` is not a claim link.
+     * True when [text] is a claim link by its shape alone: `https://monero.one/c`,
+     * with or without the scheme (pasted), then `#`, `?`, `/` or the end. Such text
+     * opens the claim sheet, never the address field. `http` is not a claim link.
      */
     fun isClaimLink(text: String): Boolean = locationEnd(clean(text)) != null
 
@@ -204,24 +185,22 @@ object PaymentLinkCodec {
 
     /**
      * Surrounding space, and the sentence's punctuation when a chat app took it
-     * with the link ("...: moneroone://c#2... ."): no link ends in one of these.
+     * with the link ("...: https://monero.one/c#2... ."): no link ends in one of these.
      */
     private fun clean(text: String): String = text.trim().trimEnd('.', ',', ';', '!', '?', ')')
 
-    /** Index just past `monero.one/c`, `monero.one/a` or `moneroone://c` when [text] starts with an accepted claim-link prefix. */
+    /** Index just past `monero.one/c` when [text] starts with an accepted claim-link prefix. */
     private fun locationEnd(text: String): Int? {
         val lower = text.lowercase()
-        val app = "${PaymentLink.APP_SCHEME}://"
-        val appScheme = lower.startsWith(app)
         val start = when {
-            appScheme -> app.length
             lower.startsWith("https://") -> "https://".length
             lower.startsWith("http:") -> return null
             lower.contains("://") -> return null
             else -> 0
         }
-        val location = if (appScheme) listOf("c") else listOf("monero.one/c", "monero.one/a")
-        val end = start + (location.firstOrNull { lower.startsWith(it, start) } ?: return null).length
+        val location = "monero.one/c"
+        if (!lower.startsWith(location, start)) return null
+        val end = start + location.length
         if (end < text.length && text[end] !in "#?/") return null
         // "monero.one/c/" is the same page; anything after it on the path is another page.
         if (end < text.length && text[end] == '/' && end + 1 < text.length && text[end + 1] != '#') return null

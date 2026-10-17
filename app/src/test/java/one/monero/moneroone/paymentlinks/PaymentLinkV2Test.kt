@@ -29,8 +29,6 @@ class PaymentLinkV2Test {
         val link: String,
         /** The https link made now: the body behind `:~:m1=`. */
         val url: String,
-        /** The app-only link (the site sends /a on to moneroone://c). */
-        val appUrl: String,
         val k: String,
         val spend: String,
         val address: String,
@@ -42,7 +40,6 @@ class PaymentLinkV2Test {
         height = 150,
         link = "https://monero.one/c#2112drXXUifSrRnXLGbXg8E3b",
         url = "https://monero.one/c#2:~:m1=112drXXUifSrRnXLGbXg8E3b",
-        appUrl = "https://monero.one/a#2112drXXUifSrRnXLGbXg8E3b",
         k = "6a5bd15ceb3ca1dc24f7056feabfb1b825296bc5b26cfdcff8ad8362145ce908",
         spend = "6a5bd15ceb3ca1dc24f7056feabfb1b825296bc5b26cfdcff8ad8362145ce908",
         address = "49brhubHMBe7enmsCDmGAJi63rX3uaGutSTf5afWoCeyDWsaXDhXwuN9WYB19H9dZeRGaYeZ74YpqX4qKGCMcyGP9bv31Hz",
@@ -55,7 +52,6 @@ class PaymentLinkV2Test {
         height = 3_500_000,
         link = "https://monero.one/c#218DfbjXLth7APvt3qQPgtfJwRq",
         url = "https://monero.one/c#2:~:m1=18DfbjXLth7APvt3qQPgtfJwRq",
-        appUrl = "https://monero.one/a#218DfbjXLth7APvt3qQPgtfJwRq",
         k = "ade11baac32c1fd6a72d6050d89f2aaced5462acadae8a6967b62cfdd0229d10",
         spend = "c00d264da9c90c7ed19068adf9a54b97ed5462acadae8a6967b62cfdd0229d00",
         address = "48vAo8XgJkBXtD3HqhVCvF9vpavqBuGK2WSPXTQSMeyXAy6xzEmgFHZiwkKYcnNv2fDsW9S31nnpHN6J3pMGrRiTR3NC7nL",
@@ -82,7 +78,6 @@ class PaymentLinkV2Test {
 
         val link = PaymentLink.v2(secret, v.height)!!
         assertEquals(v.url, link.url())
-        assertEquals(v.appUrl, link.appUrl())
         assertEquals(2, link.version)
         assertEquals(v.id, link.id)
         assertEquals(v.secret, link.secretHex)
@@ -97,8 +92,6 @@ class PaymentLinkV2Test {
         val parsed = valid(v.link)
         assertEquals(link, parsed)
         assertEquals(link, valid(v.url))
-        assertEquals(link, valid(v.appUrl))
-        assertEquals(link, valid(v.appUrl.replace("https://monero.one/a", "moneroone://c")))
         assertEquals(v.height, parsed.height)
         assertEquals(link.words, parsed.words)
 
@@ -212,7 +205,6 @@ class PaymentLinkV2Test {
             val link = PaymentLink.v2(secret, height)!!
             val parsed = valid(link.url())
             assertEquals(link, parsed)
-            assertEquals(link, valid(link.appUrl()))
             assertTrue(link.url().length <= "https://monero.one/c#2:~:m1=".length + 22 + 11)
         }
         // A new secret makes a new link.

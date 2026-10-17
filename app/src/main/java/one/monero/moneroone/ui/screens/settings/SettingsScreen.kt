@@ -36,7 +36,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PanTool
@@ -75,7 +74,6 @@ import one.monero.moneroone.BuildConfig
 import one.monero.moneroone.core.alert.PriceAlertManager
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.data.model.PriceAlert
-import one.monero.moneroone.paymentlinks.LinkSharePrefs
 import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.GlassCard
@@ -111,7 +109,6 @@ fun SettingsScreen(
     var showResetSyncDialog by remember { mutableStateOf(false) }
 
     var freshAddress by remember { mutableStateOf(walletViewModel.freshReceiveAddress) }
-    var appOnlyLinks by remember { mutableStateOf(LinkSharePrefs.appOnly(context)) }
     val fiatMode by walletViewModel.fiatMode.collectAsState()
     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
     val activeWallet by walletViewModel.activeWallet.collectAsState()
@@ -160,11 +157,9 @@ fun SettingsScreen(
             )
         }
 
-        // One footer per section, as on iOS: a paragraph per toggle, in row order.
         SettingsSection(
             title = tr("Privacy & Security"),
-            footer = tr("After a payment arrives, Receive shows a new address. Old ones keep working.") + "\n\n" +
-                tr("Links open only in Monero One and never load a web page. People without the app can't open them.")
+            footer = tr("After a payment arrives, Receive shows a new address. Old ones keep working.")
         ) {
             SettingsItem(
                 icon = Icons.Default.Lock,
@@ -178,13 +173,6 @@ fun SettingsScreen(
                 title = tr("Fresh Receive Address"),
                 checked = freshAddress,
                 onCheckedChange = { freshAddress = it; walletViewModel.setFreshReceiveAddress(it) },
-                iconColor = SettingsBlue
-            )
-            SettingsToggleItem(
-                icon = Icons.Default.Link,
-                title = tr("App-only payment links"),
-                checked = appOnlyLinks,
-                onCheckedChange = { appOnlyLinks = it; LinkSharePrefs.setAppOnly(context, it) },
                 iconColor = SettingsBlue
             )
         }
