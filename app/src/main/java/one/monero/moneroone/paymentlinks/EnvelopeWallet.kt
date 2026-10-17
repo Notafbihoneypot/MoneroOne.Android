@@ -40,7 +40,10 @@ class AlreadyClaimedException : IllegalStateException("Already claimed")
  * closes. One envelope is open at a time: [open] closes the previous one.
  */
 class EnvelopeWallet private constructor(
+    private val app: Context,
     val id: String,
+    /** Where this open's scan must start: the link's restore height, or lower for a rescan. */
+    val restoreHeight: Long,
     private val kit: MoneroKit,
     private val pausedMain: MoneroKit?
 ) {
@@ -48,6 +51,10 @@ class EnvelopeWallet private constructor(
 
     @Volatile
     private var closed = false
+
+    /** Records the scan's start once it begins ([startKit]); cancelled on [close]. */
+    private var scanMark: Job? = null
+
 
     /**
      * Waits for the first full sync (or a failure). Returns what the envelope
@@ -90,7 +97,9 @@ class EnvelopeWallet private constructor(
             unlocked = balance.unlocked,
             spendSeen = spent,
             spendTxids = outgoingHashes().sorted(),
-            fundingHeight = mined.minOfOrNull { it.blockheight }
+            fundingHeight = mined.minOfOrNull { it.blockheight },
+            // Oldest first; one still in the pool last.
+            fundingTxids = incoming.sortedBy { if (!it.isPending && it.blockheight > 0) it.blockheight else Long.MAX_VALUE }.mapNotNull { it.hash }
         )
     }
 
@@ -147,6 +156,7 @@ class EnvelopeWallet private constructor(
     suspend fun close() {
         if (closed) return
         closed = true
+        scanMark?.cancel()
         withContext(NonCancellable) {
             runtimeLock.withLock {
                 withContext(Dispatchers.IO) {
@@ -221,6 +231,15 @@ class EnvelopeWallet private constructor(
                 val proxy = TorNetwork.route.walletProxy
                 check(proxy.isNotEmpty() || !isOnionNode(node)) { "Tor is required for this node" }
                 val kit = withContext(Dispatchers.IO) {
+                    // A cache whose scan from this height never reached the tip (cut short by a timeout, an app
+                    // kill or a node drop) can skip the funding block when it opens: restore it from the words.
+                    val rebuild = EnvelopeScanRules.rebuildBeforeOpen(
+                        EnvelopeFiles.hasWallet(app, link.id), EnvelopeFiles.scannedFrom(app, link.id), restoreHeight
+                    )
+                    if (rebuild) {
+                        Timber.w("PaymentLinks: envelope scan from %d never finished: restoring the envelope", restoreHeight)
+                        EnvelopeFiles.deleteWallet(app, link.id)
+                    }
                     MoneroKit.getInstance(
                         context = app,
                         seed = Seed.Electrum(link.words, ""),
@@ -232,7 +251,7 @@ class EnvelopeWallet private constructor(
                     )
                 }
                 val paused = pauseMain()
-                val envelope = EnvelopeWallet(link.id, kit, paused)
+                val envelope = EnvelopeWallet(app, link.id, restoreHeight, kit, paused)
                 current = envelope
                 envelope.startKit()
                 envelope
@@ -265,6 +284,13 @@ class EnvelopeWallet private constructor(
         // Off the main thread: the start resolves the node's name and opens the wallet file, and the
         // system refuses network on the main thread (NetworkOnMainThreadException with a host name).
         val start: Job = scope.launch(Dispatchers.IO) { kit.start() }
+        // The scan from [restoreHeight] has begun once the kit reports a refresh (after its init put the
+        // start there, WalletService.initWallet): from then on the cache resumes a scan that started right,
+        // so a long first scan cut short by a timeout carries on at the next check instead of starting over.
+        scanMark = scope.launch {
+            kit.syncStateFlow.first { it is SyncState.Syncing || it is SyncState.Synced }
+            if (!closed) withContext(Dispatchers.IO) { EnvelopeFiles.markScanned(app, id, restoreHeight) }
+        }
         // A resume can start the main kit again between its stop and this start; then this kit waits for
         // the running slot. Stopping the main kit hands the slot over (KitManager promotes the waiting kit).
         scope.launch {

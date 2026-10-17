@@ -70,6 +70,9 @@ sealed interface PendingLinkState {
 
     /** 10 confirmations or more, as far as this device knows. */
     object Ready : PendingLinkState
+
+    /** Its 30 days are over and no money arrived ([LinkStatusRules.receivedExpired]): History, as Expired. */
+    object Expired : PendingLinkState
 }
 
 /**
@@ -111,8 +114,11 @@ object PaymentLinkActivityRules {
     }
 
     /** A received link not claimed yet: Ready to claim once it can be claimed, else Waiting. */
-    fun pendingRowState(state: PendingLinkState): LinkRowState =
-        if (state == PendingLinkState.Ready) LinkRowState.READY_TO_CLAIM else LinkRowState.WAITING
+    fun pendingRowState(state: PendingLinkState): LinkRowState = when (state) {
+        PendingLinkState.Ready -> LinkRowState.READY_TO_CLAIM
+        PendingLinkState.Expired -> LinkRowState.EXPIRED
+        else -> LinkRowState.WAITING
+    }
 
     fun stateLabel(state: LinkRowState): String = when (state) {
         LinkRowState.WAITING -> tr("Waiting")
@@ -209,6 +215,7 @@ object PaymentLinkActivityRules {
      * minutes since.
      */
     fun pendingState(link: ReceivedLink, daemonHeight: Long?, nowMillis: Long): PendingLinkState {
+        if (LinkStatusRules.receivedExpired(link, nowMillis / 1000)) return PendingLinkState.Expired
         val check = link.lastCheck ?: return PendingLinkState.Unchecked
         return when (LinkStatusRules.claimView(check)) {
             ClaimView.NoMoney -> PendingLinkState.NoMoney
@@ -233,6 +240,7 @@ object PaymentLinkActivityRules {
         PendingLinkState.NoMoney -> tr("No money yet")
         is PendingLinkState.Waiting -> tr("Ready in about %s min", state.minutes)
         PendingLinkState.Ready -> tr("Ready to claim")
+        PendingLinkState.Expired -> tr("Expired")
     }
 
     /**
@@ -289,7 +297,9 @@ object LinkListRules {
             LinkListEntry(tx, null, activity.id, open, tx.timestamp * 1000)
         }
         val shown = rows.mapTo(HashSet()) { it.linkId }
-        val waiting = pending.filter { it.id !in shown }.map { LinkListEntry(null, it, it.id, true, it.receivedAtMillis) }
+        // A received link with no money after its 30 days goes to History.
+        val waiting = pending.filter { it.id !in shown }
+            .map { LinkListEntry(null, it, it.id, !LinkStatusRules.receivedExpired(it, nowSeconds), it.receivedAtMillis) }
         val all = (rows + waiting).sortedByDescending { it.atMillis }
         return LinkSections(all.filter { it.open }, all.filterNot { it.open }, (shown + waiting.map { it.linkId }).size)
     }

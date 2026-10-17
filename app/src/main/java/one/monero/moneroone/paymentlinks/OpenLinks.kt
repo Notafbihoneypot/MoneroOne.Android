@@ -79,11 +79,15 @@ object OpenLinkRules {
         LinkStatus.NOT_FUNDED, LinkStatus.CLAIMED, LinkStatus.RECLAIMED -> false
     }
 
-    /** The open links of [walletId]: its sent links, and every received link this device can still claim. */
+    /**
+     * The open links of [walletId]: its sent links, and every received link this device can still claim,
+     * except one whose money never arrived in its 30 days.
+     */
     fun openLinks(sent: List<SentLink>, received: List<ReceivedLink>, walletId: String?, nowSeconds: Long): OpenLinks {
         val open = sent.filter { it.walletId == walletId && isOpen(it, nowSeconds) }.sortedByDescending { it.createdAtMillis }
         val expired = open.count { LinkStatusRules.status(it, nowSeconds) == LinkStatus.EXPIRED }
-        return OpenLinks(open, expired, PaymentLinkActivityRules.pendingRecords(received))
+        val claimable = PaymentLinkActivityRules.pendingRecords(received).filterNot { LinkStatusRules.receivedExpired(it, nowSeconds) }
+        return OpenLinks(open, expired, claimable)
     }
 
     /**

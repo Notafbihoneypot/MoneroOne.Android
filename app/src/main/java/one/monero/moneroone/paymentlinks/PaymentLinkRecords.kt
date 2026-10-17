@@ -45,7 +45,9 @@ data class EnvelopeSnapshot(
      * wallet2's fee estimate for the claim sweep of [balance], atomic units. Null when
      * the check did not ask for one (sent links), the envelope is empty or the estimate failed.
      */
-    val sweepFee: Long? = null
+    val sweepFee: Long? = null,
+    /** The envelope's incoming transactions, oldest first (one in the pool last): the funding as the envelope sees it. */
+    val fundingTxids: List<String> = emptyList()
 )
 
 /**
@@ -362,8 +364,12 @@ object LinkStatusRules {
     fun rescanFrom(link: SentLink, check: EnvelopeSnapshot, fundingBlock: Long?): Long? {
         if (check.fundingSeen || fundingBlock == null || fundingBlock <= 0) return null
         if (link.reclaimTxid != null || link.reclaimLostRace) return null
-        return minOf(link.height, fundingBlock - RESCAN_MARGIN).coerceAtLeast(0)
+        return scanFloor(link.height, fundingBlock)
     }
+
+    /** Where an envelope's scan must start: its [restoreHeight], or under [fundingBlock] when that is lower. */
+    fun scanFloor(restoreHeight: Long, fundingBlock: Long?): Long =
+        fundingBlock?.takeIf { it > 0 }?.let { minOf(restoreHeight, it - RESCAN_MARGIN).coerceAtLeast(0) } ?: restoreHeight
 
     /**
      * Records saved without a funding txid (the app quit mid-broadcast, or the error came after the node
@@ -390,6 +396,41 @@ object LinkStatusRules {
             }
             if (now != link.fundingFailed) link.id to now else null
         }.toMap()
+
+    /**
+     * When a received link's 30 days end: its own expiry (v1 links carry one), else 30 days after this
+     * device got it (v2 links carry none).
+     */
+    fun receivedExpiry(link: ReceivedLink): Long =
+        link.expiry.takeIf { it > 0 } ?: (link.receivedAtMillis / 1000 + EnvelopeFactory.EXPIRY_SECONDS)
+
+    /**
+     * A received link whose money never arrived (no check saw any) and whose 30 days are over: it leaves
+     * Open and the balance card's line for History, as Expired. It keeps its secret: money that shows up
+     * later brings it back.
+     */
+    fun receivedExpired(link: ReceivedLink, nowSeconds: Long): Boolean =
+        link.state != ReceivedState.CLAIMED && link.lastCheck?.fundingSeen != true && nowSeconds > receivedExpiry(link)
+
+    /**
+     * A sent record whose funding transaction is known reads funded: Created (the app quit mid-broadcast)
+     * and Not funded (the error came after the node took it) would contradict the wallet's own history.
+     */
+    fun reconciled(link: SentLink): SentLink =
+        if (link.state != SentState.FUNDED && link.fundingTxid != null && !link.fundingFailed) link.copy(state = SentState.FUNDED) else link
+
+    /**
+     * The record with [check] as its last check. A record without a funding txid (or with one the wallet
+     * marks failed) takes the one the envelope saw (iOS parity), so its Activity row matches it.
+     */
+    fun withCheck(link: SentLink, check: EnvelopeSnapshot): SentLink {
+        val seen = check.fundingTxids.firstOrNull()
+        return if (seen != null && (link.fundingTxid == null || link.fundingFailed)) {
+            link.copy(lastCheck = check, fundingTxid = seen, fundingFailed = false, state = SentState.FUNDED)
+        } else {
+            link.copy(lastCheck = check)
+        }
+    }
 
     /** The sender's link has settled: nothing more can move (its files can go). */
     fun isSettled(link: SentLink): Boolean =

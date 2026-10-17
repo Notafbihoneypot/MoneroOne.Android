@@ -31,7 +31,7 @@ class OpenLinksTest {
     )
 
     private fun received(id: String = "r", amount: Long = 0, check: EnvelopeSnapshot? = null) = ReceivedLink(
-        id = id, words = null, height = 100, amount = amount, expiry = 0, receivedAtMillis = 1,
+        id = id, words = null, height = 100, amount = amount, expiry = 0, receivedAtMillis = before * 1000,
         lastCheck = check, secret = secret
     )
 

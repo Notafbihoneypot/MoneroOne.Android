@@ -37,6 +37,24 @@ object EnvelopeFiles {
 
     private const val KIT_WALLET_NAME = "envelope"
 
+    /** Holds the restore height the envelope's cache scans from, once a scan from there has begun. */
+    private const val SCANNED_FILE = "scanned-from"
+
+    /** The envelope has a kit wallet on disk (its keys file at least). */
+    fun hasWallet(context: Context, id: String): Boolean =
+        dir(context, id).listFiles()?.any { it.name.startsWith(KIT_WALLET_NAME) } == true
+
+    /** The restore height this envelope's cache scans from; null when no scan from a known height has begun. */
+    fun scannedFrom(context: Context, id: String): Long? =
+        runCatching { File(dir(context, id), SCANNED_FILE).takeIf { it.isFile }?.readText()?.trim()?.toLongOrNull() }.getOrNull()
+
+    /** Records that a scan from [restoreHeight] has begun (the kit reported a refresh). The lowest start stays. */
+    fun markScanned(context: Context, id: String, restoreHeight: Long) {
+        val from = scannedFrom(context, id)?.let { minOf(it, restoreHeight) } ?: restoreHeight
+        runCatching { File(dir(context, id), SCANNED_FILE).writeText(from.toString()) }
+            .onFailure { Timber.w(it, "PaymentLinks: could not record an envelope scan") }
+    }
+
     /**
      * Deletes the envelope's kit wallet (keys and cache; its secret stays in the record), so the next
      * open restores it and scans from a new height. Waits for a close still writing the cache. Off Main.
@@ -46,7 +64,7 @@ object EnvelopeFiles {
             Timber.w("PaymentLinks: could not delete an envelope cache")
         }
         // wallet2 also leaves an `.unportable` marker next to the cache.
-        dir(context, id).listFiles()?.filter { it.name.startsWith(KIT_WALLET_NAME) }?.forEach { it.delete() }
+        dir(context, id).listFiles()?.filter { it.name.startsWith(KIT_WALLET_NAME) || it.name == SCANNED_FILE }?.forEach { it.delete() }
     }
 
     fun delete(context: Context, id: String) {
@@ -59,6 +77,19 @@ object EnvelopeFiles {
             if (file.name !in keep) file.deleteRecursively()
         }
     }
+}
+
+/**
+ * An envelope's scan must start at or below its restore height. wallet2 opens a wallet saved before its
+ * first scan as a new one and moves its start to the chain tip (WalletImpl::doInit), so the blocks below,
+ * the funding block among them, are never scanned (iOS Link 10: a check that timed out, an app kill or a
+ * node drop during the first scan). The kit already skips that store and puts the start back
+ * (WalletService.initWallet); an envelope with no record of a scan begun from its height is restored anyway.
+ */
+object EnvelopeScanRules {
+    /** The envelope's wallet files go before an open from [restoreHeight]: no scan from there or lower has begun. */
+    fun rebuildBeforeOpen(hasWallet: Boolean, scannedFrom: Long?, restoreHeight: Long): Boolean =
+        hasWallet && (scannedFrom == null || scannedFrom > restoreHeight)
 }
 
 /** The node and proxy the main wallet uses, for an envelope kit. */

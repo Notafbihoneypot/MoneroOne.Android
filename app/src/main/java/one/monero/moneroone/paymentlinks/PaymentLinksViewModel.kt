@@ -208,22 +208,24 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     /**
      * Opens envelope [id] ([link]) and waits for its first full sync. [hold] gets each envelope as it
-     * opens, so the caller closes it whatever happens. When the open wallet shows a sent link's funding
-     * in a block and the sync did not see it, the envelope's cache goes and it is scanned again from no
-     * later than that block ([LinkStatusRules.rescanFrom]), once per run; no UI changes. Call under
-     * [sessionLock]. Returns the first snapshot (null: the sync failed or timed out). Throws when an open fails.
+     * opens, so the caller closes it whatever happens. An envelope whose first scan never finished is
+     * restored before it opens ([EnvelopeScanRules]). When the open wallet shows a sent link's funding in
+     * a block that the sync did not see, the envelope is restored and scanned again from no later than
+     * that block ([LinkStatusRules.rescanFrom]), [MAX_RESCANS] per run, with no UI change.
+     * Call under [sessionLock]. Returns the first snapshot (null: the sync failed or timed out). Throws
+     * when an open fails.
      */
     private suspend fun openChecked(id: String, link: PaymentLink, hold: (EnvelopeWallet) -> Unit): EnvelopeSnapshot? {
         // Read before the open: the main wallet stops while the envelope runs.
         val record = store.sent(id)
         val fundingBlock = record?.let(::fundingBlock)
         val opened = EnvelopeWallet.open(context, link).also(hold)
-        val first = opened.awaitSnapshot()
-        val from = if (record != null && first != null) LinkStatusRules.rescanFrom(record, first, fundingBlock) else null
+        val first = opened.awaitSnapshot() ?: return null
+        val from = record?.let { LinkStatusRules.rescanFrom(it, first, fundingBlock) } ?: return first
         val tries = rescans[id] ?: 0
-        if (from == null || tries >= MAX_RESCANS) return first
+        if (tries >= MAX_RESCANS) return first
         rescans[id] = tries + 1
-        Timber.w("PaymentLinks: link %s: funding in block %d not seen; rescanning from %d", record?.number, fundingBlock, from)
+        Timber.w("PaymentLinks: link %s: funding in block %d not seen; rescanning from %d", record.number, fundingBlock, from)
         withContext(NonCancellable) {
             opened.close()
             withContext(Dispatchers.IO) { EnvelopeFiles.deleteWallet(context, id) }
@@ -260,7 +262,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
             try {
                 openChecked(id, link.link) { opened = it }?.also { snapshot ->
                     logCheck(link.number, snapshot)
-                    store.updateSent(id) { it.copy(lastCheck = snapshot) }
+                    store.updateSent(id) { LinkStatusRules.withCheck(it, snapshot) }
                 }?.fundingSeen
             } catch (e: CancellationException) {
                 throw e
@@ -372,7 +374,7 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
 
     private fun publish(id: String, snapshot: EnvelopeSnapshot) {
         logCheck(store.sent(id)?.number ?: store.received(id)?.number, snapshot)
-        store.updateSent(id) { it.copy(lastCheck = snapshot) }
+        store.updateSent(id) { LinkStatusRules.withCheck(it, snapshot) }
         store.updateReceived(id) { it.noting(snapshot) }
         _session.value = EnvelopeSession(id, EnvelopeSession.Phase.LIVE, snapshot)
     }
@@ -587,13 +589,13 @@ class PaymentLinksViewModel(application: Application) : AndroidViewModel(applica
                 try {
                     openChecked(link.id, link.link) { opened = it }?.let { snapshot ->
                         logCheck(link.number, snapshot)
-                        store.updateSent(link.id) { it.copy(lastCheck = snapshot) }
+                        store.updateSent(link.id) { LinkStatusRules.withCheck(it, snapshot) }
                         if (LinkStatusRules.isHidden(link)) hiddenChecked.add(link.id)
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Timber.w(e, "PaymentLinks: envelope open failed (sent link check)")
+                    Timber.w(e, "PaymentLinks: link %s: envelope open failed (sent link check)", link.number)
                 } finally {
                     withContext(NonCancellable) { opened?.close() }
                 }

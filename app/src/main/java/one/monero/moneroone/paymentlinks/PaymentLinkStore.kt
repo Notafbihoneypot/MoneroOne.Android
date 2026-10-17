@@ -29,6 +29,7 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
 
     init {
         numberOldRecords()
+        reconcileOldRecords()
     }
 
     fun sent(id: String): SentLink? = _sent.value.firstOrNull { it.id == id }
@@ -100,6 +101,12 @@ class PaymentLinkStore internal constructor(private val prefs: SharedPreferences
             _received.value = numbered.received
         }
         if (numbered.counter != counter) prefs.edit().putInt(KEY_LAST_NUMBER, numbered.counter).commit()
+    }
+
+    /** Sent records saved Not funded (or mid-broadcast) whose funding txid is known: funded, written back (iOS parity). */
+    private fun reconcileOldRecords() {
+        val reconciled = _sent.value.map(LinkStatusRules::reconciled)
+        if (reconciled != _sent.value && write(KEY_SENT, reconciled, SentLink.serializer())) _sent.value = reconciled
     }
 
     @Synchronized

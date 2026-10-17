@@ -151,6 +151,7 @@ internal fun sentDisplay(view: SentView): LinkDisplay {
 /** A received link's chip: Not checked, Pending n/10, Ready to claim, Claimed (here) or Already claimed. */
 internal fun receivedDisplay(link: ReceivedLink, daemonHeight: Long?, nowSeconds: Long = nowSeconds()): LinkDisplay {
     if (link.state == ReceivedState.CLAIMED) return LinkDisplay(tr("Claimed"), LinkHue.GREEN)
+    if (LinkStatusRules.receivedExpired(link, nowSeconds)) return LinkDisplay(tr("Expired"), LinkHue.YELLOW)
     val check = link.lastCheck ?: return LinkDisplay(tr("Not checked"), LinkHue.GRAY)
     val view = LinkStatusRules.claimView(check)
     val live = view is ClaimView.Waiting || view is ClaimView.Ready

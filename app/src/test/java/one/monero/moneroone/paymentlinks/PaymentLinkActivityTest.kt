@@ -28,7 +28,7 @@ class PaymentLinkActivityTest {
         claimTxid: String? = null,
         withSecret: Boolean = true
     ) = ReceivedLink(
-        id = id, words = null, height = 100, amount = 0, expiry = 0, receivedAtMillis = 1, state = state,
+        id = id, words = null, height = 100, amount = 0, expiry = 0, receivedAtMillis = 1_799_999_000_000, state = state,
         claimTxid = claimTxid, lastCheck = check, secret = if (withSecret) secret else null
     )
 
