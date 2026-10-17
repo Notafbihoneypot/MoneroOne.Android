@@ -597,6 +597,7 @@
     <string name="l10n_opens_privacy_policy_in_your_browser_eee17b7f" formatted="false">"Apre l’informativa sulla privacy nel browser"</string>
     <string name="l10n_opens_share_sheet_with_qr_code_and_address_c136ffd6" formatted="false">"Apre il menu di condivisione con codice QR e indirizzo"</string>
     <string name="l10n_opens_terms_of_service_in_your_browser_899e55c8" formatted="false">"Apre i termini di servizio nel browser"</string>
+    <string name="l10n_opens_the_app_store_to_write_a_review_c041aa6e" formatted="false">"Apre l’App Store per scrivere una recensione"</string>
     <string name="l10n_opens_the_emoji_keyboard_to_type_any_emoji_7e4db033" formatted="false">"Apre la tastiera emoji per inserire qualsiasi emoji"</string>
     <string name="l10n_opens_the_portfolio_chart_c50b1d8e" formatted="false">"Apre il grafico del portafoglio investimenti"</string>
     <string name="l10n_opens_the_price_chart_26780688" formatted="false">"Apre il grafico del prezzo"</string>
@@ -673,6 +674,7 @@
     <string name="l10n_qr_scanning_not_supported_3a8ca79d" formatted="false">"Scansione QR non supportata"</string>
     <string name="l10n_radius_6fe0661c" formatted="false">"Raggio"</string>
     <string name="l10n_radius_s_78f7366a" formatted="false">"Raggio: %1$s"</string>
+    <string name="l10n_rate_monero_one_8d7741ae" formatted="false">"Valuta Monero One"</string>
     <string name="l10n_re_enter_your_new_pin_to_confirm_ae223c83" formatted="false">"Conferma il nuovo PIN"</string>
     <string name="l10n_reaching_node_9a18d501" formatted="false">"Connessione al nodo…"</string>
     <string name="l10n_reading_transactions_from_trezor_13097f0b" formatted="false">"Lettura delle transazioni dal Trezor…"</string>

@@ -597,6 +597,7 @@
     <string name="l10n_opens_privacy_policy_in_your_browser_eee17b7f" formatted="false">"Opens privacy policy in your browser"</string>
     <string name="l10n_opens_share_sheet_with_qr_code_and_address_c136ffd6" formatted="false">"Opens share sheet with QR code and address"</string>
     <string name="l10n_opens_terms_of_service_in_your_browser_899e55c8" formatted="false">"Opens terms of service in your browser"</string>
+    <string name="l10n_opens_the_app_store_to_write_a_review_c041aa6e" formatted="false">"Opens the App Store to write a review"</string>
     <string name="l10n_opens_the_emoji_keyboard_to_type_any_emoji_7e4db033" formatted="false">"Opens the emoji keyboard to type any emoji"</string>
     <string name="l10n_opens_the_portfolio_chart_c50b1d8e" formatted="false">"Opens the portfolio chart"</string>
     <string name="l10n_opens_the_price_chart_26780688" formatted="false">"Opens the price chart"</string>
@@ -673,6 +674,7 @@
     <string name="l10n_qr_scanning_not_supported_3a8ca79d" formatted="false">"QR scanning not supported"</string>
     <string name="l10n_radius_6fe0661c" formatted="false">"Radius"</string>
     <string name="l10n_radius_s_78f7366a" formatted="false">"Radius: %s"</string>
+    <string name="l10n_rate_monero_one_8d7741ae" formatted="false">"Rate Monero One"</string>
     <string name="l10n_re_enter_your_new_pin_to_confirm_ae223c83" formatted="false">"Re-enter your new PIN to confirm"</string>
     <string name="l10n_reaching_node_9a18d501" formatted="false">"Reaching node..."</string>
     <string name="l10n_reading_transactions_from_trezor_13097f0b" formatted="false">"Reading transactions from Trezor…"</string>

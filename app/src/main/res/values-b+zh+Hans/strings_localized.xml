@@ -597,6 +597,7 @@
     <string name="l10n_opens_privacy_policy_in_your_browser_eee17b7f" formatted="false">"在浏览器中打开隐私政策"</string>
     <string name="l10n_opens_share_sheet_with_qr_code_and_address_c136ffd6" formatted="false">"打开共享表单，其中包含二维码和地址"</string>
     <string name="l10n_opens_terms_of_service_in_your_browser_899e55c8" formatted="false">"在浏览器中打开服务条款"</string>
+    <string name="l10n_opens_the_app_store_to_write_a_review_c041aa6e" formatted="false">"打开 App Store 撰写评论"</string>
     <string name="l10n_opens_the_emoji_keyboard_to_type_any_emoji_7e4db033" formatted="false">"打开表情符号键盘以输入任意表情符号"</string>
     <string name="l10n_opens_the_portfolio_chart_c50b1d8e" formatted="false">"打开资产组合图表"</string>
     <string name="l10n_opens_the_price_chart_26780688" formatted="false">"打开价格图表"</string>
@@ -673,6 +674,7 @@
     <string name="l10n_qr_scanning_not_supported_3a8ca79d" formatted="false">"不支持扫描二维码"</string>
     <string name="l10n_radius_6fe0661c" formatted="false">"半径"</string>
     <string name="l10n_radius_s_78f7366a" formatted="false">"半径：%1$s"</string>
+    <string name="l10n_rate_monero_one_8d7741ae" formatted="false">"为 Monero One 评分"</string>
     <string name="l10n_re_enter_your_new_pin_to_confirm_ae223c83" formatted="false">"确认新 PIN 码"</string>
     <string name="l10n_reaching_node_9a18d501" formatted="false">"正在连接节点…"</string>
     <string name="l10n_reading_transactions_from_trezor_13097f0b" formatted="false">"正在从 Trezor 读取交易…"</string>
