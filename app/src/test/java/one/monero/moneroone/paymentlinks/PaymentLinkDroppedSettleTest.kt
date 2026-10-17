@@ -42,23 +42,33 @@ class PaymentLinkDroppedSettleTest {
         )
 
     private val funded = scan(at = sentAt - 60_000)
+    private val none = WalletHistory()
+    private fun pending(vararg txids: String) = WalletHistory(pending = txids.toSet())
 
     @Test
     fun `a settle in the pool or within its grace is not dropped`() {
         val txids = listOf("ab")
-        assertEquals(emptyList<String>(), LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + grace), emptySet()))
-        assertEquals(emptyList<String>(), LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + grace + 1), setOf("ab")))
-        assertEquals(emptyList<String>(), LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + 10 * grace, mined = txids), emptySet()))
-        // No time to measure a grace from (a claim made elsewhere): only wallet2's mark counts.
-        assertEquals(emptyList<String>(), LinkStatusRules.droppedSettles(txids, null, scan(sentAt + 10 * grace), emptySet()))
+        val nothing = emptyList<String>()
+        assertEquals(nothing, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + grace), none))
+        assertEquals(nothing, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + grace + 1), pending("ab")))
+        assertEquals(nothing, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + 10 * grace, mined = txids), none))
+        // Mined in the open wallet's history, though the envelope scan has not reached its block.
+        assertEquals(nothing, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + 10 * grace), WalletHistory(confirmed = setOf("ab"))))
+        // The envelope's own cache still lists it waiting in the pool.
+        assertEquals(nothing, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + 10 * grace, spends = txids), none))
+        // The open wallet shows it in the pool: that outranks the envelope's failed mark.
+        assertEquals(nothing, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + 1, failed = txids), pending("ab")))
+        // No time to measure a grace from (a claim made elsewhere): only a failed mark counts.
+        assertEquals(nothing, LinkStatusRules.droppedSettles(txids, null, scan(sentAt + 10 * grace), none))
     }
 
     @Test
-    fun `a settle past its grace and out of the pool, or marked failed, is dropped`() {
+    fun `a settle past its grace and seen nowhere, or marked failed, is dropped`() {
         val txids = listOf("ab")
-        assertEquals(txids, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + grace + 1), emptySet()))
-        assertEquals(txids, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + 1, failed = txids), setOf("ab")))
-        assertEquals(txids, LinkStatusRules.droppedSettles(txids, null, scan(sentAt + 1, failed = txids), emptySet()))
+        assertEquals(txids, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + grace + 1), none))
+        assertEquals(txids, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + 1, failed = txids), none))
+        assertEquals(txids, LinkStatusRules.droppedSettles(txids, null, scan(sentAt + 1, failed = txids), none))
+        assertEquals(txids, LinkStatusRules.droppedSettles(txids, sentAt, scan(sentAt + 1), WalletHistory(failed = setOf("ab"))))
     }
 
     @Test
@@ -68,7 +78,7 @@ class PaymentLinkDroppedSettleTest {
         // Within the grace a fresh scan still sees the money (the reclaim waits in the pool): no change.
         assertEquals(reclaimed, LinkStatusRules.withCheck(reclaimed, scan(sentAt + grace / 2)))
         // Past the grace, while the open wallet still shows it in the pool: no change.
-        assertEquals(reclaimed, LinkStatusRules.withCheck(reclaimed, scan(sentAt + 2 * grace), inPool = setOf("ab")))
+        assertEquals(reclaimed, LinkStatusRules.withCheck(reclaimed, scan(sentAt + 2 * grace), pending("ab")))
         // Evicted: in no block and in no pool past its grace. The money is reclaimable again.
         val reopened = LinkStatusRules.withCheck(reclaimed, scan(sentAt + 2 * grace))
         assertEquals(LinkStatus.READY, LinkStatusRules.baseStatus(reopened))
@@ -101,7 +111,7 @@ class PaymentLinkDroppedSettleTest {
     fun `a claim evicted with no replacement is ready to claim again, also after a restart`() {
         val claimed = claimed()
         assertEquals(claimed, claimed.noting(scan(sentAt + grace / 2)))
-        assertEquals(claimed, claimed.noting(scan(sentAt + 2 * grace), inPool = setOf("aa")))
+        assertEquals(claimed, claimed.noting(scan(sentAt + 2 * grace), pending("aa")))
         val reopened = claimed.noting(scan(sentAt + 2 * grace))
         assertEquals(ReceivedState.PENDING, reopened.state)
         assertFalse(reopened.isSettled)
@@ -125,57 +135,74 @@ class PaymentLinkDroppedSettleTest {
     fun `settled links are checked until their settle is in a block`() {
         val reclaimed = sent(reclaimTxid = "ab", check = funded)
         assertTrue(LinkStatusRules.settleUnconfirmed(reclaimed))
-        assertTrue(LinkStatusRules.checkDue(reclaimed))
+        assertTrue(LinkStatusRules.checkDue(reclaimed, sentAt))
+        // While it waits in the open wallet's pool, a check could change nothing: none is due.
+        assertFalse(LinkStatusRules.checkDue(reclaimed, sentAt, pending("ab")))
+        assertTrue(LinkStatusRules.checkDue(reclaimed, sentAt, WalletHistory(confirmed = setOf("ab"))))
         // In a block, the envelope empty: final, checked no more.
         val final = LinkStatusRules.withCheck(reclaimed, scan(sentAt + 60_000, balance = 0, mined = listOf("ab")))
         assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(final))
         assertFalse(LinkStatusRules.settleUnconfirmed(final))
-        assertFalse(LinkStatusRules.checkDue(final))
+        assertFalse(LinkStatusRules.checkDue(final, sentAt))
         // A reclaim whose txid never showed cannot be followed.
-        assertFalse(LinkStatusRules.checkDue(sent(reclaimTxid = "", check = funded)))
+        assertFalse(LinkStatusRules.checkDue(sent(reclaimTxid = "", check = funded), sentAt))
         val claimed = claimed()
         assertTrue(claimed.settleUnconfirmed)
+        assertTrue(claimed.settleDue(none))
+        assertFalse(claimed.settleDue(pending("aa")))
         assertFalse(claimed.noting(scan(sentAt + 60_000, balance = 0, mined = listOf("aa"))).settleUnconfirmed)
     }
 
     @Test
-    fun `a cache that still counts a dropped settle as spent is restored afresh`() {
-        // The envelope's own cache lists the reclaim as pending and hides its money.
-        val cached = scan(sentAt + 2 * grace, balance = 0, spends = listOf("ab"), mined = emptyList())
-        assertTrue(LinkStatusRules.staleSettleCache(listOf("ab"), sentAt, cached, emptySet()))
-        assertFalse(LinkStatusRules.staleSettleCache(listOf("ab"), sentAt, cached, setOf("ab")))
-        assertFalse(LinkStatusRules.staleSettleCache(listOf("ab"), sentAt, cached.copy(checkedAt = sentAt + 1), emptySet()))
-        // No money visible: the link stays reclaimed until the fresh scan shows it.
+    fun `a reclaim the envelope's cache lists as waiting reopens once wallet2 marks it failed`() {
+        // The kept cache lists the reclaim in the pool past its grace and hides its money: not dropped.
         val reclaimed = sent(reclaimTxid = "ab", check = funded)
+        val cached = scan(sentAt + 2 * grace, balance = 0, spends = listOf("ab"), mined = emptyList())
         assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(reclaimed, cached)))
+        // wallet2 found it gone from the pool: failed, its money spendable again.
+        val failed = scan(sentAt + 3 * grace, failed = listOf("ab"))
+        assertEquals(LinkStatus.READY, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(reclaimed, failed)))
     }
 
     @Test
     fun `a hidden attempt that reached the broadcast is scanned until a day of blocks is covered`() {
         val attempt = sent(state = SentState.NOT_FUNDED)
         assertTrue(LinkStatusRules.isHidden(attempt))
-        assertTrue(LinkStatusRules.hiddenScanDue(attempt))
+        assertTrue(LinkStatusRules.hiddenScanDue(attempt, sentAt))
         val top = 100 + EnvelopeFactory.HEIGHT_MARGIN + LinkStatusRules.HIDDEN_SCAN_BLOCKS
         val empty = EnvelopeSnapshot(checkedAt = 1, fundingSeen = false, fundingMined = false, confirmations = 0, balance = 0, unlocked = 0)
         // An early empty scan does not stop the scans.
         val early = LinkStatusRules.withCheck(attempt, empty.copy(scannedHeight = 130))
         assertTrue(LinkStatusRules.isHidden(early))
-        assertTrue(LinkStatusRules.hiddenScanDue(early))
-        assertTrue(LinkStatusRules.checkDue(early))
-        assertTrue(LinkStatusRules.hiddenScanDue(LinkStatusRules.withCheck(attempt, empty.copy(scannedHeight = top - 1))))
+        assertTrue(LinkStatusRules.hiddenScanDue(early, sentAt))
+        assertTrue(LinkStatusRules.checkDue(early, sentAt))
+        assertTrue(LinkStatusRules.hiddenScanDue(LinkStatusRules.withCheck(attempt, empty.copy(scannedHeight = top - 1)), sentAt))
         // A day of blocks past the attempt with no funding: the scans stop. The secret stays.
         val done = LinkStatusRules.withCheck(attempt, empty.copy(scannedHeight = top))
-        assertFalse(LinkStatusRules.hiddenScanDue(done))
-        assertFalse(LinkStatusRules.checkDue(done))
+        assertFalse(LinkStatusRules.hiddenScanDue(done, sentAt))
+        assertFalse(LinkStatusRules.checkDue(done, sentAt))
         assertEquals(attempt.words, done.words)
+    }
+
+    @Test
+    fun `a created attempt waits for its send, and a known funding txid needs no scan`() {
+        val created = sent(state = SentState.CREATED)
+        assertTrue(LinkStatusRules.isHidden(created))
+        // The send may still run: no scan for the first 10 minutes.
+        assertFalse(LinkStatusRules.hiddenScanDue(created, LinkStatusRules.HIDDEN_SCAN_WAIT_MS))
+        assertTrue(LinkStatusRules.hiddenScanDue(created, LinkStatusRules.HIDDEN_SCAN_WAIT_MS + 1))
+        // A funding the wallet marks failed: its history follows that txid, no scan.
+        val failed = sent(state = SentState.FUNDED).copy(fundingTxid = "f", fundingFailed = true)
+        assertTrue(LinkStatusRules.isHidden(failed))
+        assertFalse(LinkStatusRules.hiddenScanDue(failed, sentAt))
     }
 
     @Test
     fun `an attempt that failed before any broadcast needs no scan`() {
         val attempt = sent(state = SentState.NOT_FUNDED).copy(failedBeforeBroadcast = true)
         assertTrue(LinkStatusRules.isHidden(attempt))
-        assertFalse(LinkStatusRules.hiddenScanDue(attempt))
-        assertFalse(LinkStatusRules.checkDue(attempt))
+        assertFalse(LinkStatusRules.hiddenScanDue(attempt, sentAt))
+        assertFalse(LinkStatusRules.checkDue(attempt, sentAt))
     }
 
     @Test
@@ -187,7 +214,7 @@ class PaymentLinkDroppedSettleTest {
         )
         val stillHidden = LinkStatusRules.withCheck(attempt, empty)
         assertTrue(LinkStatusRules.isHidden(stillHidden))
-        assertTrue(LinkStatusRules.checkDue(stillHidden))
+        assertTrue(LinkStatusRules.checkDue(stillHidden, sentAt))
         // Mined later: the next cycle's scan finds it.
         val mined = EnvelopeSnapshot(
             checkedAt = 2, fundingSeen = true, fundingMined = true, confirmations = 2, balance = 5, unlocked = 0,

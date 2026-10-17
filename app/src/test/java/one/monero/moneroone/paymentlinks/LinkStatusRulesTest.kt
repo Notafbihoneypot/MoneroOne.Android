@@ -132,6 +132,44 @@ class LinkStatusRulesTest {
     }
 
     @Test
+    fun `a claim that beat our sent reclaim reads claimed, not reclaimed, and stays claimed`() {
+        // Our reclaim went out; the recipient's claim reached a block first, and ours never shows.
+        val reclaimed = sent(check = check(confirmations = 12, balance = 5, unlocked = 5), reclaimTxid = "ours")
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(reclaimed))
+        val beaten = check(confirmations = 30).copy(spendTxids = listOf("claim"), minedSpendTxids = listOf("claim"))
+        val claimed = LinkStatusRules.withCheck(reclaimed, beaten)
+        assertTrue(claimed.reclaimLostRace)
+        assertEquals(LinkStatus.CLAIMED, LinkStatusRules.baseStatus(claimed))
+        assertTrue(LinkStatusRules.isSettled(claimed))
+        // Final: a later scan (even one that shows money, or our own spend) leaves it claimed, and no check is due.
+        val later = check(confirmations = 40, balance = 3, unlocked = 3).copy(spendTxids = listOf("ours"), minedSpendTxids = listOf("ours"))
+        assertEquals(LinkStatus.CLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(claimed, later)))
+        assertFalse(LinkStatusRules.checkDue(claimed, 0))
+        // Our reclaim seen, in the pool or mined: no race was lost.
+        val ours = check(confirmations = 30).copy(spendTxids = listOf("claim", "ours"))
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(reclaimed, ours)))
+        // A reclaim whose txid never showed cannot tell.
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(reclaimed.copy(reclaimTxid = ""), beaten)))
+    }
+
+    @Test
+    fun `a spend from before our reclaim is not a claim that beat it`() {
+        // Our first reclaim "ab" is mined, money came later, and the second reclaim "cd" waits in the pool.
+        val mined = check(confirmations = 30, balance = 7, unlocked = 7).copy(spendTxids = listOf("ab"), minedSpendTxids = listOf("ab"))
+        val reopened = LinkStatusRules.withCheck(sent(check = check(confirmations = 12), reclaimTxid = "ab"), mined)
+        assertEquals(LinkStatus.READY, LinkStatusRules.baseStatus(reopened))
+        val again = reopened.copy(reclaimTxid = "cd", spendsBeforeReclaim = LinkStatusRules.spendsBeforeReclaim(reopened, "cd"))
+        assertEquals(listOf("ab"), again.spendsBeforeReclaim)
+        // A fresh scan that does not see "cd" in the pool yet: still reclaimed.
+        val after = LinkStatusRules.withCheck(again, mined)
+        assertFalse(after.reclaimLostRace)
+        assertEquals(LinkStatus.RECLAIMED, LinkStatusRules.baseStatus(after))
+        // A new spend that is not ours beat it.
+        val beaten = mined.copy(balance = 0, unlocked = 0, spendTxids = listOf("ab", "ee"), minedSpendTxids = listOf("ab", "ee"))
+        assertEquals(LinkStatus.CLAIMED, LinkStatusRules.baseStatus(LinkStatusRules.withCheck(again, beaten)))
+    }
+
+    @Test
     fun `a link claimed elsewhere reopens only once that claim is mined and money remains`() {
         val claimed = sent(check = check(confirmations = 12).copy(spendTxids = listOf("ee")))
         assertEquals(LinkStatus.CLAIMED, LinkStatusRules.baseStatus(claimed))

@@ -53,8 +53,8 @@ data class EnvelopeSnapshot(
     /** The envelope's outgoing transactions wallet2 marks failed: they left the pool unmined, and their money is back. */
     val failedSpendTxids: List<String> = emptyList(),
     /**
-     * The settle transactions this check reads as dropped ([LinkStatusRules.droppedSettles]): failed, or past
-     * [LinkStatusRules.SETTLE_GRACE_MS] in no block and not in the pool. Set when a record takes the check.
+     * The settle transactions this check reads as dropped ([LinkStatusRules.droppedSettles]): marked failed, or
+     * past [LinkStatusRules.SETTLE_GRACE_MS] seen nowhere. Set when a record takes the check.
      */
     val droppedSpendTxids: List<String> = emptyList(),
     /** The block height the envelope's scan reached (the daemon height when it reported synced). 0: not known. */
@@ -96,6 +96,11 @@ data class SentLink(
     val reclaimWallet: String? = null,
     /** When the node took the reclaim in [reclaimTxid]: its grace before an unmined reclaim reads as dropped. */
     val reclaimSentAt: Long? = null,
+    /**
+     * The envelope's spends a check saw before our reclaim in [reclaimTxid] went out (earlier settles):
+     * never a claim that beat it ([LinkStatusRules.lostToClaim]).
+     */
+    val spendsBeforeReclaim: List<String> = emptyList(),
     /**
      * The funding failed before anything reached the network (the transaction was never built, or the
      * wallet was not connected), so its envelope needs no scan. False when the broadcast may have gone out.
@@ -200,10 +205,10 @@ data class ReceivedLink(
      * a check made before the claim is in a block still sees the money, and must never turn
      * Claimed back into Ready (a second claim would fail as a double spend). It takes a check
      * that shows the settle in a block and the envelope empty, so it is checked no more.
-     * [inPool]: transaction hashes the open wallet's history shows in the pool.
+     * [wallet]: what the open wallet's history shows of the claim.
      */
-    fun noting(check: EnvelopeSnapshot, inPool: Set<String> = emptySet()): ReceivedLink {
-        val read = LinkStatusRules.annotated(settleTxids, settledAt, check, inPool)
+    fun noting(check: EnvelopeSnapshot, wallet: WalletHistory = WalletHistory()): ReceivedLink {
+        val read = LinkStatusRules.annotated(settleTxids, settledAt, check, wallet)
         if (isSettled && !LinkStatusRules.reopens(settleTxids, read)) {
             return if (LinkStatusRules.settleFinal(settleTxids, read)) copy(lastCheck = read) else this
         }
@@ -230,6 +235,9 @@ data class ReceivedLink(
     /** Settled by a spend that no check has seen in a block yet: the link is checked until one does. */
     val settleUnconfirmed: Boolean
         get() = isSettled && LinkStatusRules.unconfirmed(settleTxids, lastCheck)
+
+    /** [settleUnconfirmed], and the claim does not wait in the open wallet's pool (a check then cannot change it). */
+    fun settleDue(wallet: WalletHistory): Boolean = settleUnconfirmed && !LinkStatusRules.waitsInWallet(settleTxids, wallet)
 
     /**
      * The spends that settled the link: our claim, else (claimed elsewhere) the envelope's spends as the
@@ -260,6 +268,17 @@ data class ReceivedLink(
         fun net(balance: Long, fee: Long): Long? = if (balance > fee) balance - fee else null
     }
 }
+
+/**
+ * What the open wallet's history shows of settle transactions (a claim or reclaim into it), read before an
+ * envelope opens (the main wallet stops while one runs): [pending] in the pool, [confirmed] in a block,
+ * [failed] marked failed. iOS settleHasFailed reads the same history.
+ */
+data class WalletHistory(
+    val pending: Set<String> = emptySet(),
+    val confirmed: Set<String> = emptySet(),
+    val failed: Set<String> = emptySet()
+)
 
 /**
  * The status a sent link shows (spec "Status"). [EXPIRED] is a label over pending or ready.
@@ -339,9 +358,10 @@ object LinkStatusRules {
      * Not funded: until a check sees the money, it waits ([LinkStatus.PENDING]). [inWallet]: as [hasFunding].
      */
     fun baseStatus(link: SentLink, inWallet: Boolean = false): LinkStatus {
+        // A claim beat our reclaim: final.
+        if (link.reclaimLostRace) return LinkStatus.CLAIMED
         // Reclaimed, unless a check saw money left behind by our reclaim (in a block, or dropped).
         if (link.reclaimTxid != null && !reopens(settleTxids(link), link.lastCheck)) return LinkStatus.RECLAIMED
-        if (link.reclaimLostRace) return LinkStatus.CLAIMED
         val funded = hasFunding(link, inWallet)
         val check = link.lastCheck ?: return if (funded) LinkStatus.PENDING else LinkStatus.NOT_FUNDED
         return when {
@@ -475,10 +495,12 @@ object LinkStatusRules {
     /**
      * The record with [check] as its last check. A record without a funding txid (or with one the wallet
      * marks failed) takes the one the envelope saw (iOS parity), so its Activity row matches it.
-     * A settled link keeps its record unless [check] reopens it ([reopens]).
+     * A settled link keeps its record unless [check] reopens it ([reopens]), or shows that a claim beat our
+     * reclaim ([lostToClaim]). [wallet]: what the open wallet's history shows of our reclaim.
      */
-    fun withCheck(link: SentLink, check: EnvelopeSnapshot, inPool: Set<String> = emptySet()): SentLink {
-        val read = annotated(settleTxids(link), settledAt(link), check, inPool)
+    fun withCheck(link: SentLink, check: EnvelopeSnapshot, wallet: WalletHistory = WalletHistory()): SentLink {
+        val read = annotated(settleTxids(link), settledAt(link), check, wallet)
+        if (!link.reclaimLostRace && lostToClaim(link, read)) return link.copy(reclaimLostRace = true, lastCheck = read)
         if (isSettled(link) && !reopens(settleTxids(link), read)) {
             // A settle in a block with the envelope empty is final: the link is checked no more.
             return if (settleFinal(settleTxids(link), read)) link.copy(lastCheck = read) else link
@@ -493,10 +515,35 @@ object LinkStatusRules {
 
     /**
      * A sent link the check cycle scans: one that can still change (a hidden attempt only while
-     * [hiddenScanDue]), or a settled one whose settle no check has seen in a block ([settleUnconfirmed]).
+     * [hiddenScanDue]), or a settled one whose settle no check has seen in a block ([settleDue]).
      */
-    fun checkDue(link: SentLink): Boolean =
-        if (isSettled(link)) settleUnconfirmed(link) else !isHidden(link) || hiddenScanDue(link)
+    fun checkDue(link: SentLink, nowMillis: Long, wallet: WalletHistory = WalletHistory()): Boolean =
+        if (isSettled(link)) settleDue(link, wallet) else !isHidden(link) || hiddenScanDue(link, nowMillis)
+
+    /**
+     * [settleUnconfirmed], and our reclaim does not wait in the open wallet's pool: while it does, a check
+     * cannot reopen the link or tell it final (iOS isLeftoverCheckDue), so it waits.
+     */
+    fun settleDue(link: SentLink, wallet: WalletHistory): Boolean =
+        settleUnconfirmed(link) && !waitsInWallet(settleTxids(link), wallet)
+
+    /** One of [txids] waits in the open wallet's pool. */
+    fun waitsInWallet(txids: List<String>, wallet: WalletHistory): Boolean = txids.any { it in wallet.pending }
+
+    /**
+     * A claim beat our reclaim in [SentLink.reclaimTxid] (iOS settledStatus): [check] shows a spend that is
+     * neither ours nor one from before our reclaim ([SentLink.spendsBeforeReclaim]), and does not show ours.
+     * Final: the link reads Claimed. Not for a reclaim whose txid never showed.
+     */
+    fun lostToClaim(link: SentLink, check: EnvelopeSnapshot): Boolean {
+        val ours = link.reclaimTxid?.takeIf { it.isNotEmpty() } ?: return false
+        return ours !in check.spendTxids && check.spendTxids.any { it != ours && it !in link.spendsBeforeReclaim }
+    }
+
+    /** What [SentLink.spendsBeforeReclaim] holds when a new reclaim [txid] of [link] goes out. */
+    fun spendsBeforeReclaim(link: SentLink, txid: String?): List<String> =
+        (link.spendsBeforeReclaim + link.lastCheck?.spendTxids.orEmpty() + listOfNotNull(link.reclaimTxid?.takeIf { it.isNotEmpty() }))
+            .distinct().filter { it != txid }
 
     /** When our reclaim in [SentLink.reclaimTxid] went out (older records: when it began); null without one. */
     fun settledAt(link: SentLink): Long? =
@@ -517,40 +564,46 @@ object LinkStatusRules {
     const val SETTLE_GRACE_MS = 60 * 60_000L
 
     /**
-     * The settle transactions in [txids] that will not confirm (requirement 2026-10-17): in no block, and
-     * wallet2 marks them failed, or more than [SETTLE_GRACE_MS] after [settledAt] they are not in the pool
-     * ([inPool]: the open wallet's history shows them there). While one waits in the pool, or within its
-     * grace, it is not dropped, so a check never reopens the link for it. No [settledAt] (a claim made
-     * elsewhere): only wallet2's mark counts.
+     * The settle transactions in [txids] that will not confirm (requirement 2026-10-17, iOS settleHasFailed).
+     * Not dropped: in a block in the envelope, or waiting or mined in the open wallet's history ([wallet]).
+     * Dropped at once: wallet2 marks it failed in the envelope (it checked the pool, and the spend left it
+     * unmined). Not dropped while the envelope still lists it waiting. Dropped: the open wallet marks it
+     * failed, or it shows nowhere [SETTLE_GRACE_MS] after [settledAt]. No [settledAt] (a claim made
+     * elsewhere): never by time. While a settle waits in the pool, or within its grace, a check never
+     * reopens the link for it.
      */
-    fun droppedSettles(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, inPool: Set<String>): List<String> =
+    fun droppedSettles(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, wallet: WalletHistory): List<String> =
         txids.filter { txid ->
-            txid !in check.minedSpendTxids && (txid in check.failedSpendTxids ||
-                (settledAt != null && check.checkedAt - settledAt > SETTLE_GRACE_MS && txid !in inPool))
+            when {
+                txid in check.minedSpendTxids -> false
+                txid in wallet.pending || txid in wallet.confirmed -> false
+                txid in check.failedSpendTxids -> true
+                txid in check.spendTxids -> false
+                txid in wallet.failed -> true
+                else -> settledAt != null && check.checkedAt - settledAt > SETTLE_GRACE_MS
+            }
         }
 
-    /**
-     * [check] came from a cache that still counts a dropped settle as spent (wallet2 has not marked it
-     * failed), so the money it never moved stays hidden: the envelope is restored afresh before its next check.
-     */
-    fun staleSettleCache(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, inPool: Set<String>): Boolean =
-        droppedSettles(txids, settledAt, check, inPool).any { it in check.spendTxids }
-
     /** [check] with [droppedSettles] of [txids]: what a record keeps. */
-    fun annotated(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, inPool: Set<String>): EnvelopeSnapshot =
-        check.copy(droppedSpendTxids = droppedSettles(txids, settledAt, check, inPool))
+    fun annotated(txids: List<String>, settledAt: Long?, check: EnvelopeSnapshot, wallet: WalletHistory): EnvelopeSnapshot =
+        check.copy(droppedSpendTxids = droppedSettles(txids, settledAt, check, wallet))
 
     /** The scan of a hidden funding attempt covers this many blocks (about a day) past the attempt. */
     const val HIDDEN_SCAN_BLOCKS = 720L
+
+    /** A link still Created (the app closed during its send, or the send still runs) waits this long before a scan. */
+    const val HIDDEN_SCAN_WAIT_MS = 10 * 60_000L
 
     /**
      * A hidden funding attempt still to scan (requirement 2026-10-17): the node may have taken the funding
      * with no txid in this wallet's history, so each check cycle scans the envelope until a scan covered
      * [HIDDEN_SCAN_BLOCKS] past the attempt with no funding. Then it stops; the secret stays. An attempt
-     * that failed before any broadcast needs no scan.
+     * that failed before any broadcast needs no scan, nor one whose funding txid the wallet knows (its history
+     * follows that one). A link still Created waits [HIDDEN_SCAN_WAIT_MS], so a send that still runs can finish.
      */
-    fun hiddenScanDue(link: SentLink): Boolean =
-        isHidden(link) && !link.failedBeforeBroadcast &&
+    fun hiddenScanDue(link: SentLink, nowMillis: Long): Boolean =
+        isHidden(link) && link.fundingTxid == null && !link.failedBeforeBroadcast &&
+            (link.state != SentState.CREATED || nowMillis - link.createdAtMillis > HIDDEN_SCAN_WAIT_MS) &&
             (link.lastCheck?.scannedHeight ?: 0L) < link.height + EnvelopeFactory.HEIGHT_MARGIN + HIDDEN_SCAN_BLOCKS
 
     /** The sender's link has settled: nothing more can move (its files can go). */
@@ -563,8 +616,8 @@ object LinkStatusRules {
      * never reopens.
      */
     fun settleTxids(link: SentLink): List<String> = when {
-        link.reclaimTxid != null -> listOfNotNull(link.reclaimTxid.takeIf { it.isNotEmpty() })
         link.reclaimLostRace -> emptyList()
+        link.reclaimTxid != null -> listOfNotNull(link.reclaimTxid.takeIf { it.isNotEmpty() })
         else -> link.lastCheck?.spendTxids.orEmpty()
     }
 
