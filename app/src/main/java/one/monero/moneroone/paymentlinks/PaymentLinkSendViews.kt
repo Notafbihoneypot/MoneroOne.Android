@@ -2,6 +2,7 @@ package one.monero.moneroone.paymentlinks
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.view.MotionEvent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -88,15 +89,45 @@ internal fun formatLinkDate(epochSeconds: Long): String =
 internal fun formatRecordDate(epochMillis: Long): String =
     DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(epochMillis))
 
-/** The share text: the amount and the link only. A link's note stays on this phone. */
-internal fun shareText(amountXmr: String, link: PaymentLink): String =
-    tr("I sent you %s XMR. Tap to claim it in Monero One: %s", amountXmr, link.url())
+/**
+ * "App-only payment links" (Settings, Privacy & Security), off by default. On, every share
+ * shares the https://monero.one/a link, which never loads a web page (the site redirects it
+ * to moneroone://c). Share again in a link's detail follows the setting as it is now, not as
+ * it was when the link was made.
+ */
+object LinkSharePrefs {
+    private const val KEY = "app_only_payment_links"
 
-/** Opens the system share sheet with the spec's share text. The link never goes to the clipboard. */
+    private fun prefs(context: Context): SharedPreferences =
+        context.getSharedPreferences("monero_wallet", Context.MODE_PRIVATE)
+
+    fun appOnly(prefs: SharedPreferences): Boolean = prefs.getBoolean(KEY, false)
+
+    fun setAppOnly(prefs: SharedPreferences, on: Boolean) {
+        prefs.edit().putBoolean(KEY, on).apply()
+    }
+
+    fun appOnly(context: Context): Boolean = appOnly(prefs(context))
+
+    fun setAppOnly(context: Context, on: Boolean) = setAppOnly(prefs(context), on)
+}
+
+/**
+ * The share text: the amount and the link only. A link's note stays on this phone.
+ * An app-only link says where to get the app: it opens nowhere else.
+ */
+internal fun shareText(amountXmr: String, link: PaymentLink, appOnly: Boolean): String =
+    if (appOnly) tr("I sent you %s XMR. Open this link in Monero One: %s. Get the app at monero.one", amountXmr, link.appUrl())
+    else tr("I sent you %s XMR. Tap to claim it in Monero One: %s", amountXmr, link.url())
+
+/**
+ * Opens the system share sheet with the spec's share text, in the shape the setting picks.
+ * The link never goes to the clipboard.
+ */
 internal fun shareLink(context: Context, amountXmr: String, link: PaymentLink) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, shareText(amountXmr, link))
+        putExtra(Intent.EXTRA_TEXT, shareText(amountXmr, link, LinkSharePrefs.appOnly(context)))
     }
     context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }

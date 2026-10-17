@@ -7,12 +7,23 @@ import java.net.URLDecoder
  * A payment link (envelope): the secret of a one-time wallet plus hints for
  * the claim. Both apps build and parse the same bytes
  * (docs/2026-10-03-payment-links-spec.md). New links are v2 ([EnvelopeV2],
- * about 48 characters):
+ * about 55 characters), with the body behind a fragment directive:
+ *
+ *     https://monero.one/c#2:~:m1=<secret><height>
+ *
+ * WebKit hides everything after `:~:` from the page's script, so the page
+ * sees only "2" (Chromium still exposes it through its navigation APIs: an
+ * extra layer, not a boundary). With "App-only payment links" on, links take
+ * the /a path with a plain fragment. The site answers /a with a bare redirect
+ * to the app's own scheme, and the browser carries the fragment over, so no
+ * page script ever runs:
+ *
+ *     https://monero.one/a#2<secret><height>   (shared)
+ *     moneroone://c#2<secret><height>          (where /a lands)
+ *
+ * Older shapes still parse and claim (links made before must keep working):
  *
  *     https://monero.one/c#2<secret><height>
- *
- * v1 links still parse and claim (links funded before v2 must keep working):
- *
  *     https://monero.one/c#v=1&s=<words>&h=<height>&a=<atomic>&e=<expiry>&n=<id>
  *
  * The secret lives only in the fragment, so it never reaches a server.
@@ -44,11 +55,29 @@ class PaymentLink private constructor(
     /** The v2 secret as lowercase hex, as records keep it; null for a v1 link. */
     val secretHex: String? get() = secretBytes?.toHex()
 
-    /** The link string. v1 keys in the order v, s, h, a, e, n. */
+    /**
+     * The https link: v2 `https://monero.one/c#2:~:m1=<secret><height>`, v1 keys
+     * in the order v, s, h, a, e, n.
+     */
     fun url(): String = when (val s = secretBytes) {
-        null -> "$PREFIX#v=1&s=${words.joinToString("-")}&h=$height&a=$amount&e=$expiry&n=$id"
-        else -> "$PREFIX#" + EnvelopeV2.fragment(s, height).orEmpty()
+        null -> "$PREFIX#${v1Fragment()}"
+        // The fragment's version stays in front for the page; its body moves behind the directive.
+        else -> "$PREFIX#${EnvelopeV2.VERSION}$DIRECTIVE" + EnvelopeV2.fragment(s, height).orEmpty().drop(1)
     }
+
+    /**
+     * The app-only link: `https://monero.one/a#2<secret><height>`. It opens only in Monero One:
+     * App Links open it in the app, and in a browser /a redirects to moneroone://c with no page.
+     */
+    fun appUrl(): String = "$APP_LINK_PREFIX#" + when (val s = secretBytes) {
+        null -> v1Fragment()
+        else -> EnvelopeV2.fragment(s, height).orEmpty()
+    }
+
+    /** The link to share: [appUrl] with "App-only payment links" on, else [url]. */
+    fun url(appOnly: Boolean): String = if (appOnly) appUrl() else url()
+
+    private fun v1Fragment(): String = "v=1&s=${words.joinToString("-")}&h=$height&a=$amount&e=$expiry&n=$id"
 
     override fun toString(): String = "PaymentLink(v=$version, n=$id, h=$height, a=$amount, e=$expiry, s=<redacted>)"
 
@@ -61,6 +90,11 @@ class PaymentLink private constructor(
 
     companion object {
         const val PREFIX = "https://monero.one/c"
+        const val APP_LINK_PREFIX = "https://monero.one/a"
+        const val APP_SCHEME = "moneroone"
+
+        /** The fragment directive the v2 body sits behind: `#2:~:m1=<body>`. */
+        const val DIRECTIVE = ":~:m1="
         const val WORD_COUNT = 25
         private val ID = Regex("^[0-9a-f]{16}$")
 
@@ -99,18 +133,25 @@ object PaymentLinkCodec {
 
     /**
      * True when [text] is a claim link by its shape alone: `https://monero.one/c`
-     * or `monero.one/c` (pasted without a scheme), then `#`, `?`, `/` or the end.
-     * Such text opens the claim sheet, never the address field. `http` is not a claim link.
+     * or `/a`, either without a scheme (pasted), or `moneroone://c`, then `#`, `?`,
+     * `/` or the end. Such text opens the claim sheet, never the address field.
+     * `http` is not a claim link.
      */
-    fun isClaimLink(text: String): Boolean = locationEnd(text.trim()) != null
+    fun isClaimLink(text: String): Boolean = locationEnd(clean(text)) != null
 
+    /**
+     * Every shape: `#2:~:m1=<body>` (new), `#2<body>` (before the directive),
+     * `#v=1&...` (v1), after any of the accepted prefixes.
+     */
     fun parse(text: String): PaymentLinkParse {
-        val trimmed = text.trim()
+        val trimmed = clean(text)
         val end = locationEnd(trimmed) ?: return PaymentLinkParse.NotALink
         val rest = trimmed.substring(end)
         val hash = rest.indexOf('#')
         if (hash < 0) return PaymentLinkParse.Incomplete
         val fragment = rest.substring(hash + 1)
+        val directive = fragment.indexOf(":~:")
+        if (directive >= 0) return parseDirective(fragment.substring(0, directive), fragment.substring(directive + 3))
         // A fragment with `=` is the v1 key-value format; one without is the short format.
         if ('=' !in fragment) return parseShort(fragment)
         val fields = readFields(fragment)
@@ -148,18 +189,41 @@ object PaymentLinkCodec {
         return PaymentLink.v2(secret, height)?.let { PaymentLinkParse.Valid(it) } ?: PaymentLinkParse.Incomplete
     }
 
-    /** Index just past `monero.one/c` when [text] starts with an accepted claim-link prefix. */
+    /**
+     * The new shape's fragment, split at `:~:`: [head] is the version ("2"),
+     * [directives] holds `m1=<body>` (other directives, `&`-joined, are ignored).
+     */
+    private fun parseDirective(head: String, directives: String): PaymentLinkParse {
+        val first = head.singleOrNull() ?: return PaymentLinkParse.Incomplete
+        if (first != EnvelopeV2.VERSION) {
+            return if (first in 'a'..'z' || first in 'A'..'Z' || first in '0'..'9') PaymentLinkParse.NeedsUpdate
+            else PaymentLinkParse.Incomplete
+        }
+        val body = directives.split('&').firstOrNull { it.startsWith("m1=") }?.substring(3)
+            ?: return PaymentLinkParse.Incomplete
+        return parseShort("$first$body")
+    }
+
+    /**
+     * Surrounding space, and the sentence's punctuation when a chat app took it
+     * with the link ("...: moneroone://c#2... ."): no link ends in one of these.
+     */
+    private fun clean(text: String): String = text.trim().trimEnd('.', ',', ';', '!', '?', ')')
+
+    /** Index just past `monero.one/c`, `monero.one/a` or `moneroone://c` when [text] starts with an accepted claim-link prefix. */
     private fun locationEnd(text: String): Int? {
         val lower = text.lowercase()
+        val app = "${PaymentLink.APP_SCHEME}://"
+        val appScheme = lower.startsWith(app)
         val start = when {
+            appScheme -> app.length
             lower.startsWith("https://") -> "https://".length
             lower.startsWith("http:") -> return null
             lower.contains("://") -> return null
             else -> 0
         }
-        val location = "monero.one/c"
-        if (!lower.startsWith(location, start)) return null
-        val end = start + location.length
+        val location = if (appScheme) listOf("c") else listOf("monero.one/c", "monero.one/a")
+        val end = start + (location.firstOrNull { lower.startsWith(it, start) } ?: return null).length
         if (end < text.length && text[end] !in "#?/") return null
         // "monero.one/c/" is the same page; anything after it on the path is another page.
         if (end < text.length && text[end] == '/' && end + 1 < text.length && text[end + 1] != '#') return null

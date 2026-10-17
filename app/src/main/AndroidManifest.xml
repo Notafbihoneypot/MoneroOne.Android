@@ -50,7 +50,8 @@
                 <data android:scheme="monero" />
             </intent-filter>
 
-            <!-- Payment links (App Links): https://monero.one/c#v=1&... -->
+            <!-- Payment links (App Links): https://monero.one/c#2:~:m1=..., the older #2... and #v=1&...,
+                 and app-only https://monero.one/a#2... (the site sends /a on to moneroone://c). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -59,6 +60,16 @@
                 <data android:host="monero.one" />
                 <data android:path="/c" />
                 <data android:pathPrefix="/c/" />
+                <data android:path="/a" />
+                <data android:pathPrefix="/a/" />
+            </intent-filter>
+
+            <!-- App-only payment links land here: https://monero.one/a redirects to moneroone://c#2... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="moneroone" android:host="c" />
             </intent-filter>
         </activity>
 

@@ -25,7 +25,12 @@ class PaymentLinkV2Test {
     private class Vector(
         val secret: String,
         val height: Long,
+        /** The shape before the fragment directive, as the spec's vectors give it: still parses. */
         val link: String,
+        /** The https link made now: the body behind `:~:m1=`. */
+        val url: String,
+        /** The app-only link (the site sends /a on to moneroone://c). */
+        val appUrl: String,
         val k: String,
         val spend: String,
         val address: String,
@@ -36,6 +41,8 @@ class PaymentLinkV2Test {
         secret = "000102030405060708090a0b0c0d0e0f",
         height = 150,
         link = "https://monero.one/c#2112drXXUifSrRnXLGbXg8E3b",
+        url = "https://monero.one/c#2:~:m1=112drXXUifSrRnXLGbXg8E3b",
+        appUrl = "https://monero.one/a#2112drXXUifSrRnXLGbXg8E3b",
         k = "6a5bd15ceb3ca1dc24f7056feabfb1b825296bc5b26cfdcff8ad8362145ce908",
         spend = "6a5bd15ceb3ca1dc24f7056feabfb1b825296bc5b26cfdcff8ad8362145ce908",
         address = "49brhubHMBe7enmsCDmGAJi63rX3uaGutSTf5afWoCeyDWsaXDhXwuN9WYB19H9dZeRGaYeZ74YpqX4qKGCMcyGP9bv31Hz",
@@ -47,6 +54,8 @@ class PaymentLinkV2Test {
         secret = "0102030405060708090a0b0c0d0e0f10",
         height = 3_500_000,
         link = "https://monero.one/c#218DfbjXLth7APvt3qQPgtfJwRq",
+        url = "https://monero.one/c#2:~:m1=18DfbjXLth7APvt3qQPgtfJwRq",
+        appUrl = "https://monero.one/a#218DfbjXLth7APvt3qQPgtfJwRq",
         k = "ade11baac32c1fd6a72d6050d89f2aaced5462acadae8a6967b62cfdd0229d10",
         spend = "c00d264da9c90c7ed19068adf9a54b97ed5462acadae8a6967b62cfdd0229d00",
         address = "48vAo8XgJkBXtD3HqhVCvF9vpavqBuGK2WSPXTQSMeyXAy6xzEmgFHZiwkKYcnNv2fDsW9S31nnpHN6J3pMGrRiTR3NC7nL",
@@ -72,7 +81,8 @@ class PaymentLinkV2Test {
         assertEquals(v.id, EnvelopeV2.id(secret))
 
         val link = PaymentLink.v2(secret, v.height)!!
-        assertEquals(v.link, link.url())
+        assertEquals(v.url, link.url())
+        assertEquals(v.appUrl, link.appUrl())
         assertEquals(2, link.version)
         assertEquals(v.id, link.id)
         assertEquals(v.secret, link.secretHex)
@@ -86,6 +96,9 @@ class PaymentLinkV2Test {
 
         val parsed = valid(v.link)
         assertEquals(link, parsed)
+        assertEquals(link, valid(v.url))
+        assertEquals(link, valid(v.appUrl))
+        assertEquals(link, valid(v.appUrl.replace("https://monero.one/a", "moneroone://c")))
         assertEquals(v.height, parsed.height)
         assertEquals(link.words, parsed.words)
 
@@ -199,7 +212,8 @@ class PaymentLinkV2Test {
             val link = PaymentLink.v2(secret, height)!!
             val parsed = valid(link.url())
             assertEquals(link, parsed)
-            assertTrue(link.url().length <= "https://monero.one/c#2".length + 22 + 11)
+            assertEquals(link, valid(link.appUrl()))
+            assertTrue(link.url().length <= "https://monero.one/c#2:~:m1=".length + 22 + 11)
         }
         // A new secret makes a new link.
         assertNotEquals(EnvelopeV2.newSecret().toHex(), EnvelopeV2.newSecret().toHex())
@@ -276,13 +290,13 @@ class PaymentLinkV2Test {
         )
         val back = json.decodeFromString(SentLink.serializer(), json.encodeToString(SentLink.serializer(), sent))
         assertEquals(sent, back)
-        assertEquals(vector2.link, back.link.url())
+        assertEquals(vector2.url, back.link.url())
         assertTrue(back.words.isEmpty())
         assertFalse(back.toString().contains(vector2.secret))
 
         val received = ReceivedLink(link.id, null, link.height, 0, 0, 1L, secret = link.secretHex)
         val receivedBack = json.decodeFromString(ReceivedLink.serializer(), json.encodeToString(ReceivedLink.serializer(), received))
-        assertEquals(vector2.link, receivedBack.link?.url())
+        assertEquals(vector2.url, receivedBack.link?.url())
         assertNull(receivedBack.knownAmount)
         assertNull(receivedBack.forgettingSecret().link)
         assertFalse(receivedBack.toString().contains(vector2.secret))

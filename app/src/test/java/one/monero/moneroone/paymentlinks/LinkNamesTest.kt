@@ -95,10 +95,13 @@ class LinkNamesTest {
     fun `the note is never in the link, its URL or the share text`() {
         val link = sent("a", 1, number = 2, note = "Dinner with Sam")
         val url = link.link.url()
-        val share = shareText("0.02", link.link)
+        val share = shareText("0.02", link.link, appOnly = false)
+        val appShare = shareText("0.02", link.link, appOnly = true)
         assertFalse(url.contains("Dinner"))
         assertFalse(share.contains("Dinner"))
+        assertFalse(appShare.contains("Dinner"))
         assertTrue(share.contains(url))
+        assertTrue(appShare.contains(link.link.appUrl()))
         // The link a recipient opens carries no note: its record starts with none.
         val parsed = PaymentLinkCodec.parse(url) as PaymentLinkParse.Valid
         assertFalse(parsed.link.toString().contains("Dinner"))
