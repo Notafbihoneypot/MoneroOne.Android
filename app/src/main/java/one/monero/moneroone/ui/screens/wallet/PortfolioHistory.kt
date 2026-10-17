@@ -34,6 +34,8 @@ data class BalanceChange(
         ): BalanceChange? {
             if (isFailed) return null
             if (incoming && isPending && !countsPendingIncoming) return null
+            // A negative fee (TransactionHistoryLogic.feeText) stays signed:
+            // wallet2 then still reports amount + fee as what left the wallet.
             val delta = if (incoming) amount else -(amount + fee)
             return BalanceChange(id, incoming, timestampMs, amount, delta)
         }

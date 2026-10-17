@@ -36,7 +36,11 @@ object TransactionHistoryLogic {
         kindMatches && addressMatches && (query.isBlank() || searchable.any { it.contains(query.trim(), ignoreCase = true) })
     }.sortedWith(compareBy<TransactionInfo> { !it.isPending && it.confirmations > 0 }.thenByDescending { it.timestamp })
 
-    /** Failed transactions contribute nothing; outgoing totals include fees. */
+    /**
+     * Failed transactions contribute nothing; outgoing totals include fees.
+     * A negative fee (see [feeText]) stays signed here and in [fiatTotals]:
+     * wallet2 then still reports amount + fee as what left this wallet.
+     */
     fun totals(transactions: List<TransactionInfo>): TransactionTotals {
         var received = BigInteger.ZERO
         var sent = BigInteger.ZERO
@@ -106,6 +110,14 @@ object TransactionHistoryLogic {
         else -> tr("Confirmed")
     }
 
+    /**
+     * The Fee row of a sent transaction. wallet2 cannot compute the fee of a
+     * pre-RingCT send that spent inputs from another wallet: the fee wraps
+     * and arrives negative (iOS MoneroKit stores 0 for it). Only sent
+     * transactions show a fee, so a coinbase, whose fee is 0, never gets here.
+     */
+    fun feeText(fee: Long): String = if (fee > 0) "${XmrFormat.format(fee)} XMR" else tr("Not available")
+
     /** These same fields render the screen and Copy All, so the exported values cannot drift. */
     fun details(tx: TransactionInfo, addresses: List<ReceiveAddressRow>, date: String,
                 atTime: String?, today: String?, txKey: String?): List<TransactionDetailField> = buildList {
@@ -115,7 +127,7 @@ object TransactionHistoryLogic {
         }
         field(tr("Type"), tr(if (incoming) "Received" else "Sent"))
         field(tr("Amount"), "${if (incoming) "+" else "−"}${XmrFormat.format(tx.amount)} XMR")
-        if (!incoming) field(tr("Fee"), "${XmrFormat.format(tx.fee)} XMR")
+        if (!incoming) field(tr("Fee"), feeText(tx.fee))
         field(tr(if (incoming) "Value when received" else "Value when sent"), atTime)
         field(tr("Value today"), today)
         field(tr("Status"), status(tx))

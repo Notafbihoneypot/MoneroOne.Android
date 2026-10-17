@@ -1409,5 +1409,22 @@
     "uk": "Tor",
     "zh-Hans": "Tor",
     "zh-Hant": "Tor"
+  },
+  "Not available": {
+    "de": "Nicht verfügbar",
+    "es": "No disponible",
+    "fr": "Non disponible",
+    "it": "Non disponibile",
+    "ja": "利用不可",
+    "ko": "사용할 수 없음",
+    "nl": "Niet beschikbaar",
+    "pl": "Niedostępne",
+    "pt-BR": "Indisponível",
+    "ro": "Indisponibil",
+    "ru": "Недоступно",
+    "tr": "Kullanılamıyor",
+    "uk": "Недоступно",
+    "zh-Hans": "不可用",
+    "zh-Hant": "無法使用"
   }
 }

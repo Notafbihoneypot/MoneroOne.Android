@@ -577,6 +577,7 @@ internal val localizedStrings: Map<String, Int> = mapOf(
     "Norwegian Krone" to R.string.l10n_norwegian_krone_66f55f57,
     "Not Configured" to R.string.l10n_not_configured_bbea960e,
     "Not Set" to R.string.l10n_not_set_8290035d,
+    "Not available" to R.string.l10n_not_available_67a926f7,
     "Not available for transactions sent before this wallet was restored" to R.string.l10n_not_available_for_transactions_sent_before_this_wallet__47e02c54,
     "Not available on this device" to R.string.l10n_not_available_on_this_device_01c75e3f,
     "Not connected" to R.string.l10n_not_connected_0303e182,

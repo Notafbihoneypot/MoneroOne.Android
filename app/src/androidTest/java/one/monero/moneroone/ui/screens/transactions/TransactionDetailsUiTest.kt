@@ -1,5 +1,6 @@
 package one.monero.moneroone.ui.screens.transactions
 
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -40,5 +41,17 @@ class TransactionDetailsUiTest {
             TransactionDetailsContent(tx, fields, {}, {}, {}, {}, false, false, {})
         } }
         rule.onNodeWithText(tr("Sender address hidden by Monero privacy")).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun unknownFeeIsOneTalkBackStopThatSaysNotAvailable() {
+        // wallet2's fee for a pre-RingCT send with another wallet's inputs wraps negative.
+        val tx = TransactionInfo(1, false, false, 1000000000000, -500000000000, 3000000,
+            "v1-hash", 1790611200, "", 0, 0, 12, 0, "", emptyList())
+        val fields = TransactionHistoryLogic.details(tx, emptyList(), "Sep 28, 2026", null, null, null)
+        rule.setContent { MoneroOneTheme {
+            TransactionDetailsContent(tx, fields, {}, {}, {}, {}, false, false, {})
+        } }
+        val row = rule.onNode(hasText(tr("Fee")) and hasText(tr("Not available"))).assertIsDisplayed().fetchSemanticsNode()
+        assertEquals(listOf(tr("Fee"), tr("Not available")), row.config[SemanticsProperties.Text].map { it.text })
     }
 }
