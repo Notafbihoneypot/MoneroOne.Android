@@ -71,8 +71,11 @@ object QrStyle {
     /** The smallest code that gets a logo: version 5 (37 modules). */
     const val MINIMUM_LOGO_CODE_SIZE = 37
 
-    /** White around the code on its plate, in modules. */
-    const val QUIET_ZONE = 4
+    /** White around the code on its plate, in modules (iOS: 2; Cash App: about 1.8). */
+    const val PLATE_QUIET_ZONE = 2
+
+    /** White around the code in the shared and saved image, in modules: it lands on unknown backgrounds and prints. */
+    const val IMAGE_QUIET_ZONE = 4
 
     /** The logo's width in modules: the odd number nearest to [LOGO_FRACTION] of the code, or 0 (no logo). */
     fun logoModules(size: Int): Int {
@@ -209,7 +212,7 @@ object QrCodes {
     }
 
     /**
-     * A code on its white plate (iOS QRPlate): four modules of quiet zone,
+     * A code on its white plate (iOS QRPlate): two modules of quiet zone,
      * corners that round as it grows,
      * the shadow inside the plate so a growing copy looks exactly like the
      * code it starts from, and a hairline edge in light mode. [code] null
@@ -239,14 +242,14 @@ object QrCodes {
                 })
         }
         if (code != null) {
-            val quiet = side * QrStyle.QUIET_ZONE / (code.modules + 2 * QrStyle.QUIET_ZONE)
+            val quiet = side * QrStyle.PLATE_QUIET_ZONE / (code.modules + 2 * QrStyle.PLATE_QUIET_ZONE)
             drawCode(canvas, code, logo, RectF(rect.left + quiet, rect.top + quiet, rect.right - quiet, rect.bottom - quiet))
         }
     }
 
     /**
      * The image Save to Photos and Share QR Code hand out (iOS
-     * QRCodeRenderer): the code with the plate's four modules of quiet zone
+     * QRCodeRenderer): the code with four modules of quiet zone
      * and the logo, 1200 px square, on white. Chat apps round the corners of
      * an image; the quiet zone keeps them off the finder patterns.
      */
@@ -255,7 +258,7 @@ object QrCodes {
         val image = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(image)
         canvas.drawColor(android.graphics.Color.WHITE)
-        val margin = size.toFloat() * QrStyle.QUIET_ZONE / (code.modules + 2 * QrStyle.QUIET_ZONE)
+        val margin = size.toFloat() * QrStyle.IMAGE_QUIET_ZONE / (code.modules + 2 * QrStyle.IMAGE_QUIET_ZONE)
         drawCode(canvas, code, logo(context), RectF(margin, margin, size - margin, size - margin))
         return image
     }
