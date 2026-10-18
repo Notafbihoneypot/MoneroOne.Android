@@ -33,6 +33,10 @@ class MoneroOneApp : Application() {
     // ActivityLifecycleCallbacks fires immediately — no delay like ProcessLifecycleOwner
     private val activityCallbacks = object : ActivityLifecycleCallbacks {
         override fun onActivityPaused(activity: Activity) {
+            // A rotation, a theme switch or a font size change pauses the
+            // activity only to make it again. The app stays on screen, so
+            // this pause starts no auto-lock time.
+            if (activity.isChangingConfigurations) return
             getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .putLong(KEY_BACKGROUND_TIMESTAMP, System.currentTimeMillis())

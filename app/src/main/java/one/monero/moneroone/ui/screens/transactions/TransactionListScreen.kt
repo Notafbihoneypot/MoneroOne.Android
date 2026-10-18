@@ -66,6 +66,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.core.wallet.WalletViewModel
@@ -155,7 +156,9 @@ fun TransactionListScreen(
             MoneroTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text(tr("Search transactions")) },
+                // One line, as on iOS: at large text the prompt ends in "…", and the
+                // field keeps its height when typing starts.
+                placeholder = { Text(tr("Search by ID, address, or memo"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,

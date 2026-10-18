@@ -67,13 +67,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -81,6 +82,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -89,6 +91,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -106,6 +109,7 @@ import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.util.NetworkMonitor
 import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.SendFlow
+import one.monero.moneroone.core.wallet.SendRequest
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.CapsuleShape
@@ -113,6 +117,7 @@ import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.MoneroTextField
+import one.monero.moneroone.ui.components.OnNavEntryEnd
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.components.ShrinkToFitText
 import one.monero.moneroone.ui.theme.ErrorRed
@@ -140,6 +145,12 @@ class OpenSendLink(val address: String, val amount: String?)
 internal fun acceptsPaymentLink(phase: SendPhase, confirmed: Boolean): Boolean =
     !confirmed && phase in listOf(SendPhase.ADDRESS, SendPhase.AMOUNT, SendPhase.REVIEW)
 
+/** Keeps a Send's identity in saved state, so a recreated screen still gets its own send result. */
+private val SendFlowSaver = listSaver<SendFlow, String?>(
+    save = { listOf(it.walletId, it.id) },
+    restore = { SendFlow(walletId = it[0], id = requireNotNull(it[1])) }
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendScreen(
@@ -154,7 +165,7 @@ fun SendScreen(
     onSent: () -> Unit
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
-    val flow = remember { SendFlow(walletViewModel.activeWallet.value?.id) }
+    val flow = rememberSaveable(saver = SendFlowSaver) { SendFlow(walletViewModel.activeWallet.value?.id) }
     val sharedSendState by walletViewModel.sendState.collectAsState()
     val sendState = sharedSendState.takeIf { it.flow == flow } ?: SendState.Idle
 
@@ -184,20 +195,24 @@ fun SendScreen(
         else -> SendPhase.ADDRESS
     }
 
-    var phase by remember { mutableStateOf(startPhase) }
+    // Saved state keeps the step and what the user entered through a
+    // rotation, a dark mode switch or a font size change.
+    var phase by rememberSaveable { mutableStateOf(startPhase) }
     var navigatingForward by remember { mutableStateOf(true) }
 
     // Send flow state
-    var address by remember { mutableStateOf(prefilledAddress ?: "") }
-    var amount by remember { mutableStateOf(prefilledAmount ?: "") }
-    var isSweepAll by remember { mutableStateOf(false) }
-    var memo by remember { mutableStateOf("") }
+    var address by rememberSaveable { mutableStateOf(prefilledAddress ?: "") }
+    var amount by rememberSaveable { mutableStateOf(prefilledAmount ?: "") }
+    var isSweepAll by rememberSaveable { mutableStateOf(false) }
+    var memo by rememberSaveable { mutableStateOf("") }
+    // The confirmation stays in memory only: after a recreation, Review
+    // shows again and Send asks for a new confirmation.
     var sendInProgress by remember { mutableStateOf(false) }
     // Re-authentication is required between confirming and broadcasting: an
     // unlocked, unattended phone must not be able to drain the wallet.
     var showAuthGate by remember { mutableStateOf(false) }
-    var amountPrefilledFromQR by remember { mutableStateOf(prefilledAmount != null) }
-    var amountSource by remember { mutableStateOf(prefillSource) }
+    var amountPrefilledFromQR by rememberSaveable { mutableStateOf(prefilledAmount != null) }
+    var amountSource by rememberSaveable { mutableStateOf(prefillSource) }
 
     // Fee state (estimated on REVIEW phase)
     var estimatedFee by remember { mutableLongStateOf(0L) }
@@ -210,13 +225,16 @@ fun SendScreen(
             is SendState.Sending -> phase = SendPhase.SENDING
             is SendState.Success -> { phase = SendPhase.SUCCESS; sendInProgress = false }
             is SendState.Error -> { phase = SendPhase.ERROR; sendInProgress = false }
-            else -> {}
+            // Sending, restored with no send in progress: the process stopped
+            // during the send, so its result is lost. Leave Send. The wallet
+            // shows the payment if it went out.
+            else -> if (phase == SendPhase.SENDING) onBack()
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose { walletViewModel.resetSendState(flow) }
-    }
+    // Send clears its result when it leaves the back stack. A recreation also
+    // disposes the screen, but the recreated screen still needs the result.
+    OnNavEntryEnd("send-flow") { walletViewModel.resetSendState(flow) }
 
     fun goForward(to: SendPhase) {
         navigatingForward = true
@@ -355,6 +373,7 @@ fun SendScreen(
                     ReviewPhase(
                         address = address,
                         amount = amount,
+                        memo = memo,
                         isSweepAll = isSweepAll,
                         amountPrefilledFromQR = amountPrefilledFromQR,
                         onUpgradeToSweepAll = { isSweepAll = true },
@@ -408,9 +427,7 @@ fun SendScreen(
                 showAuthGate = false
                 walletViewModel.send(
                     flow,
-                    address,
-                    walletViewModel.parseXmr(amount),
-                    isSweepAll = isSweepAll
+                    SendRequest.of(address, walletViewModel.parseXmr(amount), memo, isSweepAll)
                 )
             },
             onCancel = {
@@ -594,10 +611,10 @@ private fun AmountPhase(
     val canContinue = parsedAmount > 0 && parsedAmount <= unlockedBalance
     val clipboardManager = LocalClipboardManager.current
 
-    // Fiat mode toggle
-    var isFiatMode by remember { mutableStateOf(false) }
-    var fiatString by remember { mutableStateOf("") }
-    var showMemo by remember { mutableStateOf(memo.isNotEmpty()) }
+    // Fiat mode toggle. Saved, as the amount is, through a recreation.
+    var isFiatMode by rememberSaveable { mutableStateOf(false) }
+    var fiatString by rememberSaveable { mutableStateOf("") }
+    var showMemo by rememberSaveable { mutableStateOf(memo.isNotEmpty()) }
 
     // Sync fiat ↔ XMR when toggling or typing
     fun syncFiatFromXmr() {
@@ -736,10 +753,15 @@ private fun AmountPhase(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Available balance + Paste/Max buttons
+        // Available balance + Paste/Max buttons. The buttons keep their size
+        // and the balance wraps in the width that is left, as on iOS.
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Available: %s XMR", availableBalance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                tr("Available: %s XMR", availableBalance),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
+            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -787,7 +809,7 @@ private fun AmountPhase(
         ) {
             Icon(Icons.Default.Description, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(tr("Add memo"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(memoToggleText(showMemo), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.weight(1f))
             Text(if (showMemo) "▲" else "▼", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -857,6 +879,7 @@ private fun AmountPhase(
 private fun ReviewPhase(
     address: String,
     amount: String,
+    memo: String,
     isSweepAll: Boolean,
     amountPrefilledFromQR: Boolean,
     onUpgradeToSweepAll: () -> Unit,
@@ -1008,9 +1031,9 @@ private fun ReviewPhase(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Fee row
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.weight(1f))
+                ReviewDetailRow(
+                    label = { Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                ) {
                     when {
                         feeLoading -> CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         feeError != null -> Text(tr("Error"), style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
@@ -1033,9 +1056,9 @@ private fun ReviewPhase(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Total row
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.weight(1f))
+                ReviewDetailRow(
+                    label = { Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
+                ) {
                     if (feeReady) {
                         val total = if (isSweepAll) unlockedBalance else parsedAmount + estimatedFee
                         Column(horizontalAlignment = Alignment.End) {
@@ -1055,6 +1078,14 @@ private fun ReviewPhase(
                             }
                         }
                     }
+                }
+
+                // Memo: the last row, as on iOS, when the user wrote one.
+                if (memo.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ReviewMemoRow(memo)
                 }
             }
         }
@@ -1104,6 +1135,82 @@ private fun ReviewPhase(
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+/** The memo toggle's text, as on iOS: "Hide memo" while the memo field shows, else "Add memo". */
+internal fun memoToggleText(showMemo: Boolean): String = if (showMemo) tr("Hide memo") else tr("Add memo")
+
+/**
+ * The memo row of the Review card, as on iOS: the note icon and the memo.
+ * TalkBack reads "Memo" and the memo in one stop.
+ */
+@Composable
+private fun ReviewMemoRow(memo: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Default.Description,
+            contentDescription = tr("Memo"),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(memo, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** The least room between a Review row's label and its value on one line. */
+private val ReviewRowGap = 16.dp
+
+/** The space between the label and the value when the value goes under the label. */
+private val ReviewRowStackGap = 2.dp
+
+/**
+ * A Review card row: the label at the start and the value at the end.
+ * When the two do not fit on one line with [ReviewRowGap] between them, as
+ * at large font sizes, the value goes under the label at the end. iOS does
+ * the same with ViewThatFits. Each part can still wrap in its own width.
+ */
+@Composable
+private fun ReviewDetailRow(
+    label: @Composable () -> Unit,
+    value: @Composable () -> Unit
+) {
+    Layout(
+        content = {
+            Box { label() }
+            Column(horizontalAlignment = Alignment.End) { value() }
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) { measurables, constraints ->
+        val labelMeasurable = measurables[0]
+        val valueMeasurable = measurables[1]
+        val width = constraints.maxWidth
+        val gap = ReviewRowGap.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val oneLine = labelMeasurable.maxIntrinsicWidth(constraints.maxHeight) + gap +
+            valueMeasurable.maxIntrinsicWidth(constraints.maxHeight) <= width
+        if (oneLine) {
+            val valuePlaceable = valueMeasurable.measure(loose)
+            val labelPlaceable = labelMeasurable.measure(
+                loose.copy(maxWidth = (width - gap - valuePlaceable.width).coerceAtLeast(0))
+            )
+            layout(width, maxOf(labelPlaceable.height, valuePlaceable.height)) {
+                labelPlaceable.placeRelative(0, 0)
+                valuePlaceable.placeRelative(width - valuePlaceable.width, 0)
+            }
+        } else {
+            val labelPlaceable = labelMeasurable.measure(loose)
+            val valuePlaceable = valueMeasurable.measure(loose)
+            val valueTop = labelPlaceable.height + ReviewRowStackGap.roundToPx()
+            layout(width, valueTop + valuePlaceable.height) {
+                labelPlaceable.placeRelative(0, 0)
+                valuePlaceable.placeRelative(width - valuePlaceable.width, valueTop)
+            }
+        }
     }
 }
 
