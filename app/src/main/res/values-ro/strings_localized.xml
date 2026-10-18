@@ -14,6 +14,7 @@
     <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s este la zi"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s km"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"rază de %1$s km"</string>
+    <string name="l10n_s_of_s_words_262b50ac" formatted="false">"%1$s din %2$s de cuvinte"</string>
     <string name="l10n_s_on_s_745fc552" formatted="false">"%1$s pe %2$s"</string>
     <string name="l10n_s_connecting_to_monero_network_70d08cc4" formatted="false">"%s — se conectează la rețeaua Monero"</string>
     <string name="l10n_s_syncing_s_04b3ee90" formatted="false">"%s — sincronizare %s%%"</string>
@@ -178,6 +179,8 @@
     <string name="l10n_chart_3e5b90ae" formatted="false">"Grafic"</string>
     <string name="l10n_chart_mode_9b19d23e" formatted="false">"Mod grafic"</string>
     <string name="l10n_check_screen_time_or_device_management_c63dba08" formatted="false">"Verifică Timp de utilizare sau gestionarea dispozitivului."</string>
+    <string name="l10n_check_word_s_90eb1a05" formatted="false">"Verifică cuvântul %s"</string>
+    <string name="l10n_check_words_s_23e605da" formatted="false">"Verifică cuvintele %s"</string>
     <string name="l10n_checking_latency_544be1ed" formatted="false">"Se verifică latența"</string>
     <string name="l10n_checking_2e5f79bb" formatted="false">"Se verifică…"</string>
     <string name="l10n_chinese_yuan_e689570a" formatted="false">"Yuan chinezesc"</string>
@@ -346,6 +349,7 @@
     <string name="l10n_edit_node_ce03c641" formatted="false">"Editează nodul"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"Editează proxy-ul"</string>
     <string name="l10n_emoji_61ad8976" formatted="false">"Emoji"</string>
+    <string name="l10n_empty_c6c094bc" formatted="false">"Goală"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"Activează"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"Activează %1$s"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"Activezi %1$s?"</string>
@@ -580,11 +584,13 @@
     <string name="l10n_not_available_on_this_device_01c75e3f" formatted="false">"Indisponibil pe acest dispozitiv"</string>
     <string name="l10n_not_connected_0303e182" formatted="false">"Offline"</string>
     <string name="l10n_not_enough_unlocked_funds_available_s_xmr_87157ccc" formatted="false">"Fonduri deblocate insuficiente. Disponibil: %1$s XMR"</string>
+    <string name="l10n_not_in_the_word_list_f182a51f" formatted="false">"Nu este în lista de cuvinte"</string>
     <string name="l10n_not_selected_df12aeba" formatted="false">"Neselectat"</string>
     <string name="l10n_not_synced_87cde3ef" formatted="false">"Offline"</string>
     <string name="l10n_notifications_disabled_8d68e6c4" formatted="false">"Notificări dezactivate"</string>
     <string name="l10n_now_fe18013d" formatted="false">"Acum"</string>
     <string name="l10n_now_exporting_your_view_key_from_the_device_01419aac" formatted="false">"Se exportă cheia de citire de pe dispozitiv."</string>
+    <string name="l10n_number_of_words_9b075742" formatted="false">"Numărul de cuvinte"</string>
     <string name="l10n_ok_565339bc" formatted="false">"OK"</string>
     <string name="l10n_offline_a1794783" formatted="false">"Offline"</string>
     <string name="l10n_offline_no_internet_connection_b01b0ab8" formatted="false">"Offline: fără conexiune la internet"</string>
@@ -901,6 +907,7 @@
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"Valoarea Monero poate fluctua semnificativ. Folosește doar fonduri pe care îți permiți să le pierzi."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"Portofelul nu și-a putut încărca cheile, așa că nu se poate afișa nicio adresă de primire. Nu trimite fonduri la nicio adresă din această aplicație până nu se rezolvă problema. Închide forțat aplicația și redeschide-o; dacă problema persistă, restaurează portofelul din fraza seed."</string>
     <string name="l10n_the_wallet_stays_unlocked_until_the_app_is_force_closed_eb3ed2b1" formatted="false">"Portofelul rămâne deblocat până la închiderea forțată a aplicației"</string>
+    <string name="l10n_this_polyseed_uses_a_passphrase_monero_one_does_not_sup_2d07f5e0" formatted="false">"Acest Polyseed folosește o frază-parolă. Monero One nu acceptă încă frazele-parolă Polyseed."</string>
     <string name="l10n_this_device_does_not_support_biometric_authentication_y_60fadc72" formatted="false">"Acest dispozitiv nu acceptă autentificarea biometrică. O poți activa ulterior în setări dacă configurezi biometria pe dispozitiv."</string>
     <string name="l10n_this_helps_speed_up_transaction_scanning_by_skipping_bl_ff8147d6" formatted="false">"Accelerează scanarea tranzacțiilor prin omiterea blocurilor de dinainte de existența portofelului."</string>
     <string name="l10n_this_is_not_a_valid_monero_payment_link_cd32d925" formatted="false">"Acesta nu este un link de plată Monero valid."</string>
@@ -1006,6 +1013,7 @@
     <string name="l10n_use_wallet_creation_date_0285cef8" formatted="false">"Folosește data creării portofelului"</string>
     <string name="l10n_username_e3b89e9d" formatted="false">"Nume de utilizator"</string>
     <string name="l10n_valid_address_7b8c82b2" formatted="false">"Adresă validă"</string>
+    <string name="l10n_valid_seed_phrase_7ec83780" formatted="false">"Frază seed validă"</string>
     <string name="l10n_value_8e37953d" formatted="false">"Valoare"</string>
     <string name="l10n_value_today_aa360342" formatted="false">"Valoare azi"</string>
     <string name="l10n_value_today_s_fdaf8738" formatted="false">"Valoare azi: %1$s"</string>
@@ -1035,6 +1043,7 @@
     <string name="l10n_wallet_birthday_optional_ee94ef7e" formatted="false">"Data creării portofelului"</string>
     <string name="l10n_wallet_name_ad7c43f4" formatted="false">"Numele portofelului"</string>
     <string name="l10n_wallet_sync_0c6bef86" formatted="false">"Sincronizarea portofelului"</string>
+    <string name="l10n_wallet_created_around_s_0b6f8d00" formatted="false">"Portofel creat în jurul lunii %s"</string>
     <string name="l10n_wallet_error_occurred_98faccd3" formatted="false">"A apărut o eroare de portofel."</string>
     <string name="l10n_wallet_is_locked_130c696d" formatted="false">"Portofelul este blocat"</string>
     <string name="l10n_wallet_is_locked_1764609d" formatted="false">"Portofelul este blocat."</string>
@@ -1059,6 +1068,7 @@
     <string name="l10n_widget_7dd7a28c" formatted="false">"Widget"</string>
     <string name="l10n_will_scan_from_the_beginning_29785ed9" formatted="false">"Se va scana de la început"</string>
     <string name="l10n_will_scan_from_the_beginning_slower_ce4e8589" formatted="false">"Se va scana de la început (mai lent)"</string>
+    <string name="l10n_word_s_98e9bd6f" formatted="false">"Cuvântul %s"</string>
     <string name="l10n_word_s_s_119250bc" formatted="false">"Cuvântul %1$s: %2$s"</string>
     <string name="l10n_working_b93900bd" formatted="false">"Se încarcă…"</string>
     <string name="l10n_write_down_your_seed_phrase_221efe05" formatted="false">"Notează fraza seed"</string>

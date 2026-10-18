@@ -46,12 +46,17 @@ object WalletCacheIds {
      *    were canonicalized: wallet2 reads both as the same wallet, so with
      *    [matchPrefixTypos] the canonical forms are compared too. The row's
      *    own id stays as it is.
+     *  - a 16-word Polyseed and the 25 legacy words of the same spend key
+     *    (Backup Seed shows both) are one wallet: with [matchPrefixTypos]
+     *    their legacy words are compared too.
      * Rows whose seed cannot be read and whose stored id doesn't match are
      * skipped (they cannot be proven duplicates).
      *
      * A caller that deletes data on a match (the migration wipes a duplicate
      * legacy wallet, and its cache is then swept) passes [matchPrefixTypos]
      * false: a typo form then becomes its own row, and its cache is kept.
+     *
+     * Comparing Polyseeds derives their keys (PBKDF2): call off Main.
      */
     fun findWalletWithSeed(
         seedWords: List<String>,
@@ -61,13 +66,23 @@ object WalletCacheIds {
     ): WalletInfo? {
         val base = derivedWalletId(seedWords, 0)
         val canonical = SeedValidation.canonicalElectrumWords(seedWords)
+        val legacy by lazy { legacyWordsOf(seedWords) }
         return wallets.firstOrNull { row ->
             row.derivedWalletId == base ||
                 storedSeedOf(row.id)?.let { stored ->
                     derivedWalletId(stored, 0) == base ||
-                        (matchPrefixTypos && SeedValidation.canonicalElectrumWords(stored) == canonical)
+                        (matchPrefixTypos && SeedValidation.canonicalElectrumWords(stored) == canonical) ||
+                        (matchPrefixTypos && (seedWords.size == 16 || stored.size == 16) &&
+                            legacy != null && legacyWordsOf(stored) == legacy)
                 } == true
         }
+    }
+
+    /** The 25 legacy words wallet2 restores for a stored seed (a Polyseed's derived words), or null. */
+    private fun legacyWordsOf(words: List<String>): List<String>? = when (words.size) {
+        16 -> runCatching { SeedValidation.polyseedLegacyWords(words) }.getOrNull()
+        25 -> SeedValidation.canonicalElectrumWords(words)
+        else -> null
     }
 
     // --- Orphan-cache sweep -------------------------------------------------

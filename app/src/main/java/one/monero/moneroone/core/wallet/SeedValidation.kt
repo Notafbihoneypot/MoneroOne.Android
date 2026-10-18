@@ -5,6 +5,10 @@ import io.horizontalsystems.monerokit.CakeWalletStyleConverter
 import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.Seed
 import io.horizontalsystems.monerokit.toElectrum
+import one.monero.moneroone.core.wallet.seed.LegacyMnemonic
+import one.monero.moneroone.core.wallet.seed.Polyseed
+import one.monero.moneroone.core.wallet.seed.SeedFormat
+import one.monero.moneroone.core.wallet.seed.SeedPhraseValidator
 import timber.log.Timber
 import java.nio.charset.StandardCharsets
 import java.util.zip.CRC32
@@ -97,9 +101,79 @@ object SeedValidation {
     fun isPlausiblePrimaryAddress(address: String?): Boolean =
         address != null && MAINNET_PRIMARY.matches(address) && !NULL_KEY_RUN.containsMatchIn(address)
 
+    /**
+     * The seed the kit restores from. A 25-word seed goes in as its list
+     * words ([legacyKitWords]); a Polyseed as the 25 legacy words of its
+     * spend key (PBKDF2: call off Main). Throws [InvalidSeedException] for a
+     * stored Polyseed that does not decode. Only the kit gets these words:
+     * callers store, compare and hash (cache ids) the words they hold.
+     */
     fun kitSeed(words: List<String>, type: SeedType): Seed = when (type) {
-        SeedType.ELECTRUM_25 -> Seed.Electrum(words, "")
+        SeedType.ELECTRUM_25 -> Seed.Electrum(legacyKitWords(words), "")
         SeedType.BIP39_24 -> Seed.Bip39(words, "")
+        SeedType.POLYSEED_16 -> Seed.Electrum(polyseedLegacyWords(words), "")
+    }
+
+    /**
+     * The 25 words wallet2 gets for a legacy seed: each word in its exact
+     * list form (the list's case, NFC), picked by the index wallet2 reads.
+     *
+     * wallet2 matches a word through towlower on both sides. bionic's
+     * towlower may leave non-ASCII letters as they are (an Android version
+     * or an ICU load failure), and then "ästhetik" (stored lowercase) does
+     * not match the German list word "Ästhetik". The list form matches byte
+     * for byte, so the platform does not matter. Rows stored by older builds
+     * (lowercase, prefixes as typed) get the same treatment; nothing is
+     * written back.
+     *
+     * Returns [words] unchanged (wallet2 then decides, as before) when they
+     * do not decode to a valid seed, when the list form would decode to a
+     * different language or key, or when the word lists cannot load. No
+     * native code; the first call reads the word lists.
+     */
+    fun legacyKitWords(words: List<String>): List<String> {
+        val decoded = try {
+            LegacyMnemonic.decode(words)
+        } catch (e: Exception) {
+            Timber.w("Legacy words kept as stored: word lists unavailable (${e.javaClass.simpleName})")
+            return words
+        }
+        val language = decoded.language
+        val indices = decoded.indices
+        val key = decoded.key
+        try {
+            if (decoded.problem != null || language == null || indices == null || key == null) return words
+            val listForm = indices.map { language.words[it] }
+            val check = LegacyMnemonic.decode(listForm)
+            val same = check.problem == null && check.language === language && key.contentEquals(check.key)
+            check.key?.fill(0)
+            check.indices?.fill(0)
+            return if (same) listForm else words
+        } finally {
+            key?.fill(0)
+            indices?.fill(0)
+        }
+    }
+
+    /**
+     * The 25 English legacy words of the same wallet as the 16-word
+     * Polyseed [words]: decode, keygen (PBKDF2-HMAC-SHA256, coin Monero),
+     * sc_reduce32, then wallet2's word encoding (account_base
+     * create_from_polyseed with no passphrase). Call off Main.
+     */
+    fun polyseedLegacyWords(words: List<String>): List<String> {
+        val decoded = Polyseed.decode(words.joinToString(" "))
+        val data = decoded.data
+        if (decoded.status != Polyseed.Status.OK || data == null || data.isEncrypted) {
+            data?.wipe()
+            Timber.w("Polyseed rejected: ${decoded.status}${if (data?.isEncrypted == true) " (passphrase)" else ""}")
+            throw InvalidSeedException()
+        }
+        return try {
+            Polyseed.legacyWords(data)
+        } finally {
+            data.wipe()
+        }
     }
 
     /**
@@ -119,6 +193,11 @@ object SeedValidation {
                     Timber.w("Seed rejected: $it")
                     throw InvalidSeedException()
                 }
+            }
+            SeedType.POLYSEED_16 -> if (SeedPhraseValidator.validate(SeedFormat.POLYSEED, words) !is SeedPhraseValidator.Verdict.Valid) {
+                // Checksum, language, reserved features or a passphrase (not supported).
+                Timber.w("Phrase rejected: Polyseed validation failed")
+                throw InvalidSeedException()
             }
             // Non-English Electrum seeds are left to wallet2's own decoder
             // (below + the post-start check in the ViewModel).

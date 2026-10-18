@@ -103,7 +103,7 @@ private sealed interface SeedReveal {
 /**
  * The one place that decides what this screen reveals: only the phrase of the
  * wallet it was opened for. Put any further reveal check here. Reads encrypted
- * storage and converts BIP39 to the legacy words: call it off Main.
+ * storage and converts BIP39 and Polyseed to the legacy words: call it off Main.
  */
 private suspend fun seedRevealFor(walletViewModel: WalletViewModel, boundWalletId: String?): SeedReveal {
     val walletId = boundWalletId ?: return SeedReveal.Refuse(NO_SEED_MESSAGE)
@@ -112,7 +112,7 @@ private suspend fun seedRevealFor(walletViewModel: WalletViewModel, boundWalletI
     }
     val words = walletViewModel.getSeedPhrase(walletId)
     val type = walletViewModel.getSeedType(walletId)
-    val electrumWords = if (type == SeedType.BIP39_24) walletViewModel.getElectrumSeedPhrase(walletId) else null
+    val electrumWords = if (type == SeedType.BIP39_24 || type == SeedType.POLYSEED_16) walletViewModel.getElectrumSeedPhrase(walletId) else null
     // Checked after the reads, so a switch while they ran is reported as one.
     if (walletViewModel.activeWallet.value?.id != walletId) return SeedReveal.Refuse(WALLET_CHANGED_MESSAGE)
     if (words.isNullOrEmpty() || type == null) return SeedReveal.Refuse(NO_SEED_MESSAGE)
@@ -445,8 +445,8 @@ fun BackupSeedScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Format selector for BIP39 wallets
-            if (seedType == SeedType.BIP39_24 && electrumSeedWords != null) {
+            // Format selector for BIP39 and Polyseed wallets: the phrase or its 25 legacy words
+            if ((seedType == SeedType.BIP39_24 || seedType == SeedType.POLYSEED_16) && electrumSeedWords != null) {
                 GlassSegmentedPicker(
                     options = listOf(false, true),
                     selectedOption = showElectrum,
@@ -455,7 +455,13 @@ fun BackupSeedScreen(
                         copiedToClipboard = false
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    labelSelector = { electrum -> if (electrum) tr("Legacy (%s words)", 25) else tr("24 words (BIP39 format)") }
+                    labelSelector = { electrum ->
+                        when {
+                            electrum -> tr("Legacy (%s words)", 25)
+                            seedType == SeedType.POLYSEED_16 -> pluralTr("Polyseed (%s words)", 16)
+                            else -> tr("24 words (BIP39 format)")
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -463,7 +469,12 @@ fun BackupSeedScreen(
 
             val displayWords = if (showElectrum && electrumSeedWords != null) electrumSeedWords!! else seedWords
             val wordCount = displayWords.size
-            val formatLabel = if (showElectrum) tr("Legacy (%s words)", 25) else if (seedType == SeedType.BIP39_24) "BIP39" else tr("Legacy (%s words)", 25)
+            val formatLabel = when {
+                showElectrum -> tr("Legacy (%s words)", 25)
+                seedType == SeedType.BIP39_24 -> "BIP39"
+                seedType == SeedType.POLYSEED_16 -> "Polyseed"
+                else -> tr("Legacy (%s words)", 25)
+            }
 
             // Seed words display (iOS: fill container, radius 16, elevated cells)
             GlassCard(

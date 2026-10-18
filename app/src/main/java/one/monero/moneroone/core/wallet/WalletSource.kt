@@ -19,7 +19,11 @@ enum class WalletSource {
     LEGACY,
 
     @SerialName("viewOnly")
-    VIEW_ONLY;
+    VIEW_ONLY,
+
+    /** iOS `SeedType.polyseed` raw value. */
+    @SerialName("polyseed")
+    POLYSEED;
 
     val isViewOnly: Boolean
         get() = this == VIEW_ONLY
@@ -27,6 +31,7 @@ enum class WalletSource {
     fun toSeedType(): SeedType? = when (this) {
         BIP39 -> SeedType.BIP39_24
         LEGACY -> SeedType.ELECTRUM_25
+        POLYSEED -> SeedType.POLYSEED_16
         VIEW_ONLY -> null
     }
 
@@ -34,9 +39,11 @@ enum class WalletSource {
         fun fromSeedType(type: SeedType): WalletSource = when (type) {
             SeedType.BIP39_24 -> BIP39
             SeedType.ELECTRUM_25 -> LEGACY
+            SeedType.POLYSEED_16 -> POLYSEED
         }
 
         fun fromWordCount(count: Int): WalletSource? = when (count) {
+            16 -> POLYSEED
             24 -> BIP39
             25 -> LEGACY
             else -> null

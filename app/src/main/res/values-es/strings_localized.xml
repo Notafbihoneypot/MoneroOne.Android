@@ -14,6 +14,7 @@
     <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s está al día"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s km"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"Radio de %1$s km"</string>
+    <string name="l10n_s_of_s_words_262b50ac" formatted="false">"%1$s de %2$s palabras"</string>
     <string name="l10n_s_on_s_745fc552" formatted="false">"%1$s en %2$s"</string>
     <string name="l10n_s_connecting_to_monero_network_70d08cc4" formatted="false">"%s — conectando a la red de Monero"</string>
     <string name="l10n_s_syncing_s_04b3ee90" formatted="false">"%s — sincronizando %s %%"</string>
@@ -178,6 +179,8 @@
     <string name="l10n_chart_3e5b90ae" formatted="false">"Gráfico"</string>
     <string name="l10n_chart_mode_9b19d23e" formatted="false">"Modo del gráfico"</string>
     <string name="l10n_check_screen_time_or_device_management_c63dba08" formatted="false">"Revisa Tiempo de uso o la gestión del dispositivo."</string>
+    <string name="l10n_check_word_s_90eb1a05" formatted="false">"Revisa la palabra %s"</string>
+    <string name="l10n_check_words_s_23e605da" formatted="false">"Revisa las palabras %s"</string>
     <string name="l10n_checking_latency_544be1ed" formatted="false">"Comprobando latencia"</string>
     <string name="l10n_checking_2e5f79bb" formatted="false">"Comprobando…"</string>
     <string name="l10n_chinese_yuan_e689570a" formatted="false">"Yuan chino"</string>
@@ -346,6 +349,7 @@
     <string name="l10n_edit_node_ce03c641" formatted="false">"Editar nodo"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"Editar proxy"</string>
     <string name="l10n_emoji_61ad8976" formatted="false">"Emoji"</string>
+    <string name="l10n_empty_c6c094bc" formatted="false">"Vacía"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"Activar"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"Activar %1$s"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"¿Activar %1$s?"</string>
@@ -580,11 +584,13 @@
     <string name="l10n_not_available_on_this_device_01c75e3f" formatted="false">"No disponible en este dispositivo"</string>
     <string name="l10n_not_connected_0303e182" formatted="false">"Sin conexión"</string>
     <string name="l10n_not_enough_unlocked_funds_available_s_xmr_87157ccc" formatted="false">"No hay suficientes fondos desbloqueados. Disponible: %1$s XMR"</string>
+    <string name="l10n_not_in_the_word_list_f182a51f" formatted="false">"No está en la lista de palabras"</string>
     <string name="l10n_not_selected_df12aeba" formatted="false">"No seleccionado"</string>
     <string name="l10n_not_synced_87cde3ef" formatted="false">"Sin conexión"</string>
     <string name="l10n_notifications_disabled_8d68e6c4" formatted="false">"Notificaciones desactivadas"</string>
     <string name="l10n_now_fe18013d" formatted="false">"Ahora"</string>
     <string name="l10n_now_exporting_your_view_key_from_the_device_01419aac" formatted="false">"Exportando ahora tu clave de vista desde el dispositivo."</string>
+    <string name="l10n_number_of_words_9b075742" formatted="false">"Número de palabras"</string>
     <string name="l10n_ok_565339bc" formatted="false">"OK"</string>
     <string name="l10n_offline_a1794783" formatted="false">"Sin conexión"</string>
     <string name="l10n_offline_no_internet_connection_b01b0ab8" formatted="false">"Sin conexión: no hay internet"</string>
@@ -901,6 +907,7 @@
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"El valor de Monero puede fluctuar mucho. Usa solo fondos que puedas permitirte perder."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"La cartera no pudo cargar sus claves, así que no se puede mostrar ninguna dirección de recepción. No envíes fondos a ninguna dirección de esta app hasta que se resuelva. Fuerza el cierre de la app y vuelve a abrirla; si el problema continúa, restaura la cartera con su frase semilla."</string>
     <string name="l10n_the_wallet_stays_unlocked_until_the_app_is_force_closed_eb3ed2b1" formatted="false">"La cartera permanece desbloqueada hasta forzar el cierre de la app"</string>
+    <string name="l10n_this_polyseed_uses_a_passphrase_monero_one_does_not_sup_2d07f5e0" formatted="false">"Esta Polyseed usa una frase de contraseña. Monero One aún no admite frases de contraseña de Polyseed."</string>
     <string name="l10n_this_device_does_not_support_biometric_authentication_y_60fadc72" formatted="false">"Este dispositivo no admite autenticación biométrica. Puedes activarla más tarde en Ajustes si configuras la biometría en el dispositivo."</string>
     <string name="l10n_this_helps_speed_up_transaction_scanning_by_skipping_bl_ff8147d6" formatted="false">"Esto acelera el escaneo de transacciones al omitir los bloques anteriores a la creación de tu cartera."</string>
     <string name="l10n_this_is_not_a_valid_monero_payment_link_cd32d925" formatted="false">"Este no es un enlace de pago de Monero válido."</string>
@@ -1006,6 +1013,7 @@
     <string name="l10n_use_wallet_creation_date_0285cef8" formatted="false">"Usar la fecha de creación de la cartera"</string>
     <string name="l10n_username_e3b89e9d" formatted="false">"Nombre de usuario"</string>
     <string name="l10n_valid_address_7b8c82b2" formatted="false">"Dirección válida"</string>
+    <string name="l10n_valid_seed_phrase_7ec83780" formatted="false">"Frase semilla válida"</string>
     <string name="l10n_value_8e37953d" formatted="false">"Valor"</string>
     <string name="l10n_value_today_aa360342" formatted="false">"Valor hoy"</string>
     <string name="l10n_value_today_s_fdaf8738" formatted="false">"Valor hoy: %1$s"</string>
@@ -1035,6 +1043,7 @@
     <string name="l10n_wallet_birthday_optional_ee94ef7e" formatted="false">"Creación de la cartera"</string>
     <string name="l10n_wallet_name_ad7c43f4" formatted="false">"Nombre de la cartera"</string>
     <string name="l10n_wallet_sync_0c6bef86" formatted="false">"Sincronización de la cartera"</string>
+    <string name="l10n_wallet_created_around_s_0b6f8d00" formatted="false">"Cartera creada alrededor de %s"</string>
     <string name="l10n_wallet_error_occurred_98faccd3" formatted="false">"Se produjo un error en la cartera."</string>
     <string name="l10n_wallet_is_locked_130c696d" formatted="false">"La cartera está bloqueada"</string>
     <string name="l10n_wallet_is_locked_1764609d" formatted="false">"La cartera está bloqueada."</string>
@@ -1059,6 +1068,7 @@
     <string name="l10n_widget_7dd7a28c" formatted="false">"Widget"</string>
     <string name="l10n_will_scan_from_the_beginning_29785ed9" formatted="false">"Se escaneará desde el principio"</string>
     <string name="l10n_will_scan_from_the_beginning_slower_ce4e8589" formatted="false">"Se escaneará desde el principio (más lento)"</string>
+    <string name="l10n_word_s_98e9bd6f" formatted="false">"Palabra %s"</string>
     <string name="l10n_word_s_s_119250bc" formatted="false">"Palabra %1$s: %2$s"</string>
     <string name="l10n_working_b93900bd" formatted="false">"Cargando…"</string>
     <string name="l10n_write_down_your_seed_phrase_221efe05" formatted="false">"Anota tu frase semilla"</string>

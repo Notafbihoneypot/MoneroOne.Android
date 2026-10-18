@@ -65,18 +65,28 @@ object SeedClipboard {
         WorkManager.getInstance(app).enqueueUniqueWork(CLEAR_WORK, ExistingWorkPolicy.REPLACE, clear)
     }
 
-    /** Clears the clipboard when its seed copy is still the latest one made here. */
-    class ClearWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
-        override fun doWork(): Result {
-            val latest = latestCopy.get()
-            if (latest != 0 && latest != inputData.getInt(KEY_COPY, 0)) return Result.success()
-            val clipboard = applicationContext.getSystemService(ClipboardManager::class.java)
-                ?: return Result.success()
+    /**
+     * Clears the clipboard now, without reading it (restore: seed words were
+     * just pasted from it). Below API 28 there is no clear: an empty clip
+     * replaces the words.
+     */
+    fun clear(context: Context) {
+        val clipboard = context.applicationContext.getSystemService(ClipboardManager::class.java) ?: return
+        runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 clipboard.clearPrimaryClip()
             } else {
                 clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
             }
+        }
+    }
+
+    /** Clears the clipboard when its seed copy is still the latest one made here. */
+    class ClearWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+        override fun doWork(): Result {
+            val latest = latestCopy.get()
+            if (latest != 0 && latest != inputData.getInt(KEY_COPY, 0)) return Result.success()
+            clear(applicationContext)
             return Result.success()
         }
     }
