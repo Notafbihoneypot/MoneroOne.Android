@@ -115,11 +115,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.SignedTransaction
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.util.NetworkMonitor
+import one.monero.moneroone.core.wallet.ReviewFee
+import one.monero.moneroone.core.wallet.ReviewFeeResult
+import one.monero.moneroone.core.wallet.ReviewFeeState
 import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.SendRequest
@@ -267,10 +271,12 @@ fun SendScreen(
     var amountPrefilledFromQR by rememberSaveable { mutableStateOf(prefilledAmount != null) }
     var amountSource by rememberSaveable { mutableStateOf(prefillSource) }
 
-    // Fee state (estimated on REVIEW phase)
-    var estimatedFee by remember { mutableLongStateOf(0L) }
-    var feeLoading by remember { mutableStateOf(false) }
-    var feeError by remember { mutableStateOf<String?>(null) }
+    // Fee state, built on the REVIEW phase: the review builds and signs the transfer, shows its real fee, and
+    // Send broadcasts that same transfer (reviewFee.prepared).
+    var reviewFee by remember { mutableStateOf(ReviewFeeState()) }
+    // Bumped to build the review's transfer again (the one it built is gone).
+    var reviewBuild by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
 
     // Link mode: the recipient is "Anyone with the link" and the funds go to a new envelope.
     // Saved with the step, so a recreated Review stays a link review. The draft and the signed
@@ -282,7 +288,6 @@ fun SendScreen(
     var linkPrepared by remember { mutableStateOf<SignedTransaction?>(null) }
     // Bumped to build the funding again (the one the review built is gone).
     var linkRebuild by remember { mutableIntStateOf(0) }
-    val linkScope = rememberCoroutineScope()
     var linkFundingError by remember { mutableStateOf<String?>(null) }
     val canSendWithLink = paymentLinks != null && walletViewModel.activeWallet.value?.isViewOnly == false
 
@@ -319,6 +324,9 @@ fun SendScreen(
     }
 
     fun goBack(to: SendPhase) {
+        // Leaving the review drops the transfer it built: it never goes out, and the next review builds its own.
+        // The fee it showed stays while the review slides away.
+        if (phase == SendPhase.REVIEW) reviewFee = reviewFee.copy(prepared = null)
         navigatingForward = false
         phase = to
     }
@@ -337,9 +345,7 @@ fun SendScreen(
             amountPrefilledFromQR = amount.isNotEmpty()
             amountSource = SendPrefillSource.LINK
             isSweepAll = false
-            estimatedFee = 0L
-            feeLoading = false
-            feeError = null
+            reviewFee = ReviewFeeState()
             when (phase) {
                 SendPhase.ADDRESS -> goForward(SendPhase.AMOUNT)
                 SendPhase.REVIEW -> goBack(SendPhase.AMOUNT)
@@ -504,17 +510,18 @@ fun SendScreen(
                         isSweepAll = isSweepAll,
                         amountPrefilledFromQR = amountPrefilledFromQR,
                         onUpgradeToSweepAll = { isSweepAll = true },
-                        estimatedFee = estimatedFee,
-                        feeLoading = feeLoading,
-                        feeError = feeError,
-                        onEstimateFee = { fee, loading, error ->
-                            estimatedFee = fee; feeLoading = loading; feeError = error
-                        },
+                        reviewFee = reviewFee,
+                        onReviewFee = { reviewFee = it },
+                        rebuild = reviewBuild,
                         unlockedBalance = walletState.balance.unlocked,
                         formatXmr = walletViewModel::formatXmr,
                         parseXmr = walletViewModel::parseXmr,
-                        estimateFeeFn = { amt, sweep ->
-                            walletViewModel.estimateFee(address, amt, isSweepAll = sweep)
+                        buildFee = { amt, sweep, unlocked ->
+                            ReviewFee.build(
+                                address, amt, sweep, unlocked,
+                                estimate = { a, s -> walletViewModel.estimateFee(address, a, isSweepAll = s) },
+                                prepare = { a, s -> walletViewModel.prepareSend(address, a, isSweepAll = s) }
+                            )
                         },
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
@@ -564,7 +571,7 @@ fun SendScreen(
             onAuthenticated = {
                 showAuthGate = false
                 val draft = linkDraft
-                if (linkMode && paymentLinks != null && draft != null) linkScope.launch {
+                if (linkMode && paymentLinks != null && draft != null) scope.launch {
                     val id = draft.link.id
                     val prepared = linkPrepared
                     val record = paymentLinks.store.sent(id)
@@ -604,10 +611,22 @@ fun SendScreen(
                         )
                     }
                 } else {
-                    walletViewModel.send(
-                        flow,
-                        SendRequest.of(address, walletViewModel.parseXmr(amount), memo, isSweepAll)
-                    )
+                    val prepared = reviewFee.prepared
+                    scope.launch {
+                        // The transfer the review built is gone (the wallet closed meanwhile): the review builds it
+                        // again and shows its fee. Nothing is sent.
+                        if (prepared == null || !withContext(Dispatchers.IO) { walletViewModel.isPrepared(prepared) }) {
+                            sendInProgress = false
+                            reviewBuild++
+                            return@launch
+                        }
+                        // The transfer the review built goes out as it is: its fee is the one the review showed.
+                        walletViewModel.send(
+                            flow,
+                            SendRequest.of(address, walletViewModel.parseXmr(amount), memo, isSweepAll),
+                            prepared = prepared
+                        )
+                    }
                 }
             },
             onCancel = {
@@ -1132,14 +1151,15 @@ private fun ReviewPhase(
     isSweepAll: Boolean,
     amountPrefilledFromQR: Boolean,
     onUpgradeToSweepAll: () -> Unit,
-    estimatedFee: Long,
-    feeLoading: Boolean,
-    feeError: String?,
-    onEstimateFee: (Long, Boolean, String?) -> Unit,
+    reviewFee: ReviewFeeState,
+    onReviewFee: (ReviewFeeState) -> Unit,
+    /** A new value builds the transfer again (the one built here is gone). */
+    rebuild: Int,
     unlockedBalance: Long,
     formatXmr: (Long) -> String,
     parseXmr: (String) -> Long,
-    estimateFeeFn: suspend (Long, Boolean) -> Long,
+    /** Builds and signs the transfer (amount, sweep, unlocked balance). Blocking: called off Main. */
+    buildFee: (Long, Boolean, Long) -> ReviewFeeResult,
     xmrPrice: Double?,
     currencySymbol: String,
     sendInProgress: Boolean,
@@ -1147,23 +1167,26 @@ private fun ReviewPhase(
 ) {
     val parsedAmount = parseXmr(amount)
 
-    // Estimate fee when entering review
-    LaunchedEffect(Unit) {
-        onEstimateFee(0L, true, null)
-        try {
-            val fee = withContext(Dispatchers.IO) {
-                estimateFeeFn(parsedAmount, isSweepAll)
-            }
-            onEstimateFee(fee, false, null)
-
-            // Auto-upgrade to sweep-all if amount + fee > balance. An amount
-            // the user did not type must never silently become the full
-            // balance — that upgrade requires an explicit tap instead.
-            if (!isSweepAll && !amountPrefilledFromQR && parsedAmount + fee > unlockedBalance) {
-                onUpgradeToSweepAll()
-            }
+    // Build and sign the transfer when the review opens, and again for a sweep or when the one built is gone.
+    // wallet2's fee estimate counts one input; the fee shown is the one this transfer pays, and Send broadcasts it.
+    LaunchedEffect(isSweepAll, rebuild) {
+        onReviewFee(ReviewFeeState(loading = true))
+        val result = try {
+            withContext(Dispatchers.IO) { buildFee(parsedAmount, isSweepAll, unlockedBalance) }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            onEstimateFee(0L, false, e.message ?: tr("Fee estimation failed"))
+            ReviewFeeResult.Failed(e.message)
+        }
+        when (result) {
+            is ReviewFeeResult.Ready -> onReviewFee(ReviewFeeState(fee = result.prepared.fee, prepared = result.prepared))
+            // Auto-upgrade to sweep-all if amount + fee > balance (this effect then builds the sweep). An amount
+            // the user did not type must never silently become the full balance — that upgrade requires an
+            // explicit tap instead.
+            is ReviewFeeResult.OverBalance ->
+                if (!amountPrefilledFromQR) onUpgradeToSweepAll()
+                else onReviewFee(ReviewFeeState(fee = result.fee, overBalance = true))
+            is ReviewFeeResult.Failed -> onReviewFee(ReviewFeeState(error = result.message ?: tr("Fee estimation failed")))
         }
     }
 
@@ -1173,9 +1196,11 @@ private fun ReviewPhase(
     val alpha by animateFloatAsState(if (visible) 1f else 0f, tween(400), label = "reviewAlpha")
     val offsetY by animateFloatAsState(if (visible) 0f else 20f, tween(400), label = "reviewOffset")
 
-    val feeReady = !feeLoading && feeError == null && estimatedFee > 0
-    val needsSweepAllChoice = amountPrefilledFromQR && !isSweepAll && feeReady &&
-        parsedAmount + estimatedFee > unlockedBalance
+    val feeReady = reviewFee.ready
+    val feeLoading = reviewFee.loading
+    val feeError = reviewFee.error
+    val estimatedFee = reviewFee.fee
+    val needsSweepAllChoice = amountPrefilledFromQR && !isSweepAll && feeReady && reviewFee.overBalance
 
     Column(
         modifier = Modifier
@@ -1242,7 +1267,8 @@ private fun ReviewPhase(
                         Text(tr("All Funds"), style = MaterialTheme.typography.headlineMedium)
                         Spacer(modifier = Modifier.height(4.dp))
                         if (feeReady) {
-                            val sendAmount = (unlockedBalance - estimatedFee).coerceAtLeast(0)
+                            // What the built sweep sends: the balance it spends less its fee.
+                            val sendAmount = reviewFee.prepared?.sentAmount ?: (unlockedBalance - estimatedFee).coerceAtLeast(0)
                             Text(
                                 "${formatXmr(sendAmount)} XMR",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1309,7 +1335,7 @@ private fun ReviewPhase(
                     label = { Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
                 ) {
                     if (feeReady) {
-                        val total = if (isSweepAll) unlockedBalance else parsedAmount + estimatedFee
+                        val total = reviewFee.prepared?.total ?: (parsedAmount + estimatedFee)
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
                                 "${formatXmr(total)} XMR",
@@ -1377,7 +1403,7 @@ private fun ReviewPhase(
                 .pointerInteropFilter { event ->
                     (event.flags and MotionEvent.FLAG_WINDOW_IS_OBSCURED) != 0
                 },
-            enabled = feeReady && !sendInProgress && !needsSweepAllChoice
+            enabled = feeReady && reviewFee.prepared != null && !sendInProgress && !needsSweepAllChoice
         ) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(tr("Send"))

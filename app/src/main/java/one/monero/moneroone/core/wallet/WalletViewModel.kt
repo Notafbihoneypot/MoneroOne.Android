@@ -9,6 +9,7 @@ import io.horizontalsystems.hdwalletkit.Mnemonic
 import io.horizontalsystems.monerokit.Balance
 import io.horizontalsystems.monerokit.CakeWalletStyleConverter
 import io.horizontalsystems.monerokit.MoneroKit
+import io.horizontalsystems.monerokit.PreparedTransactionLostException
 import io.horizontalsystems.monerokit.Seed
 import io.horizontalsystems.monerokit.SignedTransaction
 import io.horizontalsystems.monerokit.SyncState
@@ -2170,16 +2171,23 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /** Sends what the Send screen asks for. The kit saves [SendRequest.memo] as a local note, as iOS does. */
-    fun send(flow: SendFlow, request: SendRequest, prepared: SignedTransaction? = null) = send(
-        flow, request.address, request.amount, memo = request.memo, isSweepAll = request.sweepAll, prepared = prepared
+    /**
+     * Sends what the Send screen asks for. The kit saves [SendRequest.memo] as a local note, as iOS does.
+     * [prepared]: the transfer the review built and showed; only that transfer may go out.
+     */
+    fun send(flow: SendFlow, request: SendRequest, prepared: PreparedSend? = null) = send(
+        flow, request.address, request.amount, memo = request.memo, isSweepAll = request.sweepAll,
+        prepared = prepared?.signed,
+        preparedMatches = prepared?.matches(request.address, request.amount, request.sweepAll) ?: true
     )
 
     /**
      * [beforeCommit] gets the signed transaction and its txids before the broadcast (a payment link saves them
      * on its record); when it throws, nothing is broadcast and the send fails with its message.
      * [prepared]: the transaction [prepareSend] built for the review, broadcast as it is (its fee is the one
-     * the review showed); when it is gone, the send fails before any broadcast.
+     * the review showed). When it is gone (the wallet closed, or another build replaced it), or
+     * [preparedMatches] is false (it is not the transfer the review showed), nothing is broadcast and the
+     * send fails.
      */
     fun send(
         flow: SendFlow,
@@ -2188,7 +2196,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         memo: String? = null,
         isSweepAll: Boolean = false,
         beforeCommit: ((SignedTransaction) -> Unit)? = null,
-        prepared: SignedTransaction? = null
+        prepared: SignedTransaction? = null,
+        preparedMatches: Boolean = true
     ) {
         val operation = sendCoordinator.begin(flow, _activeWallet.value?.id, isSweepAll || amount > 0L)
             ?: return
@@ -2208,8 +2217,12 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 withContext(Dispatchers.IO) {
                     // The kit saves the memo as a local note, as iOS does.
-                    if (prepared != null) kit.sendPrepared(prepared, memo, beforeCommit = beforeCommit)
-                    else kit.send(amount, address, memo, sweepAll = isSweepAll, beforeCommit = beforeCommit)
+                    when {
+                        prepared == null -> kit.send(amount, address, memo, sweepAll = isSweepAll, beforeCommit = beforeCommit)
+                        // Only the transfer the review showed may go out.
+                        !preparedMatches -> throw PreparedTransactionLostException()
+                        else -> kit.sendPrepared(prepared, memo, beforeCommit = beforeCommit)
+                    }
                 }
                 one.monero.moneroone.core.util.SoundFeedback.sendComplete(context)
                 // MoneroKit.send() doesn't return txHash, we'll show success without it
@@ -2228,17 +2241,20 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Builds and signs a transfer of [amount] to [address] at the send priority, without sending it: the fee it
-     * pays for the inputs it really spends (wallet2's estimate counts one). [send] with it as `prepared`
-     * broadcasts this same transaction. Throws when there is no wallet or the build fails. Off Main.
+     * Builds and signs a transfer of [amount] to [address] (or a sweep) at the send priority, without sending it.
+     * Its fee is the one it pays for every input it spends; [estimateFee] counts one input. [send] with it as
+     * `prepared` broadcasts this same transaction. Throws when there is no wallet or the build fails. Off Main.
      */
-    fun prepareSend(address: String, amount: Long, memo: String? = null): SignedTransaction {
+    fun prepareSend(address: String, amount: Long, memo: String? = null, isSweepAll: Boolean = false): SignedTransaction {
         val kit = WalletManager.kit ?: throw IllegalStateException("Wallet is not connected")
-        return kit.prepareSend(amount, address, memo)
+        return kit.prepareSend(amount, address, memo, sweepAll = isSweepAll)
     }
 
-    /** The transaction [prepareSend] built for [prepared] still waits to go out on the open wallet. */
+    /** The transaction [prepareSend] built for [prepared] still waits to go out on the open wallet. Off Main. */
     fun isPrepared(prepared: SignedTransaction): Boolean = WalletManager.kit?.isPrepared(prepared) == true
+
+    /** The transfer [prepareSend] built for [prepared] still waits to go out on the open wallet. Off Main. */
+    fun isPrepared(prepared: PreparedSend): Boolean = isPrepared(prepared.signed)
 
     fun estimateFee(address: String, amount: Long, isSweepAll: Boolean = false): Long {
         return try {
