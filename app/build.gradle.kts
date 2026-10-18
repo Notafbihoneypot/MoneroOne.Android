@@ -127,12 +127,11 @@ dependencies {
     implementation(libs.zxing.android.embedded)
     implementation(libs.qrcode.kotlin)
 
-    // CameraX + ML Kit (for QR scanning)
+    // CameraX + ZXing (for QR scanning)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
-    implementation(libs.mlkit.barcode.scanning)
     implementation("com.google.guava:guava:32.1.3-android")
 
     // WorkManager

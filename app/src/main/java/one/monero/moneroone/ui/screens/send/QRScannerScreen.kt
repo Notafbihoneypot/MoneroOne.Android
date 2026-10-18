@@ -64,14 +64,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.LuminanceSource
+import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.ReaderException
+import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.qrcode.QRCodeReader
 import io.horizontalsystems.monerokit.MoneroKit
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.MoneroOrange
 import timber.log.Timber
+import java.nio.ByteBuffer
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
 /** Native checksum validation is shared by scanning and external payment links. */
@@ -84,49 +91,75 @@ private fun isKitValidAddress(address: String): Boolean =
     try { MoneroKit.validateAddress(address); true } catch (_: Exception) { false }
 
 /**
- * ML Kit barcode analyzer for QR codes.
+ * Reads a QR code from the luminance (Y) plane of a camera frame with ZXing core.
+ * It runs on the device only and sends nothing over the network.
+ */
+internal object QrFrameDecoder {
+
+    private val hints = mapOf(
+        DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+        DecodeHintType.TRY_HARDER to true
+    )
+
+    /**
+     * Copies a Y plane into an array of rowStride * height bytes. CameraX can end the last row
+     * at the image width, so the copy keeps the row stride and leaves the tail of that row empty.
+     */
+    fun copyLumaPlane(buffer: ByteBuffer, rowStride: Int, height: Int): ByteArray {
+        val data = ByteArray(rowStride * height)
+        val source = buffer.duplicate()
+        source.rewind()
+        source.get(data, 0, minOf(source.remaining(), data.size))
+        return data
+    }
+
+    /**
+     * Returns the text of a QR code in a Y plane of [width] x [height] pixels with rows of
+     * [rowStride] bytes, or null when the frame has no readable QR code. It also tries the
+     * inverted image, for light codes on a dark background.
+     */
+    fun decode(luma: ByteArray, rowStride: Int, width: Int, height: Int): String? {
+        val source = PlanarYUVLuminanceSource(luma, rowStride, height, 0, 0, width, height, false)
+        return decode(source) ?: decode(source.invert())
+    }
+
+    private fun decode(source: LuminanceSource): String? {
+        val reader = QRCodeReader()
+        return try {
+            reader.decode(BinaryBitmap(HybridBinarizer(source)), hints).text
+        } catch (_: ReaderException) {
+            null
+        } finally {
+            reader.reset()
+        }
+    }
+}
+
+/**
+ * CameraX analyzer for QR codes. It decodes on the analysis executor (off the main thread)
+ * and reports the first code on [callbackExecutor].
  */
 private class QrCodeAnalyzer(
+    private val callbackExecutor: Executor,
     private val onQrCodeDetected: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
-
-    private val scanner = BarcodeScanning.getClient(
-        com.google.mlkit.vision.barcode.BarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-            .build()
-    )
 
     @Volatile
     private var hasDetected = false
 
-    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
-        if (hasDetected) {
-            imageProxy.close()
-            return
-        }
-
-        val mediaImage = imageProxy.image
-        if (mediaImage != null) {
-            val image = InputImage.fromMediaImage(
-                mediaImage,
-                imageProxy.imageInfo.rotationDegrees
-            )
-
-            scanner.process(image)
-                .addOnSuccessListener { barcodes ->
-                    if (!hasDetected && barcodes.isNotEmpty()) {
-                        val rawValue = barcodes.first().rawValue
-                        if (rawValue != null) {
-                            hasDetected = true
-                            onQrCodeDetected(rawValue)
-                        }
-                    }
-                }
-                .addOnCompleteListener {
-                    imageProxy.close()
-                }
-        } else {
+        try {
+            if (hasDetected) return
+            val plane = imageProxy.planes.firstOrNull() ?: return
+            val luma = QrFrameDecoder.copyLumaPlane(plane.buffer, plane.rowStride, imageProxy.height)
+            val rawValue = QrFrameDecoder.decode(luma, plane.rowStride, imageProxy.width, imageProxy.height)
+            if (rawValue != null && !hasDetected) {
+                hasDetected = true
+                callbackExecutor.execute { onQrCodeDetected(rawValue) }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "QR frame decode failed")
+        } finally {
             imageProxy.close()
         }
     }
@@ -173,7 +206,7 @@ private fun CameraPreview(
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
                     .also {
-                        it.setAnalyzer(executor, QrCodeAnalyzer(onQrCodeDetected))
+                        it.setAnalyzer(executor, QrCodeAnalyzer(ContextCompat.getMainExecutor(ctx), onQrCodeDetected))
                     }
 
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
