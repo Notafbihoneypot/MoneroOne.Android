@@ -566,6 +566,7 @@
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"No hay ninguna cartera a la que cambiar"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Detalles del nodo"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"URI del nodo"</string>
+    <string name="l10n_node_login_failed_check_the_username_and_password_a89c0811" formatted="false">"No se pudo iniciar sesión en el nodo. Comprueba el nombre de usuario y la contraseña."</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"El nodo devolvió una respuesta no válida. Prueba con otro nodo."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Nodo no disponible. Prueba con otro nodo."</string>
     <string name="l10n_nodes_7ac36206" formatted="false">"Nodos"</string>
@@ -573,6 +574,7 @@
     <string name="l10n_norwegian_krone_66f55f57" formatted="false">"Corona noruega"</string>
     <string name="l10n_not_configured_bbea960e" formatted="false">"Sin configurar"</string>
     <string name="l10n_not_set_8290035d" formatted="false">"Sin configurar"</string>
+    <string name="l10n_not_available_67a926f7" formatted="false">"No disponible"</string>
     <string name="l10n_not_available_for_transactions_sent_before_this_wallet__47e02c54" formatted="false">"No disponible para transacciones enviadas antes de restaurar esta cartera"</string>
     <string name="l10n_not_available_on_this_device_01c75e3f" formatted="false">"No disponible en este dispositivo"</string>
     <string name="l10n_not_connected_0303e182" formatted="false">"Sin conexión"</string>

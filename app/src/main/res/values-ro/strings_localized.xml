@@ -566,6 +566,7 @@
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"Niciun portofel la care să treci"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"Detalii nod"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"URI nod"</string>
+    <string name="l10n_node_login_failed_check_the_username_and_password_a89c0811" formatted="false">"Autentificarea la nod a eșuat. Verifică numele de utilizator și parola."</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"Nodul a returnat un răspuns nevalid. Încearcă alt nod."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"Nod indisponibil. Încearcă alt nod."</string>
     <string name="l10n_nodes_7ac36206" formatted="false">"Noduri"</string>
@@ -573,6 +574,7 @@
     <string name="l10n_norwegian_krone_66f55f57" formatted="false">"Coroană norvegiană"</string>
     <string name="l10n_not_configured_bbea960e" formatted="false">"Neconfigurat"</string>
     <string name="l10n_not_set_8290035d" formatted="false">"Nesetat"</string>
+    <string name="l10n_not_available_67a926f7" formatted="false">"Indisponibil"</string>
     <string name="l10n_not_available_for_transactions_sent_before_this_wallet__47e02c54" formatted="false">"Indisponibil pentru tranzacțiile trimise înainte de restaurarea acestui portofel"</string>
     <string name="l10n_not_available_on_this_device_01c75e3f" formatted="false">"Indisponibil pe acest dispozitiv"</string>
     <string name="l10n_not_connected_0303e182" formatted="false">"Offline"</string>

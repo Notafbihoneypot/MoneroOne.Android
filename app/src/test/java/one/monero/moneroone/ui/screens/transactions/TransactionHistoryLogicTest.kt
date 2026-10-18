@@ -79,4 +79,23 @@ class TransactionHistoryLogicTest {
         val fields = TransactionHistoryLogic.details(tx(false), emptyList(), "date", null, null, null)
         assertTrue(fields.single { it.label == "Recipient" }.value.contains("not available", ignoreCase = true))
     }
+    @Test fun `fee row and copy all show an unknown fee as Not available`() {
+        fun details(of: TransactionInfo) = TransactionHistoryLogic.details(of, emptyList(), "date", null, null, null)
+        fun fee(of: TransactionInfo) = details(of).single { it.label == "Fee" }.value
+        assertEquals("0.0001 XMR", fee(tx(false, fee = 100_000_000)))
+        assertEquals("Not available", fee(tx(false, fee = 0)))
+        // wallet2's fee for a pre-RingCT send with another wallet's inputs wraps negative.
+        val wrapped = tx(false, fee = -500_000_000_000)
+        assertEquals("Not available", fee(wrapped))
+        assertTrue(TransactionHistoryLogic.copyAll(details(wrapped)).lines().contains("Fee: Not available"))
+        // A received transaction (a coinbase too, whose fee is 0) has no fee row.
+        assertTrue(details(tx(fee = 0)).none { it.label == "Fee" })
+    }
+    @Test fun `a negative fee stays signed so totals count what left the wallet`() {
+        // wallet2, pre-RingCT send with another wallet's inputs: our inputs 10,
+        // our change 1.99, all outputs 14.98, so fee = -4.98 and amount = 12.99.
+        val sent = tx(false, amount = 12_990_000_000_000, fee = -4_980_000_000_000)
+        assertEquals(BigInteger.valueOf(8_010_000_000_000), TransactionHistoryLogic.totals(listOf(sent)).sent)
+        assertEquals(0, TransactionHistoryLogic.fiatTotals(listOf(sent)) { 1.0 }!!.sent.compareTo(java.math.BigDecimal("8.01")))
+    }
 }

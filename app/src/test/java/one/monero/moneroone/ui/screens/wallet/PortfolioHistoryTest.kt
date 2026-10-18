@@ -63,6 +63,14 @@ class PortfolioHistoryTest {
     }
 
     @Test
+    fun `a negative fee stays signed so the balance moves by what left the wallet`() {
+        // wallet2, pre-RingCT send with another wallet's inputs: our inputs 10,
+        // our change 1.99, all outputs 14.98, so fee = -4.98 and amount = 12.99.
+        val change = sent(1, amount = 12_990_000_000_000, fee = -4_980_000_000_000)
+        assertEquals(-8_010_000_000_000, change.delta)
+    }
+
+    @Test
     fun `a transaction newer than the last sample shows on it`() {
         val ledger = BalanceLedger(2 * xmr, listOf(received(9_000, xmr)))
         val points = PortfolioHistory.points(prices(1_000, 2_000), rate = 1.0, ledger = ledger)

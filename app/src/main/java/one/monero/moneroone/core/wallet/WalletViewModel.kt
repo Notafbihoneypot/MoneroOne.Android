@@ -40,6 +40,7 @@ import one.monero.moneroone.data.util.XmrFormat
 import one.monero.moneroone.widget.PriceWidget
 import one.monero.moneroone.widget.WalletWidget
 import one.monero.moneroone.widget.WidgetDataStore
+import one.monero.moneroone.core.node.NodeBenchmark
 import one.monero.moneroone.core.node.NodeCredentialStore
 import one.monero.moneroone.core.util.NetworkMonitor
 import timber.log.Timber
@@ -51,6 +52,8 @@ data class WalletState(
     val hasWallet: Boolean = false,
     val isInitializing: Boolean = false,
     val syncState: SyncState = SyncState.NotSynced(MoneroKit.SyncError.NotStarted),
+    /** The sync stopped on a custom node that rejected the RPC login (see [NodeLoginCheck]). */
+    val nodeLoginFailed: Boolean = false,
     val balance: Balance = Balance(0, 0),
     val transactions: List<TransactionInfo> = emptyList(),
     /** The only source of receive addresses for the UI; null while none are loaded. */
@@ -244,6 +247,13 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private val store by lazy { WalletStore(prefs) }
     private val secrets by lazy { WalletSecrets(encryptedPrefs) }
     private val nodeCredentials by lazy { NodeCredentialStore(encryptedPrefs) }
+
+    // A sync error on a node that rejects the login names the login, as on iOS: one check per error.
+    private val nodeLoginCheck = NodeLoginCheck(
+        scope = viewModelScope,
+        measure = { node, login -> NodeBenchmark.measure(node, login) },
+        onChange = { failed -> _walletState.update { it.copy(nodeLoginFailed = failed) } }
+    )
 
     init {
         loadSelectedCurrency()
@@ -1456,6 +1466,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         kitObserverJobs.forEach { it.cancel() }
         kitObserverJobs = emptyList()
         observedKit = null
+        nodeLoginCheck.reset()
     }
 
     /**
@@ -1480,6 +1491,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                         is SyncState.NotSynced -> {
                             Timber.d("SyncState: NotSynced, error=${syncState.error}")
                             maybeFailover(syncState)
+                            WalletManager.nodeOf(kit)?.let { (node, login) ->
+                                nodeLoginCheck.onSyncError(syncState, node, login)
+                            } ?: nodeLoginCheck.reset()
                         }
                         is SyncState.Connecting -> {
                             Timber.d("SyncState: Connecting, waiting=${syncState.waiting}")
@@ -1501,6 +1515,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                             }
                         }
                     }
+                    if (syncState !is SyncState.NotSynced) nodeLoginCheck.reset()
                     _walletState.update { it.copy(syncState = syncState) }
                     val statusKey = when (syncState) {
                         is SyncState.Synced -> "synced"

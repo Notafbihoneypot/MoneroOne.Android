@@ -566,6 +566,7 @@
     <string name="l10n_no_wallet_to_switch_12a9813a" formatted="false">"전환할 지갑 없음"</string>
     <string name="l10n_node_details_3fd9c66e" formatted="false">"노드 세부사항"</string>
     <string name="l10n_node_uri_e63aa085" formatted="false">"노드 URI"</string>
+    <string name="l10n_node_login_failed_check_the_username_and_password_a89c0811" formatted="false">"노드 로그인에 실패했습니다. 사용자 이름과 암호를 확인하세요."</string>
     <string name="l10n_node_returned_invalid_response_try_another_node_30ae1c17" formatted="false">"노드가 유효하지 않은 응답을 반환했습니다. 다른 노드를 사용해 보세요."</string>
     <string name="l10n_node_unavailable_try_a_different_node_bbaf93aa" formatted="false">"노드를 사용할 수 없습니다. 다른 노드를 사용해 보세요."</string>
     <string name="l10n_nodes_7ac36206" formatted="false">"노드"</string>
@@ -573,6 +574,7 @@
     <string name="l10n_norwegian_krone_66f55f57" formatted="false">"노르웨이 크로네"</string>
     <string name="l10n_not_configured_bbea960e" formatted="false">"설정되지 않음"</string>
     <string name="l10n_not_set_8290035d" formatted="false">"설정 안 됨"</string>
+    <string name="l10n_not_available_67a926f7" formatted="false">"사용할 수 없음"</string>
     <string name="l10n_not_available_for_transactions_sent_before_this_wallet__47e02c54" formatted="false">"이 지갑을 복원하기 전에 보낸 거래에는 사용할 수 없음"</string>
     <string name="l10n_not_available_on_this_device_01c75e3f" formatted="false">"이 기기에서 사용할 수 없음"</string>
     <string name="l10n_not_connected_0303e182" formatted="false">"오프라인"</string>

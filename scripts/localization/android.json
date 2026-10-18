@@ -101,6 +101,23 @@
     "zh-Hans": "身份验证失败",
     "zh-Hant": "驗證失敗"
   },
+  "Node login failed. Check the username and password.": {
+    "de": "Node-Anmeldung fehlgeschlagen. Prüfe Benutzername und Passwort.",
+    "es": "No se pudo iniciar sesión en el nodo. Comprueba el nombre de usuario y la contraseña.",
+    "fr": "Échec de l’authentification auprès du nœud. Vérifiez le nom d’utilisateur et le mot de passe.",
+    "it": "Accesso al nodo non riuscito. Controlla nome utente e password.",
+    "ja": "ノードへのログインに失敗しました。ユーザ名とパスワードを確認してください。",
+    "ko": "노드 로그인에 실패했습니다. 사용자 이름과 암호를 확인하세요.",
+    "nl": "Inloggen op de node mislukt. Controleer de gebruikersnaam en het wachtwoord.",
+    "pl": "Logowanie do węzła nie powiodło się. Sprawdź nazwę użytkownika i hasło.",
+    "pt-BR": "Falha ao entrar no nó. Verifique o nome de usuário e a senha.",
+    "ro": "Autentificarea la nod a eșuat. Verifică numele de utilizator și parola.",
+    "ru": "Не удалось войти на узел. Проверьте имя пользователя и пароль.",
+    "tr": "Düğümde oturum açılamadı. Kullanıcı adınızı ve parolanızı kontrol edin.",
+    "uk": "Не вдалося увійти до вузла. Перевірте ім’я користувача та пароль.",
+    "zh-Hans": "节点登录失败。请检查用户名和密码。",
+    "zh-Hant": "節點登入失敗。請檢查使用者名稱和密碼。"
+  },
   "Node URI": {
     "de": "Knoten-URI",
     "es": "URI del nodo",
@@ -255,7 +272,7 @@
     "zh-Hant": "請在下方欄位輸入憑證，而非 URI 中"
   },
   "This node is already in the list": {
-    "de": "Dieser Knoten ist bereits in der Liste",
+    "de": "Dieser Node ist bereits in der Liste",
     "es": "Este nodo ya está en la lista",
     "fr": "Ce nœud est déjà dans la liste",
     "it": "Questo nodo è già nell’elenco",
@@ -1392,5 +1409,22 @@
     "uk": "Tor",
     "zh-Hans": "Tor",
     "zh-Hant": "Tor"
+  },
+  "Not available": {
+    "de": "Nicht verfügbar",
+    "es": "No disponible",
+    "fr": "Non disponible",
+    "it": "Non disponibile",
+    "ja": "利用不可",
+    "ko": "사용할 수 없음",
+    "nl": "Niet beschikbaar",
+    "pl": "Niedostępne",
+    "pt-BR": "Indisponível",
+    "ro": "Indisponibil",
+    "ru": "Недоступно",
+    "tr": "Kullanılamıyor",
+    "uk": "Недоступно",
+    "zh-Hans": "不可用",
+    "zh-Hant": "無法使用"
   }
 }

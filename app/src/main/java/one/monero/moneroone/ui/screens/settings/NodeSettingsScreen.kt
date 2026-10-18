@@ -2,6 +2,12 @@ package one.monero.moneroone.ui.screens.settings
 
 import one.monero.moneroone.core.locale.tr
 import android.content.Context
+import android.os.Build
+import android.view.View
+import android.view.ViewTreeObserver
+import android.view.Window
+import android.view.WindowManager
+import androidx.annotation.RequiresApi
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.ensureActive
@@ -23,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -49,8 +56,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.NonRestartableComposable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -58,18 +68,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.async
@@ -663,7 +682,10 @@ internal fun NodeDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            // The dialog shrinks above the keyboard: the fields scroll, and Add/Save and Cancel stay in view.
+            ResizeDialogForKeyboard()
+            val scrollState = rememberScrollState()
+            Column(modifier = Modifier.keepScrollWhenRemeasured(scrollState).verticalScroll(scrollState)) {
                 MoneroTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -849,4 +871,138 @@ internal fun NodeDialog(
             }
         }
     )
+}
+
+/**
+ * Makes the dialog this is called in resize for the keyboard instead of panning. A dialog window pans by
+ * default: it moves up until the focused field clears the keyboard, which leaves its buttons under the
+ * keyboard. Resized, it fits above the keyboard, its scrolling content gives way, and its buttons stay in
+ * view. When the dialog misses that resize, [KeyboardResizeCatchUp] gets it. Nothing changes while the
+ * keyboard is closed.
+ */
+@Composable
+@NonRestartableComposable
+private fun ResizeDialogForKeyboard() {
+    val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+    // On every composition: below API 31 the dialog puts its default mode back when it updates.
+    SideEffect {
+        val dialogWindow = window ?: return@SideEffect
+        val mode = dialogWindow.attributes.softInputMode
+        // ADJUST_RESIZE is deprecated for windows that fit the keyboard inset themselves. A floating
+        // dialog is laid out by the system, which resizes it only in this mode.
+        @Suppress("DEPRECATION")
+        val resize = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        val adjust = WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST
+        if ((mode and adjust) != resize) dialogWindow.setSoftInputMode((mode and adjust.inv()) or resize)
+    }
+    if (window != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        DisposableEffect(window) {
+            val catchUp = KeyboardResizeCatchUp(window)
+            onDispose { catchUp.remove() }
+        }
+    }
+}
+
+/**
+ * Lays the dialog in [window] out again when it missed its resize for the keyboard. On API 36 the window
+ * manager sometimes moves and shrinks the window above the keyboard, but the new frame never gets to the
+ * dialog. The dialog then stays laid out at its full height: the fields cannot scroll, and the focused
+ * field and the buttons sit under the keyboard. A window resized for the keyboard ends where the keyboard
+ * starts, so a keyboard inset that stays shows the missed resize. Sending the window attributes again
+ * makes the dialog fetch its frame and lay out to it. This tries a few times for each inset, so a window
+ * that the system does not resize gets no loop.
+ */
+@RequiresApi(Build.VERSION_CODES.R)
+private class KeyboardResizeCatchUp(private val window: Window) : ViewTreeObserver.OnPreDrawListener, Runnable {
+    private val root: View = window.decorView
+    private val observer: ViewTreeObserver = root.viewTreeObserver
+
+    /** The keyboard inset that the checks run for. */
+    private var inset = 0
+
+    /** The times this sent the attributes for [inset]. */
+    private var tries = 0
+
+    init {
+        observer.addOnPreDrawListener(this)
+    }
+
+    override fun onPreDraw(): Boolean {
+        track(keyboardInset())
+        return true
+    }
+
+    override fun run() {
+        val now = keyboardInset()
+        if (now != inset) {
+            track(now)
+        } else if (now > 0 && tries < MAX_TRIES) {
+            tries++
+            // The same attributes again: the dialog then asks the window manager for its frame.
+            window.attributes = window.attributes
+            if (tries < MAX_TRIES) root.postDelayed(this, SETTLE_MILLIS shl tries)
+        }
+    }
+
+    fun remove() {
+        root.removeCallbacks(this)
+        if (observer.isAlive) observer.removeOnPreDrawListener(this)
+        else root.viewTreeObserver.removeOnPreDrawListener(this)
+    }
+
+    private fun track(now: Int) {
+        if (now == inset) return
+        inset = now
+        tries = 0
+        root.removeCallbacks(this)
+        // The system resize comes a few frames after the inset. Check only after it had time to come.
+        if (now > 0) root.postDelayed(this, SETTLE_MILLIS)
+    }
+
+    private fun keyboardInset(): Int = root.rootWindowInsets?.getInsets(android.view.WindowInsets.Type.ime())?.bottom ?: 0
+
+    private companion object {
+        const val SETTLE_MILLIS = 100L
+        const val MAX_TRIES = 3
+    }
+}
+
+/**
+ * Keeps the scroll position of [state] in a dialog resized for the keyboard. On each layout the system
+ * measures that dialog twice: at full height first, where the fields fit and [state] falls back to 0, and
+ * then at its frame above the keyboard. This puts the position back on the second pass, so a drag or the
+ * scroll to a focused field holds, and the fields under the fold stay in reach.
+ */
+@VisibleForTesting
+internal fun Modifier.keepScrollWhenRemeasured(state: ScrollState): Modifier = this then KeepScrollElement(state)
+
+private data class KeepScrollElement(val state: ScrollState) : ModifierNodeElement<KeepScrollNode>() {
+    override fun create() = KeepScrollNode(state)
+
+    override fun update(node: KeepScrollNode) {
+        node.state = state
+    }
+}
+
+private class KeepScrollNode(var state: ScrollState) : Modifier.Node(), LayoutModifierNode {
+    /** The position a measure pass cut back since the last placement. */
+    private var cutFrom = 0
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        // Read without observation: the position changes in every pass, and an observed read would
+        // remeasure this node again and again.
+        val before = Snapshot.withoutReadObservation { state.value }
+        val placeable = measurable.measure(constraints)
+        Snapshot.withoutReadObservation {
+            if (state.value < before) {
+                cutFrom = maxOf(cutFrom, before)
+            } else if (cutFrom > state.value) {
+                state.dispatchRawDelta((minOf(cutFrom, state.maxValue) - state.value).toFloat())
+            }
+        }
+        return layout(placeable.width, placeable.height) {
+            cutFrom = 0
+            placeable.place(0, 0)
+        }
+    }
 }

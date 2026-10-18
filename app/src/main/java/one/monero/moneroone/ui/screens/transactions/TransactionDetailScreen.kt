@@ -111,7 +111,8 @@ internal fun TransactionDetailsContent(
                     fields.forEachIndexed { index, field ->
                         Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            // One TalkBack stop per row, "Fee, Not available", as iOS combines each row.
+                            Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 Text(field.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(field.value, style = if (field.secret || field.value.length > 60) MonoCaption else MaterialTheme.typography.bodyLarge,
                                     fontWeight = if (field.label == tr("Amount")) FontWeight.SemiBold else FontWeight.Normal,
