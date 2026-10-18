@@ -1,6 +1,7 @@
 package one.monero.moneroone.core.wallet
 
 import io.horizontalsystems.monerokit.CakeWalletStyleConverter
+import one.monero.moneroone.core.wallet.seed.SeedTestSupport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -148,6 +149,49 @@ class WalletCacheIdsTest {
             if (id == "t") typo(2) else null
         }
         assertEquals(null, dup)
+    }
+
+    // --- Polyseed: the 16 words and their 25 legacy words are one wallet -------
+
+    private val polyseed =
+        "raven tail swear infant grief assist regular lamp duck valid someone little harsh puppy airport language"
+            .split(" ")
+
+    private fun polyseedLegacy(): List<String> {
+        SeedTestSupport.init()
+        return SeedValidation.polyseedLegacyWords(polyseed)
+    }
+
+    @Test
+    fun `a polyseed is a duplicate of a row with its legacy words`() {
+        val legacy = polyseedLegacy()
+        val legacyRow = row("l", "Legacy", WalletCacheIds.derivedWalletId(legacy, 0))
+        val dup = WalletCacheIds.findWalletWithSeed(polyseed, listOf(legacyRow)) { id ->
+            if (id == "l") legacy else null
+        }
+        assertEquals(legacyRow, dup)
+    }
+
+    @Test
+    fun `legacy words are a duplicate of a polyseed row`() {
+        val legacy = polyseedLegacy()
+        val polyRow = row("p", "Polyseed", WalletCacheIds.derivedWalletId(polyseed, 0))
+        val stored: (String) -> List<String>? = { id -> if (id == "p") polyseed else null }
+        assertEquals(polyRow, WalletCacheIds.findWalletWithSeed(legacy, listOf(polyRow), storedSeedOf = stored))
+        // A prefix-typo form of the legacy words is the same wallet too.
+        val typoed = legacy.toMutableList().apply { this[3] = this[3].take(3) + "zz" }
+        assertEquals(polyRow, WalletCacheIds.findWalletWithSeed(typoed, listOf(polyRow), storedSeedOf = stored))
+        // Without prefix-typo matching (the migration's wipe path), only the exact seed matches.
+        assertEquals(null, WalletCacheIds.findWalletWithSeed(legacy, listOf(polyRow), matchPrefixTypos = false, stored))
+    }
+
+    @Test
+    fun `a polyseed is not a duplicate of a different wallet`() {
+        polyseedLegacy()
+        val other = row("o", "Other", WalletCacheIds.derivedWalletId(electrum, 0))
+        assertEquals(null, WalletCacheIds.findWalletWithSeed(polyseed, listOf(other)) { id -> if (id == "o") electrum else null })
+        val bip = row("b", "Bip", WalletCacheIds.derivedWalletId(seed, 0))
+        assertEquals(null, WalletCacheIds.findWalletWithSeed(polyseed, listOf(bip)) { id -> if (id == "b") seed else null })
     }
 
     // --- Cache base names ----------------------------------------------------

@@ -71,6 +71,8 @@ class MoneroOneApp : Application() {
         one.monero.moneroone.core.network.TorNetwork.initialize(this)
         one.monero.moneroone.core.util.SoundFeedback.initialize(this)
         one.monero.moneroone.core.locale.AppStrings.initialize(this)
+        // Seed word lists load lazily from assets; this only stores the asset manager.
+        one.monero.moneroone.core.wallet.seed.SeedWordLists.initialize(this)
 
         // Initialize Timber for logging
         if (BuildConfig.DEBUG) {

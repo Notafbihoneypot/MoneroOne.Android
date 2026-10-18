@@ -2,6 +2,8 @@ package one.monero.moneroone.core.wallet
 
 import android.content.SharedPreferences
 import io.horizontalsystems.hdwalletkit.Mnemonic
+import one.monero.moneroone.core.wallet.seed.SeedFormat
+import one.monero.moneroone.core.wallet.seed.SeedPhraseValidator
 import timber.log.Timber
 import java.util.UUID
 
@@ -206,6 +208,10 @@ object WalletMigration {
                 // quote a word: log the type only.
                 "BIP39 validation failed (${e.javaClass.simpleName})"
             }
+            // Single-wallet builds never stored Polyseeds; checked for completeness.
+            SeedType.POLYSEED_16 ->
+                if (runCatching { SeedPhraseValidator.validate(SeedFormat.POLYSEED, words) is SeedPhraseValidator.Verdict.Valid }.getOrDefault(false)) null
+                else "Polyseed validation failed"
         }
         if (problem != null) {
             Timber.w("WalletMigration: importing a legacy seed that fails validation: $problem")

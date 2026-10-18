@@ -113,6 +113,28 @@ class WalletMigrationSeedCheckTest {
         assertNoSeedWordLogged(words)
     }
 
+    private val polyseed = "raven tail swear infant grief assist regular lamp duck valid someone little harsh puppy airport language"
+        .split(" ")
+
+    @Test
+    fun `a polyseed is imported, with a warning only when it fails validation`() {
+        one.monero.moneroone.core.wallet.seed.SeedTestSupport.init()
+        writeLegacyWallet("123e4567-e89b-12d3-a456-426614174000", polyseed, SeedType.POLYSEED_16)
+        WalletMigration.migrateIfNeeded(plain, secrets, store)
+        val wallet = store.wallets().single()
+        assertEquals(polyseed to SeedType.POLYSEED_16, secrets.loadSeed(wallet.id))
+        assertEquals(WalletSource.POLYSEED, wallet.source)
+        assertTrue(warnings.none { "fails validation" in it })
+
+        val swapped = polyseed.toMutableList().apply { this[0] = polyseed[1]; this[1] = polyseed[0] }
+        writeLegacyWallet("aaaaaaaa-bbbb-cccc-dddd-eeeeffff0000", swapped, SeedType.POLYSEED_16)
+        WalletMigration.migrateIfNeeded(plain, secrets, store)
+        val imported = store.wallets().single { it.derivedWalletId == "aaaaaaaa-bbbb-cccc-dddd-eeeeffff0000" }
+        assertEquals(swapped, secrets.loadSeed(imported.id)?.first)
+        assertTrue(warnings.any { "Polyseed validation failed" in it })
+        assertNoSeedWordLogged(swapped)
+    }
+
     @Test
     fun `a valid legacy seed logs no validation warning`() {
         writeLegacyWallet("123e4567-e89b-12d3-a456-426614174000", bip39, SeedType.BIP39_24)

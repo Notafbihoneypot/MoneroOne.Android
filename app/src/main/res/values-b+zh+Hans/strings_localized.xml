@@ -15,6 +15,7 @@
     <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s 已是最新"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s 公里"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"半径 %1$s 公里"</string>
+    <string name="l10n_s_of_s_words_262b50ac" formatted="false">"%1$s / %2$s 个单词"</string>
     <string name="l10n_s_on_s_745fc552" formatted="false">"%2$s：%1$s"</string>
     <string name="l10n_s_connecting_to_monero_network_70d08cc4" formatted="false">"%s — 正在连接 Monero 网络"</string>
     <string name="l10n_s_syncing_s_04b3ee90" formatted="false">"%s — 正在同步 %s%%"</string>
@@ -184,6 +185,8 @@
     <string name="l10n_chart_3e5b90ae" formatted="false">"图表"</string>
     <string name="l10n_chart_mode_9b19d23e" formatted="false">"图表模式"</string>
     <string name="l10n_check_screen_time_or_device_management_c63dba08" formatted="false">"请检查“屏幕使用时间”或设备管理。"</string>
+    <string name="l10n_check_word_s_90eb1a05" formatted="false">"请检查第 %s 个单词"</string>
+    <string name="l10n_check_words_s_23e605da" formatted="false">"请检查第 %s 个单词"</string>
     <string name="l10n_checking_latency_544be1ed" formatted="false">"正在检测延迟"</string>
     <string name="l10n_checking_2e5f79bb" formatted="false">"正在检查…"</string>
     <string name="l10n_chinese_yuan_e689570a" formatted="false">"人民币"</string>
@@ -359,6 +362,7 @@
     <string name="l10n_edit_node_ce03c641" formatted="false">"编辑节点"</string>
     <string name="l10n_edit_proxy_ee3e6a16" formatted="false">"编辑代理"</string>
     <string name="l10n_emoji_61ad8976" formatted="false">"表情符号"</string>
+    <string name="l10n_empty_c6c094bc" formatted="false">"空"</string>
     <string name="l10n_enable_5342e09f" formatted="false">"启用"</string>
     <string name="l10n_enable_s_c8bbdb90" formatted="false">"启用%1$s"</string>
     <string name="l10n_enable_s_bf6d4a6c" formatted="false">"要启用%1$s 吗？"</string>
@@ -601,11 +605,13 @@
     <string name="l10n_not_available_on_this_device_01c75e3f" formatted="false">"此设备不支持"</string>
     <string name="l10n_not_connected_0303e182" formatted="false">"离线"</string>
     <string name="l10n_not_enough_unlocked_funds_available_s_xmr_87157ccc" formatted="false">"已解锁资金不足。可用：%1$s XMR"</string>
+    <string name="l10n_not_in_the_word_list_f182a51f" formatted="false">"不在单词表中"</string>
     <string name="l10n_not_selected_df12aeba" formatted="false">"未选定"</string>
     <string name="l10n_not_synced_87cde3ef" formatted="false">"离线"</string>
     <string name="l10n_notifications_disabled_8d68e6c4" formatted="false">"通知已停用"</string>
     <string name="l10n_now_fe18013d" formatted="false">"现在"</string>
     <string name="l10n_now_exporting_your_view_key_from_the_device_01419aac" formatted="false">"正在从设备导出你的查看密钥。"</string>
+    <string name="l10n_number_of_words_9b075742" formatted="false">"单词数量"</string>
     <string name="l10n_ok_565339bc" formatted="false">"好"</string>
     <string name="l10n_offline_a1794783" formatted="false">"离线"</string>
     <string name="l10n_offline_no_internet_connection_b01b0ab8" formatted="false">"离线：没有互联网连接"</string>
@@ -930,6 +936,7 @@
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"Monero 的价值可能大幅波动。请只使用你能承受损失的资金。"</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"钱包无法载入其密钥，因此无法显示收款地址。在问题解决之前，请勿向此 App 显示的任何地址发送资金。请强制退出并重新打开 App；如果问题仍然存在，请用助记词恢复钱包。"</string>
     <string name="l10n_the_wallet_stays_unlocked_until_the_app_is_force_closed_eb3ed2b1" formatted="false">"钱包将保持解锁状态，直到应用被强制关闭"</string>
+    <string name="l10n_this_polyseed_uses_a_passphrase_monero_one_does_not_sup_2d07f5e0" formatted="false">"此 Polyseed 使用了密码短语。Monero One 暂不支持 Polyseed 密码短语。"</string>
     <string name="l10n_this_device_does_not_support_biometric_authentication_y_60fadc72" formatted="false">"此设备不支持生物识别验证。在设备上设置生物识别后，可稍后在设置中启用。"</string>
     <string name="l10n_this_helps_speed_up_transaction_scanning_by_skipping_bl_ff8147d6" formatted="false">"这会跳过钱包创建之前的区块，从而加快交易扫描。"</string>
     <string name="l10n_this_is_not_a_valid_monero_payment_link_cd32d925" formatted="false">"这不是有效的 Monero 付款链接。"</string>
@@ -1038,6 +1045,7 @@
     <string name="l10n_use_wallet_creation_date_0285cef8" formatted="false">"使用钱包创建日期"</string>
     <string name="l10n_username_e3b89e9d" formatted="false">"用户名"</string>
     <string name="l10n_valid_address_7b8c82b2" formatted="false">"地址有效"</string>
+    <string name="l10n_valid_seed_phrase_7ec83780" formatted="false">"助记词有效"</string>
     <string name="l10n_value_8e37953d" formatted="false">"数值"</string>
     <string name="l10n_value_today_aa360342" formatted="false">"今日价值"</string>
     <string name="l10n_value_today_s_fdaf8738" formatted="false">"今日价值：%1$s"</string>
@@ -1068,6 +1076,7 @@
     <string name="l10n_wallet_birthday_optional_ee94ef7e" formatted="false">"钱包生日"</string>
     <string name="l10n_wallet_name_ad7c43f4" formatted="false">"钱包名称"</string>
     <string name="l10n_wallet_sync_0c6bef86" formatted="false">"钱包同步"</string>
+    <string name="l10n_wallet_created_around_s_0b6f8d00" formatted="false">"钱包创建于 %s 前后"</string>
     <string name="l10n_wallet_error_occurred_98faccd3" formatted="false">"钱包出错。"</string>
     <string name="l10n_wallet_is_locked_130c696d" formatted="false">"钱包已锁定"</string>
     <string name="l10n_wallet_is_locked_1764609d" formatted="false">"钱包已锁定。"</string>
@@ -1092,6 +1101,7 @@
     <string name="l10n_widget_7dd7a28c" formatted="false">"小组件"</string>
     <string name="l10n_will_scan_from_the_beginning_29785ed9" formatted="false">"将从头开始扫描"</string>
     <string name="l10n_will_scan_from_the_beginning_slower_ce4e8589" formatted="false">"将从头开始扫描（较慢）"</string>
+    <string name="l10n_word_s_98e9bd6f" formatted="false">"第 %s 个单词"</string>
     <string name="l10n_word_s_s_119250bc" formatted="false">"第 %1$s 个单词：%2$s"</string>
     <string name="l10n_working_b93900bd" formatted="false">"正在载入…"</string>
     <string name="l10n_write_down_your_seed_phrase_221efe05" formatted="false">"写下你的助记词"</string>
