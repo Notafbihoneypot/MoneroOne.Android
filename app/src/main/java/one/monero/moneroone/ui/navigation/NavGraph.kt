@@ -1,6 +1,7 @@
 package one.monero.moneroone.ui.navigation
 
 import one.monero.moneroone.core.locale.tr
+import androidx.biometric.BiometricManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
@@ -20,10 +21,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -237,6 +240,16 @@ fun MoneroOneNavHost(
         }
     }
 
+    // Onboarding runs from Welcome to Main. Its PIN save makes hasWallet true on the
+    // way to Biometrics, so the start screen changes to Main only when this ends
+    // (OnboardingRoutes.start). Kept out here so that a lock during onboarding
+    // comes back to the same step.
+    var onboarding by rememberSaveable { mutableStateOf(!walletState.hasWallet) }
+    LaunchedEffect(walletState.hasWallet) {
+        // With no wallet left, the next wallet goes through onboarding again.
+        if (!walletState.hasWallet) onboarding = true
+    }
+
     // Locked: only the lock screen is composed, nothing of the wallet behind it. Unlocking cross-fades
     // into the wallet as iOS does (ContentView's .easeInOut); locking is instant, so no wallet content
     // fades on screen when the app comes back to its lock.
@@ -265,9 +278,7 @@ fun MoneroOneNavHost(
             return@AnimatedContent
         }
 
-        val startDestination = remember(walletState.hasWallet) {
-            if (!walletState.hasWallet) Screen.Welcome.route else Screen.Main.route
-        }
+        val startDestination = OnboardingRoutes.start(walletState.hasWallet, onboarding)
 
         NavHost(
             navController = navController,
@@ -380,24 +391,41 @@ fun MoneroOneNavHost(
             }
 
             composable(Screen.SetPin.route) {
+                val context = LocalContext.current
                 SetPinScreen(
                     walletViewModel = walletViewModel,
                     onPinSet = {
-                        navController.navigate(Screen.SetupBiometrics.route) {
-                            popUpTo(Screen.SetPin.route) { inclusive = true }
+                        // As on iOS, a device that cannot use biometrics skips that step.
+                        val biometricsAvailable = BiometricManager.from(context)
+                            .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                            BiometricManager.BIOMETRIC_SUCCESS
+                        val next = OnboardingRoutes.afterPin(biometricsAvailable)
+                        if (next != null) {
+                            navController.navigate(next) {
+                                popUpTo(Screen.SetPin.route) { inclusive = true }
+                            }
+                        } else {
+                            // The start screen changes to Main, which replaces this screen.
+                            onboarding = false
                         }
                     }
                 )
             }
 
             composable(Screen.SetupBiometrics.route) {
-                SetupBiometricsScreen(
-                    walletViewModel = walletViewModel,
-                    onContinue = {
-                        navController.navigate(Screen.Main.route) {
+                // The wallet was removed from the lock screen during this step:
+                // nothing is left to set up, so start over at Welcome.
+                LaunchedEffect(walletState.hasWallet) {
+                    if (!walletState.hasWallet) {
+                        navController.navigate(Screen.Welcome.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                }
+                SetupBiometricsScreen(
+                    walletViewModel = walletViewModel,
+                    // The start screen changes to Main, which replaces this screen.
+                    onContinue = { onboarding = false }
                 )
             }
 

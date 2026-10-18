@@ -19,22 +19,26 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +46,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import one.monero.moneroone.core.wallet.WalletViewModel
+import one.monero.moneroone.ui.components.DelayedBusy
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.KeypadKey
 import one.monero.moneroone.ui.components.MoneroLogo
@@ -69,6 +76,12 @@ fun SetPinScreen(
     var confirmPin by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var shakeAnimation by remember { mutableStateOf(false) }
+    // The save waits until the new wallet's start reaches its node, which can take
+    // half a minute with a dead node. The keypad takes no input meanwhile, and a
+    // spinner shows once the wait is long enough to notice.
+    var saving by remember { mutableStateOf(false) }
+    val showBusy by remember { DelayedBusy.shown(snapshotFlow { saving }) }
+        .collectAsState(initial = false)
 
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -83,6 +96,7 @@ fun SetPinScreen(
     val currentPin = if (currentStep == 0) pin else confirmPin
 
     fun onDigitPress(digit: String) {
+        if (saving) return
         // Read the state, not this composition's snapshot: keys act on touch-down,
         // so two digits can land within one frame.
         val entered = if (currentStep == 0) pin else confirmPin
@@ -98,6 +112,10 @@ fun SetPinScreen(
                 if (confirmPin.length == PIN_LENGTH) {
                     if (confirmPin == pin) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        // A mismatch before this one left its message up.
+                        errorMessage = null
+                        // Stays set: on success the screen goes away.
+                        saving = true
                         val chosen = pin
                         scope.launch {
                             walletViewModel.setPin(chosen)
@@ -115,6 +133,7 @@ fun SetPinScreen(
     }
 
     fun onBackspace() {
+        if (saving) return
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         if (currentStep == 0 && pin.isNotEmpty()) {
             pin = pin.dropLast(1)
@@ -186,10 +205,31 @@ fun SetPinScreen(
             )
         }
 
+        // Drawn where the error shows, with no layout space of its own, so the
+        // dots stay put when it appears.
+        AnimatedVisibility(
+            visible = showBusy,
+            modifier = Modifier
+                .height(0.dp)
+                .wrapContentHeight(align = Alignment.Top, unbounded = true),
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            val working = tr("Working...")
+            CircularProgressIndicator(
+                color = MoneroOrange,
+                modifier = Modifier
+                    .size(24.dp)
+                    .semantics { contentDescription = working },
+                strokeWidth = 2.dp
+            )
+        }
+
         Spacer(modifier = Modifier.weight(0.5f))
 
         // Number pad
         NumberPad(
+            enabled = !saving,
             onDigitPress = ::onDigitPress,
             onBackspace = ::onBackspace
         )
@@ -238,6 +278,7 @@ private fun PinDots(
 
 @Composable
 private fun NumberPad(
+    enabled: Boolean,
     onDigitPress: (String) -> Unit,
     onBackspace: () -> Unit
 ) {
@@ -263,7 +304,8 @@ private fun NumberPad(
                             KeypadKey(onPress = onBackspace) { onClick ->
                                 IconButton(
                                     onClick = onClick,
-                                    modifier = Modifier.size(80.dp)
+                                    modifier = Modifier.size(80.dp),
+                                    enabled = enabled
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Backspace,
@@ -278,6 +320,7 @@ private fun NumberPad(
                             KeypadKey(onPress = { onDigitPress(button) }) { onClick ->
                                 NumberButton(
                                     digit = button,
+                                    enabled = enabled,
                                     onClick = onClick
                                 )
                             }
@@ -292,11 +335,13 @@ private fun NumberPad(
 @Composable
 private fun NumberButton(
     digit: String,
+    enabled: Boolean,
     onClick: () -> Unit
 ) {
     GlassButton(
         onClick = onClick,
-        modifier = Modifier.size(80.dp)
+        modifier = Modifier.size(80.dp),
+        enabled = enabled
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
