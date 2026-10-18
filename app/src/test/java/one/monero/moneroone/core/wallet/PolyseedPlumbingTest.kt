@@ -135,7 +135,7 @@ class PolyseedPlumbingTest {
             }
         }
         // Rejected by the Polyseed check, before any native key derivation.
-        assertEquals(4, warnings.count { it == "Seed rejected: Polyseed validation failed" })
+        assertEquals(4, warnings.count { it == "Phrase rejected: Polyseed validation failed" })
         val logged = warnings.flatMap { it.split(Regex("\\W+")) }.toSet()
         assertTrue("a seed word reached the log", en1.none { it in logged })
     }
