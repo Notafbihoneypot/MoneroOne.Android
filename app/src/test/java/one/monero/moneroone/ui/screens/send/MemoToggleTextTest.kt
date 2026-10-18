@@ -19,6 +19,16 @@ class MemoToggleTextTest {
     }
 
     @Test
+    fun aClosedLinkNoteReadsAddNote() {
+        assertEquals("Add note", memoToggleText(showMemo = false, linkMode = true))
+    }
+
+    @Test
+    fun anOpenLinkNoteReadsHideNote() {
+        assertEquals("Hide note", memoToggleText(showMemo = true, linkMode = true))
+    }
+
+    @Test
     fun bothTextsHaveTheIosTranslations() {
         assertTrue(listOf("Add memo", "Hide memo").all { it in localizedStrings })
     }
