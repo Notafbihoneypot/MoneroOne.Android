@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.util.LruCache
 import androidx.compose.foundation.layout.Spacer
@@ -21,31 +22,126 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
-import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import com.google.zxing.qrcode.encoder.ByteMatrix
+import com.google.zxing.qrcode.encoder.Encoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.R
 import one.monero.moneroone.ui.theme.MoneroTheme
-import java.nio.ByteBuffer
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
- * A QR code bitmap and its width in modules, the one-module margin included
- * (iOS QRBitmap: CoreImage draws the same margin).
+ * A rounded QR code as a bitmap: the modules alone, no quiet zone, [modules]
+ * wide. [logoModules] is the width of the cleared center the logo goes in, 0
+ * for a code without a logo.
  */
-class QrBitmap(val bitmap: Bitmap, val modules: Int)
+class QrBitmap(val bitmap: Bitmap, val modules: Int, val logoModules: Int)
 
 /**
- * QR codes as iOS QRCodeView draws them: error correction H, so the logo can
- * cover the center, and many pixels per module, drawn scaled down with
- * filtering. The modules keep clean edges at any size and glide while focus
- * mode grows the code; one pixel per module scaled up without filtering
- * jumps a pixel at a time mid-grow.
+ * The look of the rounded code (iOS QRStyle and QRStyledCode, the same
+ * numbers): round dots, finder patterns with rounded corners, and a round
+ * cleared center for the logo, in the style of Cash App's codes. Lengths are
+ * in modules (one module = one cell of the code).
+ */
+object QrStyle {
+    /** Data, timing and alignment modules: filled circles this wide. */
+    const val DOT_DIAMETER = 0.8
+
+    // The finder patterns keep their exact cells: a 7 x 7 ring 1 module
+    // thick, a 1-module light gap, a 3 x 3 center. Only the corners round.
+
+    /** Corner radius of the ring's outer edge. */
+    const val FINDER_OUTER_RADIUS = 1.5
+    /** Corner radius of the ring's inner edge (the 5 x 5 hole). */
+    const val FINDER_INNER_RADIUS = 0.75
+    /** Corner radius of the 3 x 3 center. */
+    const val FINDER_CENTER_RADIUS = 0.25
+
+    /** The logo's width as a fraction of the code's width, quiet zone not included. */
+    const val LOGO_FRACTION = 0.28
+    /** Empty space around the logo: cells closer than this to its edge are cleared. */
+    const val LOGO_PADDING = 1.0
+
+    /** The smallest code that gets a logo: version 5 (37 modules). */
+    const val MINIMUM_LOGO_CODE_SIZE = 37
+
+    /** White around the code on its plate, in modules (iOS: 2; Cash App: about 1.8). */
+    const val PLATE_QUIET_ZONE = 2
+
+    /** White around the code in the shared and saved image, in modules: it lands on unknown backgrounds and prints. */
+    const val IMAGE_QUIET_ZONE = 4
+
+    /** The logo's width in modules: the odd number nearest to [LOGO_FRACTION] of the code, or 0 (no logo). */
+    fun logoModules(size: Int): Int {
+        if (LOGO_FRACTION <= 0.0 || size < MINIMUM_LOGO_CODE_SIZE) return 0
+        val exact = LOGO_FRACTION * size
+        val odd = ((exact - 1) / 2).roundToInt() * 2 + 1
+        return max(1, min(odd, size - 16))
+    }
+
+    /** True when the logo clears this cell: the cell comes closer than the padding to the round logo's edge. */
+    fun isCleared(row: Int, column: Int, size: Int, logoModules: Int): Boolean {
+        if (logoModules <= 0) return false
+        val center = size / 2.0
+        // The cell's nearest point to the code's center, per axis.
+        val dx = max(abs(column + 0.5 - center) - 0.5, 0.0)
+        val dy = max(abs(row + 0.5 - center) - 0.5, 0.0)
+        val reach = logoModules / 2.0 + LOGO_PADDING
+        return dx * dx + dy * dy < reach * reach
+    }
+
+    /** True for the cells of the three 7 x 7 finder patterns. */
+    fun isFinder(row: Int, column: Int, size: Int): Boolean {
+        val far = size - 7
+        return (row < 7 && column < 7) || (row < 7 && column >= far) || (row >= far && column < 7)
+    }
+
+    /**
+     * Draws the dark shapes of [matrix] in black into a [side] x [side]
+     * square at the canvas origin, no quiet zone, with the logo's area left
+     * empty.
+     */
+    fun draw(canvas: Canvas, matrix: ByteMatrix, side: Float, logoModules: Int, paint: Paint) {
+        val n = matrix.width
+        val module = side / n
+        val dot = DOT_DIAMETER.coerceIn(0.1, 1.0).toFloat() * module
+        for (row in 0 until n) {
+            for (column in 0 until n) {
+                if (matrix[column, row].toInt() != 1) continue
+                if (isFinder(row, column, n) || isCleared(row, column, n, logoModules)) continue
+                canvas.drawCircle((column + 0.5f) * module, (row + 0.5f) * module, dot / 2f, paint)
+            }
+        }
+        // A rounded square with a rounded hole and a rounded center: even-odd
+        // fill makes the ring.
+        val finders = Path().apply { fillType = Path.FillType.EVEN_ODD }
+        for ((row, column) in listOf(0 to 0, 0 to n - 7, n - 7 to 0)) {
+            val outer = RectF(column * module, row * module, (column + 7) * module, (row + 7) * module)
+            finders.addRoundedSquare(outer, FINDER_OUTER_RADIUS.toFloat() * module)
+            finders.addRoundedSquare(outer.insetBy(module), FINDER_INNER_RADIUS.toFloat() * module)
+            finders.addRoundedSquare(outer.insetBy(2 * module), FINDER_CENTER_RADIUS.toFloat() * module)
+        }
+        canvas.drawPath(finders, paint)
+    }
+
+    private fun RectF.insetBy(d: Float) = RectF(left + d, top + d, right - d, bottom - d)
+
+    private fun Path.addRoundedSquare(rect: RectF, radius: Float) {
+        val r = radius.coerceIn(0f, rect.width() / 2f)
+        if (r > 0f) addRoundRect(rect, r, r, Path.Direction.CW) else addRect(rect, Path.Direction.CW)
+    }
+}
+
+/**
+ * Rounded QR codes (iOS QRStyledCode): error correction Q, drawn with many
+ * pixels per module and shown scaled down with filtering. The shapes keep
+ * clean edges at any size and glide while focus mode grows the code.
  */
 object QrCodes {
     /** At least this many pixels wide: the largest focus code (448 dp) at 3x, so a code is only scaled down. */
@@ -65,32 +161,25 @@ object QrCodes {
     /** The code for [content], or null when the text does not fit in a QR code. Call off the main thread. */
     fun bitmap(content: String): QrBitmap? {
         cache.get(content)?.let { return it }
+        // The modules alone: the encoder adds no margin. ASCII text goes in
+        // plain byte mode, as CoreImage writes it, so both apps make the same
+        // version; other text is UTF-8 with its ECI header.
+        val hints = if (content.all { it.code < 0x80 }) emptyMap()
+            else mapOf(EncodeHintType.CHARACTER_SET to "UTF-8")
         val matrix = try {
-            QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, 0, 0, mapOf(
-                EncodeHintType.MARGIN to 1,
-                EncodeHintType.CHARACTER_SET to "UTF-8",
-                EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H
-            ))
+            Encoder.encode(content, ErrorCorrectionLevel.Q, hints).matrix
         } catch (e: Exception) {
             return null
         }
-        // Width 0 draws one pixel per module, the margin included.
         val modules = matrix.width
-        val scale = ceil(BITMAP_WIDTH.toDouble() / modules).toInt()
-        val side = modules * scale
-        val pixels = ByteArray(side * side)
-        for (y in 0 until modules) {
-            val row = ByteArray(side)
-            for (x in 0 until modules) {
-                if (matrix[x, y]) row.fill(0xFF.toByte(), x * scale, (x + 1) * scale)
-            }
-            for (i in 0 until scale) System.arraycopy(row, 0, pixels, (y * scale + i) * side, side)
-        }
+        val logoModules = QrStyle.logoModules(modules)
+        val side = modules * ceil(BITMAP_WIDTH.toDouble() / modules).toInt()
         val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ALPHA_8)
-        bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(pixels))
+        QrStyle.draw(Canvas(bitmap), matrix, side.toFloat(), logoModules,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.BLACK })
         bitmap.setHasMipMap(true)
         bitmap.prepareToDraw()
-        return QrBitmap(bitmap, modules).also { cache.put(content, it) }
+        return QrBitmap(bitmap, modules, logoModules).also { cache.put(content, it) }
     }
 
     @Volatile private var logo: Bitmap? = null
@@ -107,26 +196,24 @@ object QrCodes {
 
     private val codePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { color = android.graphics.Color.BLACK }
     private val imagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val whitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
 
     /**
-     * The code filling [rect] and the logo on a white disc at its center
-     * (iOS QRCodeView): the disc is 22% of the code, the mark inset 10%.
+     * The code filling [rect] and the mark in its cleared center (iOS
+     * QRStyledCode): the mark is as wide as the logo's modules, with no disc
+     * behind it.
      */
     fun drawCode(canvas: Canvas, code: QrBitmap, logo: Bitmap?, rect: RectF) {
         canvas.drawBitmap(code.bitmap, null, rect, codePaint)
-        val disc = rect.width() * 0.22f
-        canvas.drawCircle(rect.centerX(), rect.centerY(), disc / 2f, whitePaint)
-        if (logo != null) {
-            val half = disc * 0.8f / 2f
+        if (logo != null && code.logoModules > 0) {
+            val half = rect.width() * code.logoModules / code.modules / 2f
             canvas.drawBitmap(logo, null,
                 RectF(rect.centerX() - half, rect.centerY() - half, rect.centerX() + half, rect.centerY() + half), imagePaint)
         }
     }
 
     /**
-     * A code on its white plate (iOS QRPlate): four modules of quiet zone
-     * (the code's own margin plus three), corners that round as it grows,
+     * A code on its white plate (iOS QRPlate): two modules of quiet zone,
+     * corners that round as it grows,
      * the shadow inside the plate so a growing copy looks exactly like the
      * code it starts from, and a hairline edge in light mode. [code] null
      * draws the plate alone, while the code is made.
@@ -155,22 +242,24 @@ object QrCodes {
                 })
         }
         if (code != null) {
-            val quiet = side * 3f / (code.modules + 6)
+            val quiet = side * QrStyle.PLATE_QUIET_ZONE / (code.modules + 2 * QrStyle.PLATE_QUIET_ZONE)
             drawCode(canvas, code, logo, RectF(rect.left + quiet, rect.top + quiet, rect.right - quiet, rect.bottom - quiet))
         }
     }
 
     /**
      * The image Save to Photos and Share QR Code hand out (iOS
-     * QRCodeRenderer): the code with its one-module margin and the logo,
-     * 1200 px square, on white.
+     * QRCodeRenderer): the code with four modules of quiet zone
+     * and the logo, 1200 px square, on white. Chat apps round the corners of
+     * an image; the quiet zone keeps them off the finder patterns.
      */
     fun image(context: Context, content: String, size: Int = 1200): Bitmap? {
         val code = bitmap(content) ?: return null
         val image = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(image)
         canvas.drawColor(android.graphics.Color.WHITE)
-        drawCode(canvas, code, logo(context), RectF(0f, 0f, size.toFloat(), size.toFloat()))
+        val margin = size.toFloat() * QrStyle.IMAGE_QUIET_ZONE / (code.modules + 2 * QrStyle.IMAGE_QUIET_ZONE)
+        drawCode(canvas, code, logo(context), RectF(margin, margin, size - margin, size - margin))
         return image
     }
 }
