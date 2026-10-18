@@ -9,7 +9,9 @@ import io.horizontalsystems.hdwalletkit.Mnemonic
 import io.horizontalsystems.monerokit.Balance
 import io.horizontalsystems.monerokit.CakeWalletStyleConverter
 import io.horizontalsystems.monerokit.MoneroKit
+import io.horizontalsystems.monerokit.PreparedTransactionLostException
 import io.horizontalsystems.monerokit.Seed
+import io.horizontalsystems.monerokit.SignedTransaction
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.data.Subaddress
 import io.horizontalsystems.monerokit.model.NetworkType
@@ -2143,7 +2145,19 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun send(flow: SendFlow, address: String, amount: Long, memo: String? = null, isSweepAll: Boolean = false) {
+    /**
+     * [prepared]: the transfer [prepareSend] built for the review, broadcast as it is, so the fee paid is the fee
+     * the review showed. When it is gone (the wallet closed, or another build replaced it), nothing is broadcast
+     * and the send fails.
+     */
+    fun send(
+        flow: SendFlow,
+        address: String,
+        amount: Long,
+        memo: String? = null,
+        isSweepAll: Boolean = false,
+        prepared: PreparedSend? = null
+    ) {
         val operation = sendCoordinator.begin(flow, _activeWallet.value?.id, isSweepAll || amount > 0L)
             ?: return
         viewModelScope.launch {
@@ -2161,7 +2175,12 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     return@launch
                 }
                 withContext(Dispatchers.IO) {
-                    kit.send(amount, address, memo, sweepAll = isSweepAll)
+                    when {
+                        prepared == null -> kit.send(amount, address, memo, sweepAll = isSweepAll)
+                        // Only the transfer the review showed may go out.
+                        !prepared.matches(address, amount, isSweepAll) -> throw PreparedTransactionLostException()
+                        else -> kit.sendPrepared(prepared.signed, memo)
+                    }
                 }
                 one.monero.moneroone.core.util.SoundFeedback.sendComplete(context)
                 // MoneroKit.send() doesn't return txHash, we'll show success without it
@@ -2178,6 +2197,19 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     fun resetSendState(flow: SendFlow) {
         sendCoordinator.dismiss(flow)
     }
+
+    /**
+     * Builds and signs a transfer of [amount] to [address] (or a sweep) at the send priority, without sending it.
+     * Its fee is the one it pays for every input it spends; [estimateFee] counts one input. [send] with it as
+     * `prepared` broadcasts this same transaction. Throws when there is no wallet or the build fails. Off Main.
+     */
+    fun prepareSend(address: String, amount: Long, isSweepAll: Boolean = false): SignedTransaction {
+        val kit = WalletManager.kit ?: throw IllegalStateException("Wallet is not connected")
+        return kit.prepareSend(amount, address, null, sweepAll = isSweepAll)
+    }
+
+    /** The transfer [prepareSend] built for [prepared] still waits to go out on the open wallet. Off Main. */
+    fun isPrepared(prepared: PreparedSend): Boolean = WalletManager.kit?.isPrepared(prepared.signed) == true
 
     fun estimateFee(address: String, amount: Long, isSweepAll: Boolean = false): Long {
         return try {
