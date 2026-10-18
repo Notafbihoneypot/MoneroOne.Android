@@ -51,6 +51,7 @@ import one.monero.moneroone.ui.screens.receive.ReceiveScreen
 import one.monero.moneroone.ui.screens.send.QRScannerScreen
 import one.monero.moneroone.ui.screens.send.SendScreen
 import one.monero.moneroone.ui.screens.transactions.TransactionDetailScreen
+import one.monero.moneroone.ui.screens.transactions.TransactionFilter
 import one.monero.moneroone.ui.screens.transactions.TransactionListScreen
 import one.monero.moneroone.ui.screens.unlock.UnlockScreen
 import one.monero.moneroone.ui.screens.wallet.AddWalletScreen
@@ -68,6 +69,12 @@ import one.monero.moneroone.ui.screens.settings.WidgetSettingsScreen
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.ui.screens.chart.ChartViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
+import one.monero.moneroone.paymentlinks.ClaimSheetHost
+import one.monero.moneroone.paymentlinks.ActivityTransactionDestination
+import one.monero.moneroone.paymentlinks.PaymentLinkCodec
+import one.monero.moneroone.paymentlinks.PaymentLinkDetailScreen
+import one.monero.moneroone.paymentlinks.PaymentLinkRoutes
+import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
 import kotlinx.coroutines.flow.map
 
 sealed class Screen(val route: String) {
@@ -98,9 +105,12 @@ sealed class Screen(val route: String) {
     data object TransactionDetail : Screen("transaction/{txId}") {
         fun createRoute(txId: String) = "transaction/$txId"
     }
-    data object TransactionList : Screen("transaction_list?asOf={asOf}") {
-        /** [asOf] (epoch ms) lists only what had happened by then; null lists everything. */
-        fun createRoute(asOf: Long? = null) = if (asOf != null) "transaction_list?asOf=$asOf" else "transaction_list"
+    data object TransactionList : Screen("transaction_list?asOf={asOf}&filter={filter}") {
+        /** [asOf] (epoch ms) lists only what had happened by then; null lists everything. [links] opens the Links filter. */
+        fun createRoute(asOf: Long? = null, links: Boolean = false): String {
+            val args = listOfNotNull(asOf?.let { "asOf=$it" }, "filter=links".takeIf { links })
+            return if (args.isEmpty()) "transaction_list" else "transaction_list?" + args.joinToString("&")
+        }
     }
     data object AddressPicker : Screen("address_picker")
     data object Settings : Screen("settings")
@@ -127,7 +137,8 @@ fun MoneroOneNavHost(
     onPaymentLinkConsumed: () -> Unit = {},
     navController: NavHostController = rememberNavController(),
     walletViewModel: WalletViewModel = viewModel(),
-    chartViewModel: ChartViewModel = viewModel()
+    chartViewModel: ChartViewModel = viewModel(),
+    paymentLinks: PaymentLinksViewModel = viewModel()
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val isLocked by walletViewModel.isLocked.collectAsState()
@@ -390,7 +401,8 @@ fun MoneroOneNavHost(
                     navController = navController,
                     chartViewModel = chartViewModel,
                     onNavigateToSend = { navController.navigate(Screen.Send.createRoute()) },
-                    onNavigateToReceive = { navController.navigate(Screen.Receive.route) }
+                    onNavigateToReceive = { navController.navigate(Screen.Receive.route) },
+                    paymentLinks = paymentLinks
                 )
             }
 
@@ -434,7 +446,9 @@ fun MoneroOneNavHost(
                         navController.navigate(Screen.Main.route) {
                             popUpTo(Screen.Main.route) { inclusive = true }
                         }
-                    }
+                    },
+                    paymentLinks = paymentLinks,
+                    onClaimLink = { paymentLinks.store.accept(it) }
                 )
             }
 
@@ -444,6 +458,14 @@ fun MoneroOneNavHost(
                     onScanned = { uriData ->
                         navController.popBackStack()
                         navController.navigate(Screen.Send.createRoute(uriData.address, uriData.amount, SendPrefillSource.QR_CODE))
+                    },
+                    onClaimLink = { raw ->
+                        PaymentLinkCodec.isClaimLink(raw).also { claim ->
+                            if (claim) {
+                                paymentLinks.store.accept(raw)
+                                navController.popBackStack()
+                            }
+                        }
                     }
                 )
             }
@@ -474,11 +496,26 @@ fun MoneroOneNavHost(
                 )
             ) { backStackEntry ->
                 val txId = backStackEntry.arguments?.getString("txId") ?: ""
-                TransactionDetailScreen(
-                    walletViewModel = walletViewModel,
+                // A payment link transaction opens the link's detail.
+                ActivityTransactionDestination(
                     txId = txId,
-                    onBack = { navController.popBackStack() }
-                )
+                    linkDetail = { kind, id ->
+                        PaymentLinkDetailScreen(
+                            paymentLinks = paymentLinks,
+                            walletViewModel = walletViewModel,
+                            kind = kind,
+                            id = id,
+                            onBack = { navController.popBackStack() },
+                            onOpenTransaction = { navController.navigate(PaymentLinkRoutes.transaction(it)) }
+                        )
+                    }
+                ) {
+                    TransactionDetailScreen(
+                        walletViewModel = walletViewModel,
+                        txId = txId,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
 
             composable(
@@ -487,16 +524,39 @@ fun MoneroOneNavHost(
                     navArgument("asOf") {
                         type = NavType.LongType
                         defaultValue = -1L
+                    },
+                    navArgument("filter") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { backStackEntry ->
                 TransactionListScreen(
                     walletViewModel = walletViewModel,
+                    paymentLinks = paymentLinks,
                     asOf = backStackEntry.arguments?.getLong("asOf")?.takeIf { it >= 0 },
+                    initialFilter = if (backStackEntry.arguments?.getString("filter") == "links") TransactionFilter.LINKS else TransactionFilter.ALL,
                     onBack = { navController.popBackStack() },
                     onTransactionClick = { txId ->
                         navController.navigate(Screen.TransactionDetail.createRoute(txId))
-                    }
+                    },
+                    onOpenSentLink = { id -> navController.navigate(PaymentLinkRoutes.sentDetail(id)) }
+                )
+            }
+
+            // A sent link with no funding row in the open wallet's history (its funding wallet is gone).
+            composable(
+                route = PaymentLinkRoutes.SENT_DETAIL,
+                arguments = listOf(navArgument("id") { type = NavType.StringType })
+            ) { backStackEntry ->
+                PaymentLinkDetailScreen(
+                    paymentLinks = paymentLinks,
+                    walletViewModel = walletViewModel,
+                    kind = PaymentLinkRoutes.SENT,
+                    id = backStackEntry.arguments?.getString("id").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onOpenTransaction = { navController.navigate(PaymentLinkRoutes.transaction(it)) }
                 )
             }
 
@@ -594,6 +654,30 @@ fun MoneroOneNavHost(
                     }
                 )
             }
+
+            composable(
+                route = PaymentLinkRoutes.TRANSACTION,
+                arguments = listOf(navArgument("txId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                TransactionDetailScreen(
+                    walletViewModel = walletViewModel,
+                    txId = backStackEntry.arguments?.getString("txId").orEmpty(),
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
+
+        // Payment link claims: after unlock, with a wallet, and never over wallet setup.
+        val setupRoutes = remember {
+            setOf(
+                Screen.Welcome.route, Screen.CreateWallet.route, Screen.RestoreWallet.route, Screen.AddWallet.route,
+                Screen.SetPin.route, Screen.SetupBiometrics.route, Screen.Unlock.route, Screen.QRScanner.route
+            )
+        }
+        ClaimSheetHost(
+            paymentLinks = paymentLinks,
+            walletViewModel = walletViewModel,
+            canShow = walletState.hasWallet && entry?.destination?.route.let { it != null && it !in setupRoutes }
+        )
     }
 }

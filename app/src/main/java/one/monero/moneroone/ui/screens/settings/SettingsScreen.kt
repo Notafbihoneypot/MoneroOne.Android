@@ -74,6 +74,7 @@ import one.monero.moneroone.BuildConfig
 import one.monero.moneroone.core.alert.PriceAlertManager
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.data.model.PriceAlert
+import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.ui.components.DismissTextButton
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.MoneroSwitch
@@ -342,8 +343,11 @@ fun SettingsScreen(
                 )
             },
             text = {
+                // Remove All also wipes payment links: a sent link that may still hold money is lost with it.
+                val linksLost = remember { PaymentLinkStore.get(context).hasUnsettledSentLinks() }
                 Text(
-                    text = tr("You can restore them only with their seed phrases."),
+                    text = tr("You can restore them only with their seed phrases.") +
+                        if (linksLost) "\n" + tr("Unclaimed payment links will be lost.") else "",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },

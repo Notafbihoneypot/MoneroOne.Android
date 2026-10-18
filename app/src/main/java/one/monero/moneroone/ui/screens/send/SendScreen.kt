@@ -5,6 +5,9 @@ import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -24,6 +27,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -50,6 +54,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
@@ -70,9 +75,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -93,6 +100,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -100,17 +110,31 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.MoneroKit
+import io.horizontalsystems.monerokit.SignedTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.util.NetworkMonitor
 import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.SendFlow
 import one.monero.moneroone.core.wallet.SendRequest
 import one.monero.moneroone.core.wallet.WalletViewModel
+import one.monero.moneroone.paymentlinks.EnvelopeDraft
+import one.monero.moneroone.paymentlinks.LinkNames
+import one.monero.moneroone.paymentlinks.PaymentLinkCodec
+import one.monero.moneroone.paymentlinks.PaymentLinkParse
+import one.monero.moneroone.paymentlinks.PaymentLinkReadyPhase
+import one.monero.moneroone.paymentlinks.PaymentLinkRecipientToken
+import one.monero.moneroone.paymentlinks.PaymentLinkReview
+import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
+import one.monero.moneroone.paymentlinks.fundingFailedBeforeBroadcast
+import one.monero.moneroone.paymentlinks.linkFundingErrorText
+import one.monero.moneroone.paymentlinks.linkFundingUnconfirmed
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
@@ -151,6 +175,30 @@ private val SendFlowSaver = listSaver<SendFlow, String?>(
     restore = { SendFlow(walletId = it[0], id = requireNotNull(it[1])) }
 )
 
+/** What system back does on a Send step. */
+internal sealed interface SendBack {
+    /** Leave Send. */
+    object Close : SendBack
+
+    /** Go back one step. */
+    data class Step(val to: SendPhase) : SendBack
+
+    /** Nothing: the step has no back. */
+    object Blocked : SendBack
+}
+
+/**
+ * System back on each Send step (iOS SendFlowView). Address closes Send; Amount and Review go
+ * back one step. Sending, Success and Error have no back: back must never leave a broadcast in
+ * flight, and Success and Error leave only through their own buttons (Done, Try Again, Close).
+ */
+internal fun sendBack(phase: SendPhase): SendBack = when (phase) {
+    SendPhase.ADDRESS -> SendBack.Close
+    SendPhase.AMOUNT -> SendBack.Step(SendPhase.ADDRESS)
+    SendPhase.REVIEW -> SendBack.Step(SendPhase.AMOUNT)
+    SendPhase.SENDING, SendPhase.SUCCESS, SendPhase.ERROR -> SendBack.Blocked
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendScreen(
@@ -162,7 +210,10 @@ fun SendScreen(
     onIncomingLink: (link: OpenSendLink, accepted: Boolean) -> Unit = { _, _ -> },
     onBack: () -> Unit,
     onScanQr: () -> Unit,
-    onSent: () -> Unit
+    onSent: () -> Unit,
+    // Payment links: the Link capsule, and claim links pasted into the recipient field.
+    paymentLinks: PaymentLinksViewModel? = null,
+    onClaimLink: (String) -> Unit = {}
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val flow = rememberSaveable(saver = SendFlowSaver) { SendFlow(walletViewModel.activeWallet.value?.id) }
@@ -205,6 +256,8 @@ fun SendScreen(
     var amount by rememberSaveable { mutableStateOf(prefilledAmount ?: "") }
     var isSweepAll by rememberSaveable { mutableStateOf(false) }
     var memo by rememberSaveable { mutableStateOf("") }
+    // A link's note: this phone only, never in the link or the tx memo.
+    var linkNote by rememberSaveable { mutableStateOf("") }
     // The confirmation stays in memory only: after a recreation, Review
     // shows again and Send asks for a new confirmation.
     var sendInProgress by remember { mutableStateOf(false) }
@@ -219,12 +272,36 @@ fun SendScreen(
     var feeLoading by remember { mutableStateOf(false) }
     var feeError by remember { mutableStateOf<String?>(null) }
 
+    // Link mode: the recipient is "Anyone with the link" and the funds go to a new envelope.
+    // Saved with the step, so a recreated Review stays a link review. The draft and the signed
+    // funding stay in memory only: after a recreation, Review builds them again.
+    var linkMode by rememberSaveable { mutableStateOf(false) }
+    var linkDraft by remember { mutableStateOf<EnvelopeDraft?>(null) }
+    var linkFeeReserve by remember { mutableLongStateOf(0L) }
+    // The funding the review built and signed (its real fee shows there); Send broadcasts this one.
+    var linkPrepared by remember { mutableStateOf<SignedTransaction?>(null) }
+    // Bumped to build the funding again (the one the review built is gone).
+    var linkRebuild by remember { mutableIntStateOf(0) }
+    val linkScope = rememberCoroutineScope()
+    var linkFundingError by remember { mutableStateOf<String?>(null) }
+    val canSendWithLink = paymentLinks != null && walletViewModel.activeWallet.value?.isViewOnly == false
+
     // React to send state changes from ViewModel
     LaunchedEffect(sendState) {
         when (sendState) {
             is SendState.Sending -> phase = SendPhase.SENDING
-            is SendState.Success -> { phase = SendPhase.SUCCESS; sendInProgress = false }
-            is SendState.Error -> { phase = SendPhase.ERROR; sendInProgress = false }
+            is SendState.Success -> {
+                if (linkMode) linkDraft?.let { paymentLinks?.fundingFinished(it.link.id, success = true) }
+                phase = SendPhase.SUCCESS; sendInProgress = false
+            }
+            is SendState.Error -> {
+                // A failure before the broadcast needs no envelope scan; any other may have reached the network.
+                val error = (sendState as? SendState.Error)?.message.orEmpty()
+                if (linkMode) linkDraft?.let {
+                    paymentLinks?.fundingFinished(it.link.id, success = false, beforeBroadcast = fundingFailedBeforeBroadcast(error))
+                }
+                phase = SendPhase.ERROR; sendInProgress = false
+            }
             // Sending, restored with no send in progress: the process stopped
             // during the send, so its result is lost. Leave Send. The wallet
             // shows the payment if it went out.
@@ -253,6 +330,8 @@ fun SendScreen(
         val link = incomingLink ?: return@LaunchedEffect
         val accepted = acceptsPaymentLink(phase, confirmed = sendInProgress)
         if (accepted) {
+            linkMode = false
+            linkDraft = null
             address = link.address
             amount = link.amount?.trim()?.takeIf { walletViewModel.parseXmr(it) > 0 } ?: ""
             amountPrefilledFromQR = amount.isNotEmpty()
@@ -270,12 +349,13 @@ fun SendScreen(
         onIncomingLink(link, accepted)
     }
 
-    // Handle system back button/gesture
+    // System back button and gesture. Always enabled, so on Sending, Success and Error it
+    // takes the back and does nothing, as iOS (the Send screen must not close mid-broadcast).
     BackHandler {
-        when (phase) {
-            SendPhase.AMOUNT -> goBack(SendPhase.ADDRESS)
-            SendPhase.REVIEW -> goBack(SendPhase.AMOUNT)
-            else -> onBack()
+        when (val back = sendBack(phase)) {
+            SendBack.Close -> onBack()
+            is SendBack.Step -> goBack(back.to)
+            SendBack.Blocked -> {}
         }
     }
 
@@ -288,7 +368,7 @@ fun SendScreen(
                     Text(
                         text = when (phase) {
                             SendPhase.ADDRESS -> tr("Send XMR")
-                            SendPhase.AMOUNT -> if (address.length > 20) tr("Send to %s", truncateMiddle(address)) else tr("Amount")
+                            SendPhase.AMOUNT -> if (linkMode) tr("Send with a link") else if (address.length > 20) tr("Send to %s", truncateMiddle(address)) else tr("Amount")
                             SendPhase.REVIEW -> tr("Review")
                             else -> ""
                         },
@@ -339,9 +419,29 @@ fun SendScreen(
             when (currentPhase) {
                 SendPhase.ADDRESS -> AddressPhase(
                     address = address,
-                    onAddressChange = { address = it },
+                    onAddressChange = {
+                        // A pasted claim link opens the claim sheet (which explains a cut-off one); it is never
+                        // an address. Typed by hand, a link opens once it is whole.
+                        val pasted = it.length - address.length > 1
+                        val link = PaymentLinkCodec.parse(it)
+                        val whole = link is PaymentLinkParse.Valid || link == PaymentLinkParse.NeedsUpdate
+                        if (paymentLinks != null && (whole || pasted && link != PaymentLinkParse.NotALink)) {
+                            // The start of the link typed so far is no address either.
+                            if (PaymentLinkCodec.isClaimLink(address)) address = ""
+                            onClaimLink(it.trim())
+                        } else {
+                            address = it
+                        }
+                    },
                     onScanQr = onScanQr,
-                    onContinue = { goForward(SendPhase.AMOUNT) }
+                    onContinue = { goForward(SendPhase.AMOUNT) },
+                    linkMode = linkMode,
+                    showLinkButton = canSendWithLink,
+                    onLinkModeChange = { on ->
+                        linkMode = on
+                        linkDraft = null
+                        isSweepAll = false
+                    }
                 )
                 SendPhase.AMOUNT -> {
                     val currentPrice by walletViewModel.currentPrice.collectAsState()
@@ -362,12 +462,39 @@ fun SendScreen(
                         prefillSource = amountSource,
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
-                        memo = memo,
-                        onMemoChange = { memo = it },
-                        onContinue = { goForward(SendPhase.REVIEW) }
+                        memo = if (linkMode) linkNote else memo,
+                        onMemoChange = { if (linkMode) linkNote = it.take(LinkNames.NOTE_LIMIT) else memo = it },
+                        onContinue = { goForward(SendPhase.REVIEW) },
+                        linkMode = linkMode,
+                        notePlaceholder = if (linkMode) remember(paymentLinks) { paymentLinks?.nextName() } else null
                     )
                 }
-                SendPhase.REVIEW -> {
+                SendPhase.REVIEW -> if (linkMode && paymentLinks != null) {
+                    val currentPrice by walletViewModel.currentPrice.collectAsState()
+                    val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
+                    PaymentLinkReview(
+                        paymentLinks = paymentLinks,
+                        amount = walletViewModel.parseXmr(amount),
+                        unlockedBalance = walletState.balance.unlocked,
+                        existingDraft = linkDraft,
+                        onDraft = { linkDraft = it },
+                        formatXmr = walletViewModel::formatXmr,
+                        estimateFee = { to, amt -> walletViewModel.estimateFee(to, amt) },
+                        prepareFunding = { to, amt -> walletViewModel.prepareSend(to, amt, memo = "Payment link") },
+                        rebuild = linkRebuild,
+                        xmrPrice = currentPrice?.price,
+                        currencySymbol = selectedCurrency.symbol,
+                        sendInProgress = sendInProgress,
+                        note = LinkNames.cleanNote(linkNote).orEmpty(),
+                        onConfirm = { draft, reserve, prepared ->
+                            linkDraft = draft
+                            linkFeeReserve = reserve
+                            linkPrepared = prepared
+                            sendInProgress = true
+                            showAuthGate = true
+                        }
+                    )
+                } else {
                     val currentPrice by walletViewModel.currentPrice.collectAsState()
                     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
                     ReviewPhase(
@@ -399,13 +526,24 @@ fun SendScreen(
                 )
                 }
                 SendPhase.SENDING -> SendingPhase()
-                SendPhase.SUCCESS -> SuccessPhase(
-                    txHash = (sendState as? SendState.Success)?.txHash ?: "",
-                    onDone = onSent
-                )
+                SendPhase.SUCCESS -> {
+                    val draft = linkDraft
+                    if (linkMode && draft != null) {
+                        PaymentLinkReadyPhase(draft.link, walletViewModel.formatXmr(draft.amount), onDone = onSent)
+                    } else {
+                        SuccessPhase(
+                            txHash = (sendState as? SendState.Success)?.txHash ?: "",
+                            onDone = onSent
+                        )
+                    }
+                }
                 SendPhase.ERROR -> ErrorPhase(
-                    message = (sendState as? SendState.Error)?.message ?: tr("Transaction Failed"),
+                    message = linkFundingError
+                        ?: (sendState as? SendState.Error)?.message?.let { if (linkMode) linkFundingErrorText(it) else it }
+                        ?: tr("Transaction Failed"),
+                    canRetry = !linkMode,
                     onRetry = {
+                        linkFundingError = null
                         walletViewModel.resetSendState(flow)
                         goBack(SendPhase.REVIEW)
                     },
@@ -425,10 +563,52 @@ fun SendScreen(
             subtitle = tr("Confirm this transaction"),
             onAuthenticated = {
                 showAuthGate = false
-                walletViewModel.send(
-                    flow,
-                    SendRequest.of(address, walletViewModel.parseXmr(amount), memo, isSweepAll)
-                )
+                val draft = linkDraft
+                if (linkMode && paymentLinks != null && draft != null) linkScope.launch {
+                    val id = draft.link.id
+                    val prepared = linkPrepared
+                    val record = paymentLinks.store.sent(id)
+                    when {
+                        // The funding the review built is gone (the wallet restarted meanwhile): the review builds
+                        // it again and shows its fee. Nothing is saved or sent.
+                        record == null && (prepared == null || !withContext(Dispatchers.IO) { walletViewModel.isPrepared(prepared) }) -> {
+                            linkPrepared = null
+                            linkRebuild++
+                            sendInProgress = false
+                        }
+                        // A saved record consumed this link's one funding attempt, which may have gone out.
+                        record != null -> {
+                            linkFundingError = linkFundingUnconfirmed()
+                            phase = SendPhase.ERROR
+                            sendInProgress = false
+                        }
+                        // The record is saved before any broadcast; without it, nothing is sent.
+                        !paymentLinks.recordBeforeFunding(
+                            draft, walletViewModel.activeWallet.value?.id.orEmpty(), linkFeeReserve, note = linkNote
+                        ) -> {
+                            // Send flow error: the link's record could not be saved, so no funding went out.
+                            linkFundingError = tr("Could not save the payment link. Nothing was sent.")
+                            phase = SendPhase.ERROR
+                            sendInProgress = false
+                        }
+                        // The signed funding's txids go on the record before the broadcast: a funding whose
+                        // broadcast times out is still found by its txid once it shows.
+                        // The transaction the review built goes out as it is: its fee is the one the review showed.
+                        else -> walletViewModel.send(
+                            flow,
+                            draft.address,
+                            prepared?.amount ?: (draft.amount + linkFeeReserve),
+                            memo = "Payment link",
+                            beforeCommit = { signed -> paymentLinks.fundingSigned(id, signed.txids) },
+                            prepared = prepared
+                        )
+                    }
+                } else {
+                    walletViewModel.send(
+                        flow,
+                        SendRequest.of(address, walletViewModel.parseXmr(amount), memo, isSweepAll)
+                    )
+                }
             },
             onCancel = {
                 showAuthGate = false
@@ -447,9 +627,13 @@ private fun AddressPhase(
     address: String,
     onAddressChange: (String) -> Unit,
     onScanQr: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    linkMode: Boolean = false,
+    /** The Link capsule: any wallet that can send (view-only wallets do not see it). */
+    showLinkButton: Boolean = false,
+    onLinkModeChange: (Boolean) -> Unit = {}
 ) {
-    val isValid = address.isNotEmpty() && isValidMoneroAddress(address)
+    val isValid = linkMode || address.isNotEmpty() && isValidMoneroAddress(address)
     // iOS SendAddressStep: no sending while offline (canContinue needs a network).
     val isOnline by NetworkMonitor.isConnected.collectAsState()
     val clipboardManager = LocalClipboardManager.current
@@ -506,67 +690,97 @@ private fun AddressPhase(
         }
 
         Text(
-            text = tr("Recipient Address"),
+            text = tr("Recipient"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Addresses are mono caption, as on iOS.
-        MoneroTextField(
-            value = address,
-            onValueChange = onAddressChange,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
-            textStyle = MonoCaption,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
-            singleLine = true
-        )
+        // Only the field changes: it cross-fades with the payment-link token in
+        // place (iOS: opacity, easeInOut 0.2 s), and the buttons below follow its height.
+        val fieldMotion = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+        Crossfade(
+            targetState = linkMode,
+            animationSpec = tween(200, easing = fieldMotion),
+            modifier = Modifier.animateContentSize(tween(200, easing = fieldMotion)),
+            label = "recipient"
+        ) { link ->
+            if (link) {
+                PaymentLinkRecipientToken(onClear = { onLinkModeChange(false) })
+            } else {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Addresses are mono caption, as on iOS.
+                    MoneroTextField(
+                        value = address,
+                        onValueChange = onAddressChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
+                        textStyle = MonoCaption,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                        singleLine = true
+                    )
 
-        // Inline validation indicator
-        if (address.isNotEmpty()) {
-            val valid = isValidMoneroAddress(address)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 6.dp)
-            ) {
-                Icon(
-                    if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                    contentDescription = null,
-                    tint = if (valid) SuccessGreen else ErrorRed,
-                    modifier = Modifier.size(14.dp)
-                )
-                Text(
-                    if (valid) tr("Valid address") else tr("Invalid address"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (valid) SuccessGreen else ErrorRed
-                )
+                    // Inline validation indicator
+                    if (address.isNotEmpty()) {
+                        val valid = isValidMoneroAddress(address)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 6.dp)
+                        ) {
+                            Icon(
+                                if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                contentDescription = null,
+                                tint = if (valid) SuccessGreen else ErrorRed,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                if (valid) tr("Valid address") else tr("Invalid address"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (valid) SuccessGreen else ErrorRed
+                            )
+                        }
+                    }
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Scan QR + Paste buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            PrimaryButton(
-                onClick = onScanQr,
-                modifier = Modifier.weight(1f)
-            ) {
+        // Scan QR, Paste and Link fill the recipient. Scan QR and Paste leave a link
+        // for the address they bring. Three capsules stack at large text (iOS AX sizes).
+        val linkHint = tr("Sends the money as a link anyone can claim")
+        val narrow = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+        RecipientButtons(stack = LocalDensity.current.fontScale >= 1.5f) {
+            PrimaryButton(onClick = onScanQr, contentPadding = narrow) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(20.dp))
                 Text(tr("Scan QR"))
             }
             PrimaryButton(
                 onClick = {
-                    clipboardManager.getText()?.text?.let { onAddressChange(it.trim()) }
+                    clipboardManager.getText()?.text?.let {
+                        if (linkMode) onLinkModeChange(false)
+                        onAddressChange(it.trim())
+                    }
                 },
-                modifier = Modifier.weight(1f)
+                contentPadding = narrow
             ) {
                 Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(20.dp))
                 Text(tr("Paste"))
+            }
+            if (showLinkButton) {
+                // TalkBack and Voice Access use the visible "Link"; the action label explains it.
+                PrimaryButton(
+                    onClick = { onLinkModeChange(true) },
+                    enabled = !linkMode,
+                    contentPadding = narrow,
+                    modifier = if (linkMode) Modifier else Modifier.semantics {
+                        onClick(label = linkHint) { onLinkModeChange(true); true }
+                    }
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Text(tr("Link"))
+                }
             }
         }
 
@@ -583,6 +797,36 @@ private fun AddressPhase(
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+/**
+ * The recipient buttons: equal capsules 12 apart in one row, or one under
+ * another when [stack] is set or a label would not fit its share of the row
+ * (like iOS ViewThatFits).
+ */
+@Composable
+private fun RecipientButtons(stack: Boolean, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = Modifier.fillMaxWidth()) { measurables, constraints ->
+        val gap = 12.dp.roundToPx()
+        val count = measurables.size.coerceAtLeast(1)
+        val width = constraints.maxWidth
+        val cell = (width - gap * (count - 1)) / count
+        val inRow = !stack && measurables.all { it.maxIntrinsicWidth(constraints.maxHeight) <= cell }
+        if (inRow) {
+            val placeables = measurables.map { it.measure(Constraints(minWidth = cell, maxWidth = cell)) }
+            val height = placeables.maxOfOrNull { it.height } ?: 0
+            layout(width, height) {
+                placeables.forEachIndexed { i, p -> p.placeRelative(i * (cell + gap), (height - p.height) / 2) }
+            }
+        } else {
+            val placeables = measurables.map { it.measure(Constraints(minWidth = width, maxWidth = width)) }
+            val height = placeables.sumOf { it.height } + gap * (placeables.size - 1).coerceAtLeast(0)
+            layout(width, height) {
+                var y = 0
+                placeables.forEach { p -> p.placeRelative(0, y); y += p.height + gap }
+            }
+        }
     }
 }
 
@@ -605,7 +849,12 @@ private fun AmountPhase(
     currencySymbol: String,
     memo: String,
     onMemoChange: (String) -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    // Link mode: no Max (the envelope needs its fee reserve). The memo field becomes the link's
+    // note, which stays on this phone (the tx memo stays "Payment link").
+    linkMode: Boolean = false,
+    /** Link mode: the name the link gets without a note ("Link 9"). */
+    notePlaceholder: String? = null
 ) {
     val parsedAmount = parseXmr(amount)
     val canContinue = parsedAmount > 0 && parsedAmount <= unlockedBalance
@@ -782,8 +1031,8 @@ private fun AmountPhase(
                 Icon(Icons.Default.ContentPaste, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(14.dp))
                 Text(tr("Paste"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Row(
+            if (!linkMode) Spacer(modifier = Modifier.width(8.dp))
+            if (!linkMode) Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(CapsuleShape)
@@ -809,7 +1058,7 @@ private fun AmountPhase(
         ) {
             Icon(Icons.Default.Description, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(memoToggleText(showMemo), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (linkMode) tr("Add note") else memoToggleText(showMemo), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.weight(1f))
             Text(if (showMemo) "▲" else "▼", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -818,7 +1067,7 @@ private fun AmountPhase(
                 value = memo,
                 onValueChange = onMemoChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(tr("Add a note")) },
+                placeholder = { Text(notePlaceholder?.takeIf { linkMode } ?: tr("Add a note")) },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium
             )
@@ -1375,7 +1624,7 @@ private fun SuccessPhase(txHash: String, onDone: () -> Unit) {
 }
 
 @Composable
-private fun ErrorPhase(message: String, onRetry: () -> Unit, onClose: () -> Unit) {
+private fun ErrorPhase(message: String, onRetry: () -> Unit, onClose: () -> Unit, canRetry: Boolean = true) {
     Box(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
@@ -1401,12 +1650,14 @@ private fun ErrorPhase(message: String, onRetry: () -> Unit, onClose: () -> Unit
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // iOS: Retry is the glass action, Close a secondary text button under it.
-            PrimaryButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(tr("Retry"))
+            // Only ordinary address sends can retry. A link is funded once.
+            if (canRetry) {
+                PrimaryButton(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Text(tr("Retry"))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-            Spacer(modifier = Modifier.height(12.dp))
             DismissTextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
                 Text(tr("Close"))
             }

@@ -10,6 +10,7 @@ import io.horizontalsystems.monerokit.Balance
 import io.horizontalsystems.monerokit.CakeWalletStyleConverter
 import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.Seed
+import io.horizontalsystems.monerokit.SignedTransaction
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.data.Subaddress
 import io.horizontalsystems.monerokit.model.NetworkType
@@ -17,6 +18,7 @@ import io.horizontalsystems.monerokit.model.TransactionInfo
 import io.horizontalsystems.monerokit.toElectrum
 import io.horizontalsystems.monerokit.util.Helper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
@@ -37,6 +39,7 @@ import one.monero.moneroone.data.model.Currency
 import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.repository.PriceRepository
 import one.monero.moneroone.data.util.XmrFormat
+import one.monero.moneroone.paymentlinks.PaymentLinkStore
 import one.monero.moneroone.widget.PriceWidget
 import one.monero.moneroone.widget.WalletWidget
 import one.monero.moneroone.widget.WidgetDataStore
@@ -1409,6 +1412,15 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }.apply()
                 store.deleteAll()
+                // The full wipe takes the payment links and their envelope words too. A failed
+                // wipe must not keep the app unlocked with the old state: the reset below still runs.
+                try {
+                    PaymentLinkStore.wipe(context)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.e(e, "Remove All: could not remove the payment links")
+                }
                 resetFailedAttempts()
 
                 // Widget cache holds the removed wallets' balance and recent tx hashes.
@@ -2158,8 +2170,27 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun send(flow: SendFlow, request: SendRequest) {
-        val operation = sendCoordinator.begin(flow, _activeWallet.value?.id, request.sweepAll || request.amount > 0L)
+    /** Sends what the Send screen asks for. The kit saves [SendRequest.memo] as a local note, as iOS does. */
+    fun send(flow: SendFlow, request: SendRequest, prepared: SignedTransaction? = null) = send(
+        flow, request.address, request.amount, memo = request.memo, isSweepAll = request.sweepAll, prepared = prepared
+    )
+
+    /**
+     * [beforeCommit] gets the signed transaction and its txids before the broadcast (a payment link saves them
+     * on its record); when it throws, nothing is broadcast and the send fails with its message.
+     * [prepared]: the transaction [prepareSend] built for the review, broadcast as it is (its fee is the one
+     * the review showed); when it is gone, the send fails before any broadcast.
+     */
+    fun send(
+        flow: SendFlow,
+        address: String,
+        amount: Long,
+        memo: String? = null,
+        isSweepAll: Boolean = false,
+        beforeCommit: ((SignedTransaction) -> Unit)? = null,
+        prepared: SignedTransaction? = null
+    ) {
+        val operation = sendCoordinator.begin(flow, _activeWallet.value?.id, isSweepAll || amount > 0L)
             ?: return
         viewModelScope.launch {
             var error: String? = null
@@ -2177,7 +2208,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 withContext(Dispatchers.IO) {
                     // The kit saves the memo as a local note, as iOS does.
-                    request.sendWith(kit::send)
+                    if (prepared != null) kit.sendPrepared(prepared, memo, beforeCommit = beforeCommit)
+                    else kit.send(amount, address, memo, sweepAll = isSweepAll, beforeCommit = beforeCommit)
                 }
                 one.monero.moneroone.core.util.SoundFeedback.sendComplete(context)
                 // MoneroKit.send() doesn't return txHash, we'll show success without it
@@ -2194,6 +2226,19 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     fun resetSendState(flow: SendFlow) {
         sendCoordinator.dismiss(flow)
     }
+
+    /**
+     * Builds and signs a transfer of [amount] to [address] at the send priority, without sending it: the fee it
+     * pays for the inputs it really spends (wallet2's estimate counts one). [send] with it as `prepared`
+     * broadcasts this same transaction. Throws when there is no wallet or the build fails. Off Main.
+     */
+    fun prepareSend(address: String, amount: Long, memo: String? = null): SignedTransaction {
+        val kit = WalletManager.kit ?: throw IllegalStateException("Wallet is not connected")
+        return kit.prepareSend(amount, address, memo)
+    }
+
+    /** The transaction [prepareSend] built for [prepared] still waits to go out on the open wallet. */
+    fun isPrepared(prepared: SignedTransaction): Boolean = WalletManager.kit?.isPrepared(prepared) == true
 
     fun estimateFee(address: String, amount: Long, isSweepAll: Boolean = false): Long {
         return try {

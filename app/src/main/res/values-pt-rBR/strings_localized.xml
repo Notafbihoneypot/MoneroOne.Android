@@ -245,6 +245,9 @@
     <string name="l10n_copy_seed_phrase_to_clipboard_f0ad8786" formatted="false">"Copiar frase-semente para a área de transferência"</string>
     <string name="l10n_copy_to_clipboard_fa8f2b6c" formatted="false">"Copiar"</string>
     <string name="l10n_copy_transaction_id_5d9172fe" formatted="false">"Copiar ID da transação"</string>
+    <string name="l10n_could_not_save_the_claim_nothing_was_sent_fae573d7" formatted="false">"Não foi possível salvar o resgate. Nada foi enviado."</string>
+    <string name="l10n_could_not_save_the_payment_link_nothing_was_sent_0c31ef71" formatted="false">"Não foi possível salvar o link de pagamento. Nada foi enviado."</string>
+    <string name="l10n_could_not_save_the_reclaim_nothing_was_sent_74335914" formatted="false">"Não foi possível salvar a recuperação. Nada foi enviado."</string>
     <string name="l10n_couldn_t_connect_a6d2a167" formatted="false">"Não Foi Possível Conectar"</string>
     <string name="l10n_couldn_t_create_address_7db005a4" formatted="false">"Não Foi Possível Criar o Endereço"</string>
     <string name="l10n_couldn_t_complete_f3d83cda" formatted="false">"Não foi possível concluir"</string>
@@ -895,6 +898,7 @@
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"O widget de preço funciona sem este ajuste."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"O valor neste link não é um valor válido em XMR."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"A área de transferência será limpa em %1$s."</string>
+    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"Não foi possível confirmar o pagamento. Se ele foi concluído, o link aparece em Atividade."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"A fonte de preços não tem cotação em %1$s."</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"O valor do Monero pode oscilar bastante. Use apenas fundos que você pode perder."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"A carteira não conseguiu carregar as chaves, então nenhum endereço de recebimento pode ser exibido. Não envie fundos para nenhum endereço deste app até que isso seja resolvido. Force o encerramento do app e abra-o novamente; se o problema continuar, restaure a carteira com a semente."</string>

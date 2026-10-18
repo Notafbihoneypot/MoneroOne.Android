@@ -49,6 +49,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="monero" />
             </intent-filter>
+
+            <!-- Payment links (App Links): https://monero.one/c#2:~:m1=..., the older #2... and #v=1&... -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="monero.one" />
+                <data android:path="/c" />
+                <data android:pathPrefix="/c/" />
+            </intent-filter>
         </activity>
 
         <service

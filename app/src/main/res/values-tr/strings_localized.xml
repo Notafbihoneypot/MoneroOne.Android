@@ -245,6 +245,9 @@
     <string name="l10n_copy_seed_phrase_to_clipboard_f0ad8786" formatted="false">"Kurtarma ifadesini panoya kopyala"</string>
     <string name="l10n_copy_to_clipboard_fa8f2b6c" formatted="false">"Panoya Kopyala"</string>
     <string name="l10n_copy_transaction_id_5d9172fe" formatted="false">"İşlem ID\'sini kopyala"</string>
+    <string name="l10n_could_not_save_the_claim_nothing_was_sent_fae573d7" formatted="false">"Talep kaydedilemedi. Hiçbir şey gönderilmedi."</string>
+    <string name="l10n_could_not_save_the_payment_link_nothing_was_sent_0c31ef71" formatted="false">"Ödeme bağlantısı kaydedilemedi. Hiçbir şey gönderilmedi."</string>
+    <string name="l10n_could_not_save_the_reclaim_nothing_was_sent_74335914" formatted="false">"Geri alma kaydedilemedi. Hiçbir şey gönderilmedi."</string>
     <string name="l10n_couldn_t_connect_a6d2a167" formatted="false">"Bağlanılamadı"</string>
     <string name="l10n_couldn_t_create_address_7db005a4" formatted="false">"Adres Oluşturulamadı"</string>
     <string name="l10n_couldn_t_complete_f3d83cda" formatted="false">"Tamamlanamadı"</string>
@@ -895,6 +898,7 @@
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"Fiyat widget\'ı bu ayar olmadan da çalışır."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Bu bağlantıdaki miktar geçerli bir XMR miktarı değil."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Pano %1$s içinde temizlenir."</string>
+    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"Ödeme onaylanamadı. Gerçekleştiyse bağlantı Etkinlik bölümünde görünür."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"Fiyat kaynağında %1$s kuru yok."</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"Monero\'nun değeri önemli ölçüde dalgalanabilir. Yalnızca kaybetmeyi göze alabileceğiniz fonları kullanın."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"Cüzdan anahtarlarını yükleyemediği için alma adresi gösterilemiyor. Sorun çözülene kadar bu uygulamadaki hiçbir adrese fon göndermeyin. Uygulamayı zorla kapatıp yeniden açın; sorun sürerse cüzdanı kurtarma ifadesinden geri yükleyin."</string>

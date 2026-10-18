@@ -18,6 +18,12 @@ object Motion {
     /** iOS `.snappy(duration: 0.35)` (tokens.json slideSwap): same feel, a touch slower, for larger content swaps. */
     fun <T> snappySlow(): SpringSpec<T> = spring(dampingRatio = 0.85f, stiffness = 322.3f)
 
+    /** tokens.json stepForward, iOS `.spring(response: 0.3, dampingFraction: 0.85)`: a step into a flow. */
+    fun <T> stepForward(): SpringSpec<T> = spring(dampingRatio = 0.85f, stiffness = 438.6f)
+
+    /** tokens.json stepBack, iOS `.spring(response: 0.5, dampingFraction: 0.8)`: the way back, a little slower. */
+    fun <T> stepBack(): SpringSpec<T> = spring(dampingRatio = 0.8f, stiffness = 157.9f)
+
     /** Rolling digits and other small value changes. */
     const val DIGIT_MS = 200
 

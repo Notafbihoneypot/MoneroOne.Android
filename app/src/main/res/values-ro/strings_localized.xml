@@ -245,6 +245,9 @@
     <string name="l10n_copy_seed_phrase_to_clipboard_f0ad8786" formatted="false">"Copiază fraza seed în clipboard"</string>
     <string name="l10n_copy_to_clipboard_fa8f2b6c" formatted="false">"Copiază în clipboard"</string>
     <string name="l10n_copy_transaction_id_5d9172fe" formatted="false">"Copiază ID-ul tranzacției"</string>
+    <string name="l10n_could_not_save_the_claim_nothing_was_sent_fae573d7" formatted="false">"Revendicarea nu a putut fi salvată. Nu s-a trimis nimic."</string>
+    <string name="l10n_could_not_save_the_payment_link_nothing_was_sent_0c31ef71" formatted="false">"Linkul de plată nu a putut fi salvat. Nu s-a trimis nimic."</string>
+    <string name="l10n_could_not_save_the_reclaim_nothing_was_sent_74335914" formatted="false">"Recuperarea nu a putut fi salvată. Nu s-a trimis nimic."</string>
     <string name="l10n_couldn_t_connect_a6d2a167" formatted="false">"Nu s-a putut conecta"</string>
     <string name="l10n_couldn_t_create_address_7db005a4" formatted="false">"Adresa nu a putut fi creată"</string>
     <string name="l10n_couldn_t_complete_f3d83cda" formatted="false">"Nu s-a putut finaliza"</string>
@@ -895,6 +898,7 @@
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"Widgetul Preț funcționează și fără această setare."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Suma din acest link nu este o sumă XMR validă."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Clipboardul se golește în %1$s."</string>
+    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"Plata nu a putut fi confirmată. Dacă a reușit, linkul apare în Activitate."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"Sursa de prețuri nu are cotație pentru %1$s."</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"Valoarea Monero poate fluctua semnificativ. Folosește doar fonduri pe care îți permiți să le pierzi."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"Portofelul nu și-a putut încărca cheile, așa că nu se poate afișa nicio adresă de primire. Nu trimite fonduri la nicio adresă din această aplicație până nu se rezolvă problema. Închide forțat aplicația și redeschide-o; dacă problema persistă, restaurează portofelul din fraza seed."</string>

@@ -245,6 +245,9 @@
     <string name="l10n_copy_seed_phrase_to_clipboard_f0ad8786" formatted="false">"將助記詞拷貝到剪貼板"</string>
     <string name="l10n_copy_to_clipboard_fa8f2b6c" formatted="false">"拷貝到剪貼板"</string>
     <string name="l10n_copy_transaction_id_5d9172fe" formatted="false">"拷貝交易 ID"</string>
+    <string name="l10n_could_not_save_the_claim_nothing_was_sent_fae573d7" formatted="false">"無法儲存領取紀錄。未傳送任何款項。"</string>
+    <string name="l10n_could_not_save_the_payment_link_nothing_was_sent_0c31ef71" formatted="false">"無法儲存付款連結。未傳送任何款項。"</string>
+    <string name="l10n_could_not_save_the_reclaim_nothing_was_sent_74335914" formatted="false">"無法儲存取回紀錄。未傳送任何款項。"</string>
     <string name="l10n_couldn_t_connect_a6d2a167" formatted="false">"無法連線"</string>
     <string name="l10n_couldn_t_create_address_7db005a4" formatted="false">"無法建立位址"</string>
     <string name="l10n_couldn_t_complete_f3d83cda" formatted="false">"無法完成"</string>
@@ -895,6 +898,7 @@
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"「價格」小工具不需要此設定也能使用。"</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"此連結中的金額不是有效的 XMR 金額。"</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"剪貼板將在 %1$s後清除。"</string>
+    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"無法確認這筆付款。如果付款已完成，連結會顯示在活動中。"</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"價格來源沒有 %1$s 報價。"</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"Monero 的價值可能大幅波動。請只使用你能承受損失的資金。"</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"錢包無法載入其金鑰，因此無法顯示收款位址。在問題解決之前，請勿將資金傳送到此 App 顯示的任何位址。請強制結束並重新開啟 App；如果問題持續發生，請用助記詞回復錢包。"</string>

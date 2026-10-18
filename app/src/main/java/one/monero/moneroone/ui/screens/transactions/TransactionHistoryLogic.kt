@@ -21,14 +21,16 @@ object TransactionHistoryLogic {
     fun through(asOfMs: Long?, transactions: List<TransactionInfo>): List<TransactionInfo> =
         if (asOfMs == null) transactions else transactions.filter { it.timestamp * 1000 <= asOfMs }
 
+    /** [isLink]: whether a transaction belongs to a payment link on this device (the Links filter). */
     fun filter(transactions: List<TransactionInfo>, filter: TransactionFilter, receivingIndex: Int?, query: String,
-               addresses: List<ReceiveAddressRow>): List<TransactionInfo> = transactions.filter { tx ->
+               addresses: List<ReceiveAddressRow>, isLink: (TransactionInfo) -> Boolean = { false }): List<TransactionInfo> = transactions.filter { tx ->
         val incoming = tx.direction == TransactionInfo.Direction.Direction_In
         val kindMatches = when (filter) {
             TransactionFilter.ALL -> true
             TransactionFilter.RECEIVED -> incoming
             TransactionFilter.SENT -> !incoming
             TransactionFilter.PENDING -> !tx.isFailed && (tx.isPending || tx.confirmations == 0L)
+            TransactionFilter.LINKS -> isLink(tx)
         }
         val addressMatches = receivingIndex == null || (incoming && tx.accountIndex == 0 && tx.addressIndex == receivingIndex)
         val row = if (incoming) addresses.firstOrNull { it.index == tx.addressIndex } else null
@@ -86,17 +88,21 @@ object TransactionHistoryLogic {
      */
     fun rowLabel(tx: TransactionInfo, fiatMode: Boolean, fiatValue: String?, date: String, receivedOn: String?): String {
         val incoming = tx.direction == TransactionInfo.Direction.Direction_In
+        return "${tr(if (incoming) "Received" else "Sent")} ${rowAmount(tx, fiatMode, fiatValue, receivedOn)}, $date, ${rowStatus(tx)}"
+    }
+
+    /** The amount part of [rowLabel]: "1.2345 XMR on Savings, worth $150.23 at the time". */
+    fun rowAmount(tx: TransactionInfo, fiatMode: Boolean, fiatValue: String?, receivedOn: String?): String {
         val on = receivedOn?.let { tr(" on %s", it) }.orEmpty()
-        val amount = if (fiatMode && fiatValue != null) {
+        return if (fiatMode && fiatValue != null) {
             tr("%s at the time, %s XMR", fiatValue, XmrFormat.compact(tx.amount)) + on
         } else {
             "${XmrFormat.format(tx.amount)} XMR" + on + fiatValue?.let { tr(", worth %s at the time", it) }.orEmpty()
         }
-        return "${tr(if (incoming) "Received" else "Sent")} $amount, $date, ${rowStatus(tx)}"
     }
 
     /** The status word a row shows beside its amount. */
-    private fun rowStatus(tx: TransactionInfo): String = when {
+    fun rowStatus(tx: TransactionInfo): String = when {
         tx.isFailed -> tr("Failed")
         tx.confirmations == 0L -> tr("Pending")
         tx.confirmations < 10 -> tr("Locked")

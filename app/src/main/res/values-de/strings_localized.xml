@@ -245,6 +245,9 @@
     <string name="l10n_copy_seed_phrase_to_clipboard_f0ad8786" formatted="false">"Seed-Phrase in die Zwischenablage kopieren"</string>
     <string name="l10n_copy_to_clipboard_fa8f2b6c" formatted="false">"In Zwischenablage kopieren"</string>
     <string name="l10n_copy_transaction_id_5d9172fe" formatted="false">"Transaktions-ID kopieren"</string>
+    <string name="l10n_could_not_save_the_claim_nothing_was_sent_fae573d7" formatted="false">"Die Einlösung konnte nicht gespeichert werden. Es wurde nichts gesendet."</string>
+    <string name="l10n_could_not_save_the_payment_link_nothing_was_sent_0c31ef71" formatted="false">"Der Zahlungslink konnte nicht gespeichert werden. Es wurde nichts gesendet."</string>
+    <string name="l10n_could_not_save_the_reclaim_nothing_was_sent_74335914" formatted="false">"Die Rückforderung konnte nicht gespeichert werden. Es wurde nichts gesendet."</string>
     <string name="l10n_couldn_t_connect_a6d2a167" formatted="false">"Keine Verbindung"</string>
     <string name="l10n_couldn_t_create_address_7db005a4" formatted="false">"Adresse konnte nicht erstellt werden"</string>
     <string name="l10n_couldn_t_complete_f3d83cda" formatted="false">"Nicht abgeschlossen"</string>
@@ -895,6 +898,7 @@
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"Das Preis-Widget funktioniert auch ohne diese Einstellung."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Der Betrag in diesem Link ist kein gültiger XMR-Betrag."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Die Zwischenablage wird in %1$s geleert."</string>
+    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"Die Zahlung konnte nicht bestätigt werden. Falls sie durchgegangen ist, erscheint der Link unter Aktivität."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"Der Preis-Feed hat keinen Kurs für %1$s."</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"Der Wert von Monero kann stark schwanken. Nutze nur Geld, dessen Verlust du verkraften kannst."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"Die Wallet konnte ihre Schlüssel nicht laden, daher kann keine Empfangsadresse angezeigt werden. Sende kein Guthaben an eine Adresse aus dieser App, bis das behoben ist. Beende die App vollständig und öffne sie erneut; bleibt der Fehler, stelle die Wallet aus ihrem Seed wieder her."</string>

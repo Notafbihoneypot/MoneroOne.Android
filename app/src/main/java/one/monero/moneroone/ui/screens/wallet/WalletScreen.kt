@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ChevronRight
@@ -71,6 +72,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -83,6 +85,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -95,6 +98,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -102,10 +106,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import io.horizontalsystems.monerokit.SyncState
 import io.horizontalsystems.monerokit.model.TransactionInfo
 import one.monero.moneroone.R
+import one.monero.moneroone.paymentlinks.PaymentLinkActivityRules
+import one.monero.moneroone.paymentlinks.PaymentLinkIndex
+import one.monero.moneroone.paymentlinks.OpenLinkRules
+import one.monero.moneroone.paymentlinks.OpenLinksLines
+import one.monero.moneroone.paymentlinks.PaymentLinkStore
+import one.monero.moneroone.paymentlinks.PaymentLinksViewModel
+import one.monero.moneroone.paymentlinks.PendingLinkState
+import one.monero.moneroone.paymentlinks.linkRowText
+import one.monero.moneroone.paymentlinks.LinkRowAmounts
+import one.monero.moneroone.ui.components.ActivityRow
+import one.monero.moneroone.paymentlinks.rememberDaemonHeight
+import one.monero.moneroone.paymentlinks.rememberPaymentLinkIndex
 import one.monero.moneroone.core.wallet.ReceiveAddressLogic
+import one.monero.moneroone.core.wallet.SendState
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.core.wallet.addressesOf
 import one.monero.moneroone.ui.components.rememberChartDateFormats
@@ -133,6 +153,7 @@ import one.monero.moneroone.ui.theme.MoneroTheme
 import one.monero.moneroone.ui.theme.SystemFill
 import one.monero.moneroone.ui.theme.SuccessGreen
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -158,7 +179,11 @@ fun WalletScreen(
     historyModel: BalanceHistoryModel,
     historyPrices: HistoryPrices,
     onFetchHistoryRange: (TimeRange) -> Unit,
-    onAddWalletClick: () -> Unit = {}
+    onAddWalletClick: () -> Unit = {},
+    /** Checks open sent links so the balance card's line stays true. */
+    paymentLinks: PaymentLinksViewModel? = null,
+    /** Opens Activity with the Links filter on. */
+    onOpenLinks: () -> Unit = {}
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val currentPrice by walletViewModel.currentPrice.collectAsState()
@@ -168,6 +193,7 @@ fun WalletScreen(
     val wallets by walletViewModel.wallets.collectAsState()
     val activeWallet by walletViewModel.activeWallet.collectAsState()
     val walletSessionId by walletViewModel.walletSessionId.collectAsState()
+    val linkIndex = rememberPaymentLinkIndex()
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
     val isOnline by NetworkMonitor.isConnected.collectAsState()
@@ -199,6 +225,50 @@ fun WalletScreen(
     val recentTransactions = remember(sortedTransactions, asOf) {
         if (asOf == null) sortedTransactions.take(5)
         else sortedTransactions.asSequence().filter { it.timestamp * 1000 <= asOf }.take(5).toList()
+    }
+
+    // Links that still hold money: a line in the balance card (spec Round 3). A new block can expire one.
+    val linkStore = PaymentLinkStore.get(LocalContext.current)
+    val daemonHeight = rememberDaemonHeight()
+    // A link whose funding wallet is gone (deleted, or restored under a new id) counts for the open wallet.
+    val walletIds = remember(wallets) { wallets.mapTo(HashSet()) { it.id } }
+    val openLinks = remember(linkIndex, activeWallet?.id, daemonHeight, walletIds) {
+        OpenLinkRules.openLinks(linkIndex.sent, linkIndex.received, activeWallet?.id, System.currentTimeMillis() / 1000, walletIds)
+    }
+    // A look at the open sent links, so a claimed one leaves the line: when the tab appears, comes
+    // back to the foreground or shows another wallet, then every 10 minutes while it shows. A look
+    // stops the main wallet for a moment, so it waits until the wallet is synced, no send runs and
+    // History shows now, and never runs per block.
+    if (paymentLinks != null && openLinks.sent.isNotEmpty()) {
+        val walletId = activeWallet?.id
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
+        val sendState by walletViewModel.sendState.collectAsState()
+        val canLook by rememberUpdatedState(
+            walletState.syncState is SyncState.Synced && sendState !is SendState.Sending && asOf == null
+        )
+        val currentWalletIds by rememberUpdatedState(walletIds)
+        LaunchedEffect(paymentLinks, walletId) {
+            if (walletId == null) return@LaunchedEffect
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    snapshotFlow { canLook }.first { it }
+                    paymentLinks.lookAtOpenLinks(walletId, currentWalletIds)
+                    delay(PaymentLinksViewModel.WALLET_TAB_LOOK_EVERY_MS)
+                }
+            }
+        }
+    }
+    // A link check stops the synced main wallet for a moment; the card keeps saying Synced meanwhile.
+    val heldWallet = paymentLinks?.holdSyncStatus?.collectAsState()?.value
+    val shownSyncState = if (heldWallet != null && heldWallet == activeWallet?.id) SyncState.Synced else walletState.syncState
+    val claimOpenLink: () -> Unit = {
+        val only = openLinks.received.singleOrNull()
+        if (only == null) {
+            onOpenLinks()
+        } else {
+            val ready = PaymentLinkActivityRules.pendingState(only, daemonHeight, System.currentTimeMillis()) == PendingLinkState.Ready
+            linkStore.openClaim(only.id, autoClaim = ready)
+        }
     }
 
     val refreshState = rememberPullToRefreshState()
@@ -364,11 +434,39 @@ fun WalletScreen(
                                 liveFiat = liveFiat,
                                 formatFiat = formatFiat,
                                 fiatMode = fiatMode,
-                                syncState = walletState.syncState,
+                                syncState = shownSyncState,
                                 isOnline = isOnline,
                                 nodeLoginFailed = walletState.nodeLoginFailed,
                                 history = history,
-                                historicalPoint = historicalPoint
+                                historicalPoint = historicalPoint,
+                                openLinks = { isPast ->
+                                    // Kept in place, hidden, while History shows the past.
+                                    AnimatedVisibility(
+                                        visible = !openLinks.isEmpty,
+                                        enter = fadeIn(Motion.snappy()) + expandVertically(Motion.snappy(), expandFrom = Alignment.Top),
+                                        exit = fadeOut(Motion.snappy()) + shrinkVertically(Motion.snappy(), shrinkTowards = Alignment.Top)
+                                    ) {
+                                        // The last links shown stay while the line leaves.
+                                        val shown = remember { mutableStateOf(openLinks) }
+                                        if (!openLinks.isEmpty) shown.value = openLinks
+                                        Box(
+                                            modifier = Modifier
+                                                .graphicsLayer { alpha = if (isPast) 0f else 1f }
+                                                .then(if (isPast) Modifier.clearAndSetSemantics {} else Modifier)
+                                        ) {
+                                            OpenLinksLines(
+                                                open = shown.value,
+                                                // Fiat mode leads with fiat, like the balance above.
+                                                formatAmount = { atomic ->
+                                                    liveFiat(atomic)?.takeIf { fiatMode } ?: "${walletViewModel.formatXmr(atomic)} XMR"
+                                                },
+                                                enabled = !isPast,
+                                                onOpenLinks = { history.timestamp = null; onOpenLinks() },
+                                                onClaim = claimOpenLink
+                                            )
+                                        }
+                                    }
+                                }
                             ) { isActive ->
                                 BalanceHistoryChart(
                                     balance = walletState.balance.all,
@@ -458,14 +556,15 @@ fun WalletScreen(
             }
         }
 
+        // Open links live in the balance card and the Links filter, not here (spec Round 3).
         if (recentTransactions.isEmpty()) {
             item(key = "recentEmpty") {
                 if (asOf != null) {
                     PastEmptyTransactionsCard()
                 } else {
                     EmptyTransactionsCard(
-                        isSyncing = walletState.syncState is SyncState.Syncing ||
-                            walletState.syncState is SyncState.Connecting
+                        isSyncing = shownSyncState is SyncState.Syncing ||
+                            shownSyncState is SyncState.Connecting
                     )
                 }
             }
@@ -476,10 +575,11 @@ fun WalletScreen(
             ) { transaction ->
                 TransactionCard(
                     transaction = transaction,
+                    linkIndex = linkIndex,
                     onClick = { onTransactionClick(transaction) },
-                    formatXmr = walletViewModel::formatXmr,
                     fiatMode = fiatMode,
                     fiatValue = one.monero.moneroone.ui.components.transactionFiat(transaction, priceHistory, currentPrice?.price, selectedCurrency),
+                    fiatOf = { one.monero.moneroone.ui.components.amountFiat(it, transaction.timestamp, priceHistory, currentPrice?.price, selectedCurrency) },
                     receivedOn = TransactionHistoryLogic.receivedOnName(transaction, addressRows)
                 )
             }
@@ -547,6 +647,8 @@ internal fun BalanceCard(
     history: BalanceHistoryState,
     /** The past moment picked on the chart; null is now. */
     historicalPoint: PortfolioPoint?,
+    /** The open payment links line, last in the card; told when History shows the past. */
+    openLinks: @Composable (isPast: Boolean) -> Unit = {},
     historyChart: @Composable (isActive: Boolean) -> Unit
 ) {
     val dates = rememberChartDateFormats()
@@ -810,6 +912,8 @@ internal fun BalanceCard(
                     textAlign = TextAlign.Center
                 )
             }
+
+            openLinks(isPast)
         }
     }
 }
@@ -1046,78 +1150,31 @@ private fun EmptyTransactionsCard(isSyncing: Boolean) {
 @Composable
 private fun TransactionCard(
     transaction: TransactionInfo,
+    /** Payment link rows show the link's name, amount and status. */
+    linkIndex: PaymentLinkIndex,
     onClick: () -> Unit,
-    formatXmr: (Long) -> String,
     fiatMode: Boolean,
     fiatValue: String?,
+    /** An amount's value at the time of [transaction]. */
+    fiatOf: (Long) -> String?,
     /** The subaddress an incoming payment arrived on, spoken only; null for sends and the main address. */
     receivedOn: String?
 ) {
     val isIncoming = transaction.direction == TransactionInfo.Direction.Direction_In
-    val iconColor = if (isIncoming) SuccessGreen else MoneroOrange
-    val amountPrefix = if (isIncoming) "+" else "-"
-
     val date = formatRelativeTime(transaction.timestamp * 1000)
-    val label = TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn)
-
-    GlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick
+    val link = linkRowText(transaction, linkIndex, date, fiatMode, fiatOf, TransactionHistoryLogic.rowStatus(transaction))
+    ActivityRow(
+        incoming = isIncoming,
+        title = link?.title ?: if (isIncoming) tr("Received") else tr("Sent"),
+        subtitle = date,
+        spoken = link?.spoken ?: TransactionHistoryLogic.rowLabel(transaction, fiatMode, fiatValue, date, receivedOn),
+        onClick = onClick,
+        linkBadge = link != null
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clearAndSetSemantics { contentDescription = label }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Direction icon
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isIncoming) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(20.dp).rotate(45f)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Details
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (isIncoming) tr("Received") else tr("Sent"),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = date,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            one.monero.moneroone.ui.components.TransactionAmounts(
-                transaction = transaction,
-                fiatMode = fiatMode,
-                fiatValue = fiatValue
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MoneroTheme.colors.labelTertiary,
-                modifier = Modifier.size(16.dp)
-            )
+        if (link != null) {
+            LinkRowAmounts(link, one.monero.moneroone.ui.components.transactionStatus(transaction))
+        } else {
+            one.monero.moneroone.ui.components.TransactionAmounts(transaction = transaction, fiatMode = fiatMode, fiatValue = fiatValue)
         }
     }
 }
