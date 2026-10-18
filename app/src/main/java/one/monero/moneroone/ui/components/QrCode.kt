@@ -158,9 +158,13 @@ object QrCodes {
     /** The code for [content], or null when the text does not fit in a QR code. Call off the main thread. */
     fun bitmap(content: String): QrBitmap? {
         cache.get(content)?.let { return it }
-        // The modules alone: the encoder adds no margin.
+        // The modules alone: the encoder adds no margin. ASCII text goes in
+        // plain byte mode, as CoreImage writes it, so both apps make the same
+        // version; other text is UTF-8 with its ECI header.
+        val hints = if (content.all { it.code < 0x80 }) emptyMap()
+            else mapOf(EncodeHintType.CHARACTER_SET to "UTF-8")
         val matrix = try {
-            Encoder.encode(content, ErrorCorrectionLevel.Q, mapOf(EncodeHintType.CHARACTER_SET to "UTF-8")).matrix
+            Encoder.encode(content, ErrorCorrectionLevel.Q, hints).matrix
         } catch (e: Exception) {
             return null
         }
@@ -242,15 +246,16 @@ object QrCodes {
 
     /**
      * The image Save to Photos and Share QR Code hand out (iOS
-     * QRCodeRenderer): the code with a one-module margin and the logo,
-     * 1200 px square, on white.
+     * QRCodeRenderer): the code with the plate's four modules of quiet zone
+     * and the logo, 1200 px square, on white. Chat apps round the corners of
+     * an image; the quiet zone keeps them off the finder patterns.
      */
     fun image(context: Context, content: String, size: Int = 1200): Bitmap? {
         val code = bitmap(content) ?: return null
         val image = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(image)
         canvas.drawColor(android.graphics.Color.WHITE)
-        val margin = size.toFloat() / (code.modules + 2)
+        val margin = size.toFloat() * QrStyle.QUIET_ZONE / (code.modules + 2 * QrStyle.QUIET_ZONE)
         drawCode(canvas, code, logo(context), RectF(margin, margin, size - margin, size - margin))
         return image
     }

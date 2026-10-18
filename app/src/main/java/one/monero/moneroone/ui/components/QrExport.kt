@@ -38,7 +38,7 @@ import java.io.IOException
 /**
  * The QR image out of the app: into the Pictures collection (iOS Save to
  * Photos) and into the share sheet. The image is iOS QRCodeRenderer's: the
- * code with its one-module margin and the logo, 1200 px square.
+ * code with four modules of quiet zone and the logo, 1200 px square.
  */
 object QrExport {
     private const val TAG = "QrExport"
