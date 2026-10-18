@@ -33,7 +33,13 @@ class WalletSyncService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, WalletSyncService::class.java)
-            context.startForegroundService(intent)
+            try {
+                context.startForegroundService(intent)
+            } catch (e: IllegalStateException) {
+                // Android 12+ throws ForegroundServiceStartNotAllowedException
+                // when the app may not start a foreground service now.
+                Timber.w(e, "WalletSyncService: start not allowed")
+            }
         }
 
         fun stop(context: Context) {
@@ -57,7 +63,24 @@ class WalletSyncService : Service() {
             return START_NOT_STICKY
         }
 
-        startForeground(NOTIFICATION_ID, buildNotification(WalletManager.syncStateFlow.value))
+        // A null intent is a system restart after the process died. The new
+        // process has no open wallet, and Android 12+ forbids a foreground
+        // start from the background, so stop instead of crashing.
+        if (intent == null) {
+            Timber.d("WalletSyncService: restart without a wallet, stopping")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification(WalletManager.syncStateFlow.value))
+        } catch (e: IllegalStateException) {
+            // ForegroundServiceStartNotAllowedException (Android 12+): a start
+            // from the background, or the Android 15+ dataSync time limit is used up.
+            Timber.w(e, "WalletSyncService: foreground start not allowed, stopping")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
 
         scope.launch {
             WalletManager.syncStateFlow.collect { state ->
@@ -68,7 +91,19 @@ class WalletSyncService : Service() {
         }
 
         Timber.d("WalletSyncService: started foreground")
-        return START_STICKY
+        // Not sticky: a restarted service has no open wallet to sync.
+        return START_NOT_STICKY
+    }
+
+    /**
+     * Android 15+ limits dataSync foreground services to 6 hours a day. At the
+     * limit the system calls this, and the service must stop within a few
+     * seconds, or the app crashes (ForegroundServiceDidNotStopInTimeException).
+     */
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        Timber.w("WalletSyncService: dataSync time limit reached, stopping")
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     override fun onDestroy() {
