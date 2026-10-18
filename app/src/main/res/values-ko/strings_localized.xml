@@ -627,6 +627,7 @@
     <string name="l10n_opens_privacy_policy_in_your_browser_eee17b7f" formatted="false">"브라우저에서 개인정보 처리방침을 엽니다"</string>
     <string name="l10n_opens_share_sheet_with_qr_code_and_address_c136ffd6" formatted="false">"QR 코드와 주소가 포함된 공유 시트를 엽니다"</string>
     <string name="l10n_opens_terms_of_service_in_your_browser_899e55c8" formatted="false">"브라우저에서 서비스 약관을 엽니다"</string>
+    <string name="l10n_opens_the_app_store_to_write_a_review_c041aa6e" formatted="false">"App Store를 열어 리뷰를 작성합니다"</string>
     <string name="l10n_opens_the_emoji_keyboard_to_type_any_emoji_7e4db033" formatted="false">"원하는 이모티콘을 입력할 수 있도록 이모티콘 키보드를 엽니다"</string>
     <string name="l10n_opens_the_portfolio_chart_c50b1d8e" formatted="false">"포트폴리오 차트를 엽니다"</string>
     <string name="l10n_opens_the_price_chart_26780688" formatted="false">"가격 차트를 엽니다"</string>
@@ -703,6 +704,7 @@
     <string name="l10n_qr_scanning_not_supported_3a8ca79d" formatted="false">"QR 스캔이 지원되지 않음"</string>
     <string name="l10n_radius_6fe0661c" formatted="false">"반경"</string>
     <string name="l10n_radius_s_78f7366a" formatted="false">"반경: %1$s"</string>
+    <string name="l10n_rate_monero_one_8d7741ae" formatted="false">"Monero One 평가하기"</string>
     <string name="l10n_re_enter_your_new_pin_to_confirm_ae223c83" formatted="false">"새 PIN 확인"</string>
     <string name="l10n_reaching_node_9a18d501" formatted="false">"노드에 연결 중..."</string>
     <string name="l10n_reading_transactions_from_trezor_13097f0b" formatted="false">"Trezor에서 거래를 읽는 중…"</string>
