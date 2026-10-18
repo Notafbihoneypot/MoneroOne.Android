@@ -90,13 +90,19 @@ sealed class Screen(val route: String) {
     data object SetupBiometrics : Screen("setup_biometrics")
     data object Unlock : Screen("unlock")
     data object Main : Screen("main")
-    data object Send : Screen("send?address={address}&amount={amount}&source={source}") {
+    data object Send : Screen("send?address={address}&amount={amount}&source={source}&name={name}") {
         /** [source]: where a pre-filled amount came from, a [SendPrefillSource] name. */
-        fun createRoute(address: String? = null, amount: String? = null, source: SendPrefillSource? = null): String {
+        fun createRoute(
+            address: String? = null,
+            amount: String? = null,
+            source: SendPrefillSource? = null,
+            name: String? = null
+        ): String {
             val params = mutableListOf<String>()
             if (!address.isNullOrBlank()) params.add("address=${android.net.Uri.encode(address)}")
             if (!amount.isNullOrBlank()) params.add("amount=${android.net.Uri.encode(amount)}")
             if (source != null) params.add("source=${source.name}")
+            if (!name.isNullOrBlank()) params.add("name=${android.net.Uri.encode(name)}")
             return if (params.isEmpty()) "send" else "send?${params.joinToString("&")}"
         }
     }
@@ -423,6 +429,11 @@ fun MoneroOneNavHost(
                         type = NavType.StringType
                         nullable = true
                         defaultValue = null
+                    },
+                    navArgument("name") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { backStackEntry ->
@@ -430,11 +441,13 @@ fun MoneroOneNavHost(
                 val amount = backStackEntry.arguments?.getString("amount")?.takeIf { it.isNotBlank() }
                 val source = backStackEntry.arguments?.getString("source")
                     ?.let { name -> SendPrefillSource.entries.firstOrNull { it.name == name } }
+                val name = backStackEntry.arguments?.getString("name")?.takeIf { it.isNotBlank() }
                 SendScreen(
                     walletViewModel = walletViewModel,
                     initialAddress = address,
                     initialAmount = amount,
                     prefillSource = source,
+                    initialName = name,
                     incomingLink = openSendLink,
                     onIncomingLink = { link, accepted ->
                         if (openSendLink === link) openSendLink = null
@@ -457,7 +470,7 @@ fun MoneroOneNavHost(
                     onBack = { navController.popBackStack() },
                     onScanned = { uriData ->
                         navController.popBackStack()
-                        navController.navigate(Screen.Send.createRoute(uriData.address, uriData.amount, SendPrefillSource.QR_CODE))
+                        navController.navigate(Screen.Send.createRoute(uriData.address, uriData.amount, SendPrefillSource.QR_CODE, uriData.name))
                     },
                     onClaimLink = { raw ->
                         PaymentLinkCodec.isClaimLink(raw).also { claim ->

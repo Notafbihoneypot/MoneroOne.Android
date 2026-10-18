@@ -73,6 +73,8 @@ import com.google.zxing.ReaderException
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
 import io.horizontalsystems.monerokit.MoneroKit
+import one.monero.moneroone.core.openalias.OpenAlias
+import one.monero.moneroone.core.openalias.RecipientInput
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.PrimaryButton
 import one.monero.moneroone.ui.theme.MoneroOrange
@@ -81,10 +83,13 @@ import java.nio.ByteBuffer
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
-/** Native checksum validation is shared by scanning and external payment links. */
-fun parseMoneroUri(uri: String): MoneroUriData? = parsePaymentRequest(uri, ::isKitValidAddress)
+/**
+ * Native checksum validation is shared by scanning and external payment links.
+ * A scanned code can also hold an OpenAlias name in place of the address.
+ */
+fun parseMoneroUri(uri: String): MoneroUriData? = parsePaymentRequest(uri, ::isKitValidAddress, ::openAliasTarget)
 
-/** [parseMoneroUri] with the reason for a refusal, for payment links. */
+/** [parseMoneroUri] with the reason for a refusal, for payment links. Links stay address-only. */
 fun readMoneroUri(uri: String): PaymentRequestResult = readPaymentRequest(uri, ::isKitValidAddress)
 
 private fun isKitValidAddress(address: String): Boolean =
@@ -133,6 +138,18 @@ internal object QrFrameDecoder {
             reader.reset()
         }
     }
+}
+
+/**
+ * The target of a scanned code when it is an OpenAlias name (or a reserved
+ * name, which the Send screen then rejects): the text after `monero:` and
+ * before `?`. Links from other apps stay address-only; this check serves the
+ * QR scanner.
+ */
+private fun openAliasTarget(target: String): String? {
+    if ('.' !in target && '@' !in target) return null
+    val kind = OpenAlias.classify(target)
+    return target.takeIf { kind is RecipientInput.Name || kind == RecipientInput.Reserved }
 }
 
 /**

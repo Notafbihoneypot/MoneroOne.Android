@@ -11,6 +11,7 @@
     <string name="l10n_s_change_s_s_c4a2b000" formatted="false">"%1$s: %2$s %3$s"</string>
     <string name="l10n_s_chart_s_ef051333" formatted="false">"%1$s, графік %2$s"</string>
     <string name="l10n_s_copied_c1726808" formatted="false">"%1$s: скопійовано"</string>
+    <string name="l10n_s_has_no_dnssec_signature_a_dns_server_between_you_and__2e948776" formatted="false">"%1$s не має підпису DNSSEC. DNS-сервер між вами та власником імені може змінити цю відповідь. Перед надсиланням звірте адресу з одержувачем."</string>
     <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s: дані актуальні"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s км"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"Радіус %1$s км"</string>
@@ -90,9 +91,12 @@
     <string name="l10n_add_your_home_office_or_other_safe_locations_if_your_wa_43d93c16" formatted="false">"Додайте дім, офіс або інші безпечні місця. Якщо гаманець виявить активність поза цими зонами, ви отримаєте сповіщення."</string>
     <string name="l10n_address_56ef8f20" formatted="false">"Адреса"</string>
     <string name="l10n_address_private_view_key_75968792" formatted="false">"Адреса + приватний ключ перегляду"</string>
+    <string name="l10n_address_changed_40e750ca" formatted="false">"Адресу змінено"</string>
+    <string name="l10n_address_changed_since_your_last_payment_f5526df0" formatted="false">"Адреса змінилася після останнього платежу"</string>
     <string name="l10n_address_copied_a2617581" formatted="false">"Адресу скопійовано"</string>
     <string name="l10n_address_doesn_t_look_valid_for_mainnet_027a2baf" formatted="false">"Схоже, адреса недійсна для основної мережі."</string>
     <string name="l10n_address_doesn_t_look_valid_for_testnet_e4c3a7a2" formatted="false">"Схоже, адреса недійсна для тестової мережі."</string>
+    <string name="l10n_address_found_for_s_0af31ca9" formatted="false">"Адресу для %1$s знайдено"</string>
     <string name="l10n_address_fa0882e2" formatted="false">"Адреса:"</string>
     <string name="l10n_adjust_to_explore_the_balance_and_activity_at_each_time_fc6ccd58" formatted="false">"Змінюйте значення, щоб переглянути баланс і активність у будь-який момент. Поверніться до «Зараз», щоб побачити поточний гаманець."</string>
     <string name="l10n_after_a_payment_arrives_receive_shows_a_new_address_old_579be71c" formatted="false">"Після надходження платежу на екрані «Отримати» з’явиться нова адреса. Старі адреси й далі працюють."</string>
@@ -169,6 +173,8 @@
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"Введення з камери не підтримується"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"Кампус"</string>
     <string name="l10n_can_t_open_payment_link_b51de8b1" formatted="false">"Не вдається відкрити платіжне посилання"</string>
+    <string name="l10n_can_t_reach_the_name_service_c67b5871" formatted="false">"Не вдається зв’язатися зі службою імен"</string>
+    <string name="l10n_can_t_reach_the_name_service_through_tor_0ed93028" formatted="false">"Не вдається зв’язатися зі службою імен через Tor"</string>
     <string name="l10n_canadian_dollar_a190607f" formatted="false">"Канадський долар"</string>
     <string name="l10n_cancel_19766ed6" formatted="false">"Скасувати"</string>
     <string name="l10n_change_pin_77374b2e" formatted="false">"Змінити PIN-код"</string>
@@ -227,6 +233,7 @@
     <string name="l10n_connects_your_hardware_wallet_briefly_to_update_the_lis_65893ea3" formatted="false">"Ненадовго підключає апаратний гаманець, щоб оновити список вихідних транзакцій."</string>
     <string name="l10n_contact_support_f8d47b82" formatted="false">"Зв’язатися з підтримкою"</string>
     <string name="l10n_continue_31fbef16" formatted="false">"Продовжити"</string>
+    <string name="l10n_continue_anyway_911beb63" formatted="false">"Усе одно продовжити"</string>
     <string name="l10n_copied_8d525e5f" formatted="false">"Скопійовано"</string>
     <string name="l10n_copied_to_clipboard_d37078fe" formatted="false">"Скопійовано"</string>
     <string name="l10n_copied_ea61bc15" formatted="false">"Скопійовано"</string>
@@ -289,6 +296,9 @@
     <string name="l10n_custom_494ca78f" formatted="false">"Власний"</string>
     <string name="l10n_custom_node_cceacba3" formatted="false">"Віддалений вузол"</string>
     <string name="l10n_custom_nodes_f6cf1837" formatted="false">"Власні вузли"</string>
+    <string name="l10n_dnssec_check_failed_someone_may_have_changed_this_answe_577e9bb5" formatted="false">"Перевірка DNSSEC не пройдена. Можливо, хтось змінив цю відповідь."</string>
+    <string name="l10n_dnssec_off_990dc782" formatted="false">"DNSSEC вимкнено"</string>
+    <string name="l10n_dnssec_valid_29c0c46e" formatted="false">"DNSSEC дійсний"</string>
     <string name="l10n_danger_zone_3c1c01b4" formatted="false">"Небезпечна зона"</string>
     <string name="l10n_danish_krone_cc73f0b4" formatted="false">"Датська крона"</string>
     <string name="l10n_dark_60acc53f" formatted="false">"Темний"</string>
@@ -304,6 +314,7 @@
     <string name="l10n_delete_wallet_279d5ef5" formatted="false">"Видалити гаманець?"</string>
     <string name="l10n_delete_wallet_65684f30" formatted="false">"Видалити"</string>
     <string name="l10n_denied_da404deb" formatted="false">"Заборонено"</string>
+    <string name="l10n_description_526e0087" formatted="false">"Опис"</string>
     <string name="l10n_details_45989de4" formatted="false">"Подробиці"</string>
     <string name="l10n_device_paired_af592192" formatted="false">"Пару створено"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"Помилка пристрою: %1$s"</string>
@@ -366,6 +377,7 @@
     <string name="l10n_enter_pin_to_view_seed_phrase_2ed78176" formatted="false">"Введіть PIN-код, щоб переглянути мнемонічну фразу"</string>
     <string name="l10n_enter_pairing_code_1396fcff" formatted="false">"Введіть код створення пари"</string>
     <string name="l10n_enter_xmr_address_eb12312f" formatted="false">"Введіть адресу XMR"</string>
+    <string name="l10n_enter_xmr_address_or_openalias_4a5954fa" formatted="false">"Введіть адресу XMR або OpenAlias"</string>
     <string name="l10n_enter_a_valid_address_first_68b6e98a" formatted="false">"Спершу введіть дійсну адресу"</string>
     <string name="l10n_enter_a_valid_amount_first_d298322a" formatted="false">"Спершу введіть дійсну суму"</string>
     <string name="l10n_enter_a_valid_seed_phrase_to_continue_d20106e0" formatted="false">"Щоб продовжити, введіть дійсну мнемонічну фразу"</string>
@@ -407,6 +419,7 @@
     <string name="l10n_fee_s_xmr_9efa7208" formatted="false">"Комісія: %1$s XMR"</string>
     <string name="l10n_fetching_price_f74cc78c" formatted="false">"Отримання ціни…"</string>
     <string name="l10n_filter_transactions_00d87315" formatted="false">"Фільтр транзакцій"</string>
+    <string name="l10n_first_payment_to_this_name_check_the_address_with_the_r_5e52f2f6" formatted="false">"Перший платіж на це ім’я. Звірте адресу з одержувачем."</string>
     <string name="l10n_first_time_sync_can_take_a_few_minutes_2b7fc90b" formatted="false">"Перша синхронізація може тривати кілька хвилин."</string>
     <string name="l10n_forgot_pin_74ad27db" formatted="false">"Забули PIN-код"</string>
     <string name="l10n_forgot_pin_9c7eb279" formatted="false">"Забули PIN-код?"</string>
@@ -460,6 +473,7 @@
     <string name="l10n_invalid_address_4c9bb549" formatted="false">"Недійсна адреса"</string>
     <string name="l10n_invalid_amount_f7cda366" formatted="false">"Недійсна сума"</string>
     <string name="l10n_invalid_input_c9bbbe83" formatted="false">"Помилка"</string>
+    <string name="l10n_invalid_name_f04d8455" formatted="false">"Недійсне ім’я"</string>
     <string name="l10n_invalid_response_from_trezor_68112748" formatted="false">"Недійсна відповідь від Trezor"</string>
     <string name="l10n_invalid_seed_phrase_3a8da7cf" formatted="false">"Недійсна мнемонічна фраза"</string>
     <string name="l10n_invalid_seed_phrase_please_check_your_words_and_try_aga_48aabf18" formatted="false">"Недійсна мнемонічна фраза. Перевірте слова й повторіть спробу."</string>
@@ -494,6 +508,8 @@
     <string name="l10n_locked_a424e33d" formatted="false">"Заблоковано"</string>
     <string name="l10n_locked_s_10_confirmations_1ebca220" formatted="false">"Заблоковано (%s/10 підтверджень)"</string>
     <string name="l10n_locked_until_recent_transactions_confirm_9ea62908" formatted="false">"Заблоковано, доки нові транзакції не буде підтверджено"</string>
+    <string name="l10n_look_up_the_name_again_43d80731" formatted="false">"Повторити пошук імені"</string>
+    <string name="l10n_looking_up_s_580f0cb6" formatted="false">"Пошук %1$s…"</string>
     <string name="l10n_main_address_4b09bf43" formatted="false">"Основна адреса"</string>
     <string name="l10n_main_address_links_all_transactions_use_subaddresses_fo_db63ea38" formatted="false">"Основна адреса пов’язує всі транзакції. Для приватності використовуйте субадреси."</string>
     <string name="l10n_make_sure_the_device_is_unlocked_and_bluetooth_is_on_737758b0" formatted="false">"Переконайтеся, що пристрій розблоковано, а Bluetooth увімкнено."</string>
@@ -508,6 +524,7 @@
     <string name="l10n_monero_one_has_no_built_in_tor_without_orbot_or_another_f79ac3c0" formatted="false">"У Monero One немає вбудованого Tor. Без запущеного Orbot або іншої програми Tor жоден вузол не підключиться."</string>
     <string name="l10n_monero_one_is_a_self_custody_wallet_your_seed_phrase_is_3a95ff43" formatted="false">"Monero One — некастодіальний гаманець. Мнемонічна фраза — єдиний спосіб отримати доступ до коштів. Ми не можемо відновити її за вас."</string>
     <string name="l10n_monero_one_is_open_source_you_can_verify_exactly_how_lo_4560ff4d" formatted="false">"Monero One має відкритий код. Ви можете перевірити в коді, як саме використовується локація."</string>
+    <string name="l10n_monero_one_names_come_in_a_later_update_f8c2a952" formatted="false">"Імена Monero One з’являться в одному з наступних оновлень"</string>
     <string name="l10n_monero_one_switches_language_the_next_time_it_opens_907ff7de" formatted="false">"Monero One змінить мову під час наступного запуску."</string>
     <string name="l10n_monero_price_38751a53" formatted="false">"Ціна Monero"</string>
     <string name="l10n_monero_view_only_wallet_27bc3604" formatted="false">"Гаманець лише для перегляду Monero"</string>
@@ -524,6 +541,7 @@
     <string name="l10n_moved_up_dbbbde2a" formatted="false">"Переміщено вгору"</string>
     <string name="l10n_moves_between_transactions_426445ed" formatted="false">"Переходить між транзакціями"</string>
     <string name="l10n_name_dcd1d522" formatted="false">"Назва"</string>
+    <string name="l10n_name_not_signed_a4712126" formatted="false">"Ім’я не підписане"</string>
     <string name="l10n_name_your_wallet_31b56e34" formatted="false">"Назва гаманця"</string>
     <string name="l10n_name_number_or_address_04f4c03c" formatted="false">"Назва, номер або адреса"</string>
     <string name="l10n_needs_always_90893ff3" formatted="false">"Потрібно «Завжди»"</string>
@@ -543,6 +561,7 @@
     <string name="l10n_new_price_alert_70e1b4c1" formatted="false">"Нове сповіщення"</string>
     <string name="l10n_new_address_after_each_payment_d82479d9" formatted="false">"Нова адреса після кожного платежу"</string>
     <string name="l10n_next_transaction_37f49104" formatted="false">"Наступна транзакція"</string>
+    <string name="l10n_no_monero_address_for_this_name_79d0651c" formatted="false">"Для цього імені немає адреси Monero"</string>
     <string name="l10n_no_price_alerts_cfb97a21" formatted="false">"Немає цінових сповіщень"</string>
     <string name="l10n_no_trusted_locations_008f580f" formatted="false">"Немає довірених місць"</string>
     <string name="l10n_no_warranty_420d720d" formatted="false">"Без гарантій"</string>
@@ -699,8 +718,10 @@
     <string name="l10n_recipient_51fac985" formatted="false">"Одержувач"</string>
     <string name="l10n_recipient_address_f6f6311d" formatted="false">"Адреса одержувача"</string>
     <string name="l10n_recipient_address_454d0391" formatted="false">"Адреса одержувача"</string>
+    <string name="l10n_recipient_address_or_openalias_name_05d761e3" formatted="false">"Адреса одержувача або ім’я OpenAlias"</string>
     <string name="l10n_recipient_not_available_for_transactions_sent_before_th_bcca6091" formatted="false">"Одержувач недоступний для транзакцій, надісланих до відновлення цього гаманця"</string>
     <string name="l10n_recipient_s_4d3d8df1" formatted="false">"Одержувач: %1$s"</string>
+    <string name="l10n_recipient_s_address_s_b4e456fc" formatted="false">"Одержувач: %1$s, адреса %2$s"</string>
     <string name="l10n_recommended_d70604e8" formatted="false">"Рекомендовано"</string>
     <string name="l10n_recovery_phrase_68fbadc6" formatted="false">"Мнемонічна фраза"</string>
     <string name="l10n_remote_node_0ea0c139" formatted="false">"Віддалений вузол"</string>
@@ -748,6 +769,7 @@
     <string name="l10n_romanian_leu_b988a3b0" formatted="false">"Румунський лей"</string>
     <string name="l10n_route_traffic_through_socks5_proxy_9704e8d1" formatted="false">"Спрямовувати трафік через проксі SOCKS5"</string>
     <string name="l10n_russian_ruble_e43aeba8" formatted="false">"Російський рубль"</string>
+    <string name="l10n_same_address_as_your_last_payment_0c07a4bf" formatted="false">"Та сама адреса, що й під час останнього платежу"</string>
     <string name="l10n_save_1509f561" formatted="false">"Зберегти"</string>
     <string name="l10n_save_alert_c04ad8f9" formatted="false">"Зберегти сповіщення"</string>
     <string name="l10n_save_to_photos_50eaa390" formatted="false">"Зберегти у Фото"</string>
@@ -896,10 +918,15 @@
     <string name="l10n_testnet_mode_active_059a369d" formatted="false">"Режим тестової мережі ввімкнено"</string>
     <string name="l10n_testnet_mode_active_test_xmr_only_889d3d8a" formatted="false">"Режим тестової мережі ввімкнено, лише тестові XMR"</string>
     <string name="l10n_the_price_widget_works_without_this_1775422d" formatted="false">"Віджет «Ціна» працює без цього параметра."</string>
+    <string name="l10n_the_address_for_s_s_is_different_from_the_address_you_p_3cdf352c" formatted="false">"Адреса для %1$s (%2$s) відрізняється від адреси, на яку ви платили %3$s. Звірте нову адресу з одержувачем."</string>
+    <string name="l10n_the_address_for_s_is_different_from_the_address_you_pai_b51afe25" formatted="false">"Адреса для %1$s відрізняється від адреси, на яку ви платили %2$s. Звірте нову адресу з одержувачем."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Сума в цьому посиланні не є дійсною сумою XMR."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Буфер обміну буде очищено через %1$s."</string>
     <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"Не вдалося підтвердити платіж. Якщо він пройшов, посилання з’явиться в розділі «Активність»."</string>
+    <string name="l10n_the_lookup_took_too_long_bae6d149" formatted="false">"Пошук тривав надто довго"</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"Джерело цін не має котирування %1$s."</string>
+    <string name="l10n_the_record_holds_an_address_for_another_network_31f49873" formatted="false">"Запис містить адресу для іншої мережі"</string>
+    <string name="l10n_the_record_holds_an_invalid_monero_address_18a56b6b" formatted="false">"Запис містить недійсну адресу Monero"</string>
     <string name="l10n_the_value_of_monero_can_fluctuate_significantly_only_us_284367aa" formatted="false">"Вартість Monero може суттєво коливатися. Використовуйте лише ті кошти, втрату яких можете собі дозволити."</string>
     <string name="l10n_the_wallet_couldn_t_load_its_keys_so_no_receive_address_97a33f75" formatted="false">"Гаманцю не вдалося завантажити ключі, тому адресу для отримання показати неможливо. Не надсилайте кошти на жодну адресу з цієї програми, доки проблему не буде усунено. Примусово закрийте й знову відкрийте програму; якщо проблема не зникне, відновіть гаманець з мнемонічної фрази."</string>
     <string name="l10n_the_wallet_stays_unlocked_until_the_app_is_force_closed_eb3ed2b1" formatted="false">"Гаманець залишається розблокованим до примусового закриття застосунку"</string>
@@ -910,6 +937,8 @@
     <string name="l10n_this_link_has_no_valid_monero_address_a9f74722" formatted="false">"Це посилання не містить дійсної адреси Monero."</string>
     <string name="l10n_this_link_uses_a_payment_id_which_monero_no_longer_supp_10f3384a" formatted="false">"У цьому посиланні використано ID платежу, який Monero більше не підтримує. Попросіть отримувача надати субадресу або інтегровану адресу."</string>
     <string name="l10n_this_may_take_a_moment_c1049c89" formatted="false">"Це може тривати певний час"</string>
+    <string name="l10n_this_name_lists_more_than_one_monero_address_a3832633" formatted="false">"Для цього імені вказано кілька адрес Monero"</string>
+    <string name="l10n_this_name_uses_a_payment_id_which_monero_no_longer_supp_ca5f6521" formatted="false">"Для цього імені використано ID платежу, який Monero більше не підтримує. Попросіть отримувача надати субадресу або інтегровану адресу."</string>
     <string name="l10n_this_node_is_already_in_the_list_0720642a" formatted="false">"Цей вузол уже є у списку"</string>
     <string name="l10n_this_protects_you_from_wallet_activity_on_untrusted_net_91dd1d1c" formatted="false">"Це захищає від активності гаманця в недовірених мережах (наприклад, загальнодоступних Wi-Fi) або в невідомих місцях."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_only_it_still__22761798" formatted="false">"Гаманець буде видалено з цього пристрою. Його можна відновити за допомогою мнемонічної фрази."</string>
@@ -999,6 +1028,7 @@
     <string name="l10n_update_your_wallet_pin_384f8403" formatted="false">"Змінити PIN-код"</string>
     <string name="l10n_use_s_04064ec0" formatted="false">"Використати %1$s"</string>
     <string name="l10n_use_biometrics_11377f11" formatted="false">"Біометрія"</string>
+    <string name="l10n_use_new_address_4d01a4ee" formatted="false">"Використати нову адресу"</string>
     <string name="l10n_use_pin_3e03ee29" formatted="false">"Ввести PIN-код"</string>
     <string name="l10n_use_tor_proxy_89445203" formatted="false">"Використовувати проксі Tor"</string>
     <string name="l10n_use_an_ip_address_and_port_for_example_127_0_0_1_9050_2e0d26ba" formatted="false">"Укажіть IP-адресу та порт, наприклад 127.0.0.1:9050."</string>
@@ -1030,6 +1060,7 @@
     <string name="l10n_view_only_wallet_30e66632" formatted="false">"Гаманець лише для перегляду"</string>
     <string name="l10n_view_only_wallets_cannot_send_transactions_4a11f950" formatted="false">"Гаманці лише для перегляду не можуть надсилати транзакції"</string>
     <string name="l10n_visit_monero_one_2ba11ca1" formatted="false">"Відкриває monero.one у браузері"</string>
+    <string name="l10n_wait_for_the_name_lookup_to_finish_a9cfb529" formatted="false">"Дочекайтеся завершення пошуку імені"</string>
     <string name="l10n_waiting_for_fee_estimate_44418c72" formatted="false">"Очікування оцінки комісії"</string>
     <string name="l10n_wallet_d1c9a01d" formatted="false">"Гаманець"</string>
     <string name="l10n_wallet_s_ca6410b6" formatted="false">"Гаманець %1$s"</string>

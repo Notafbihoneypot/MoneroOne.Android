@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import one.monero.moneroone.core.openalias.OpenAliasPinStore
 import one.monero.moneroone.data.model.Currency
 import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.repository.PriceRepository
@@ -1430,6 +1431,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     .clear()
                     .apply()
                 WalletWidget.updateAll(context)
+
+                // OpenAlias pins record which names were paid.
+                OpenAliasPinStore.create(context).clearAll()
 
                 // Reset state
                 _wallets.value = emptyList()

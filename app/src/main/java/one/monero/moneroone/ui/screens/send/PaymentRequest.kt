@@ -10,7 +10,9 @@ data class MoneroUriData(
     val amount: String? = null,
     val recipientName: String? = null,
     val description: String? = null,
-    val paymentId: String? = null
+    val paymentId: String? = null,
+    /** An OpenAlias name in place of the address; [address] is then empty. */
+    val name: String? = null
 )
 
 /**
@@ -41,19 +43,40 @@ sealed interface PaymentRequestResult {
 
 /** Parsing is pure; callers supply the wallet library's checksum validation. */
 fun parsePaymentRequest(input: String, validateAddress: (String) -> Boolean): MoneroUriData? =
-    (readPaymentRequest(input, validateAddress) as? PaymentRequestResult.Valid)?.data
+    parsePaymentRequest(input, validateAddress, nameTarget = { null })
+
+/**
+ * [parsePaymentRequest] for a scanned code: [nameTarget] returns the target
+ * when it is an OpenAlias name, and the address check is then skipped.
+ * Links from other apps stay address-only.
+ */
+fun parsePaymentRequest(
+    input: String,
+    validateAddress: (String) -> Boolean,
+    nameTarget: (String) -> String?
+): MoneroUriData? =
+    (readPaymentRequest(input, validateAddress, nameTarget) as? PaymentRequestResult.Valid)?.data
 
 /**
  * [parsePaymentRequest] with the reason for a refusal, so a payment link
  * can say what is wrong with it, as iOS does.
  */
-fun readPaymentRequest(input: String, validateAddress: (String) -> Boolean): PaymentRequestResult {
+fun readPaymentRequest(input: String, validateAddress: (String) -> Boolean): PaymentRequestResult =
+    readPaymentRequest(input, validateAddress, nameTarget = { null })
+
+/** [readPaymentRequest] that also takes an OpenAlias name, as [parsePaymentRequest] does. */
+fun readPaymentRequest(
+    input: String,
+    validateAddress: (String) -> Boolean,
+    nameTarget: (String) -> String?
+): PaymentRequestResult {
     fun refuse(error: PaymentRequestError) = PaymentRequestResult.Invalid(error)
     val raw = input.trim()
     if (raw.length > 8192 || '#' in raw) return refuse(PaymentRequestError.NOT_PAYMENT_LINK)
     val body = if (raw.startsWith("monero:", true)) raw.substring(7) else raw
-    val address = body.substringBefore('?')
-    if (address.length !in listOf(95, 106) || address.firstOrNull() !in listOf('4', '8') || !validateAddress(address)) {
+    val name = nameTarget(body.substringBefore('?'))
+    val address = if (name != null) "" else body.substringBefore('?')
+    if (name == null && (address.length !in listOf(95, 106) || address.firstOrNull() !in listOf('4', '8') || !validateAddress(address))) {
         return refuse(PaymentRequestError.INVALID_ADDRESS)
     }
     val params = mutableMapOf<String, String>()
@@ -80,5 +103,5 @@ fun readPaymentRequest(input: String, validateAddress: (String) -> Boolean): Pay
             ?: return refuse(PaymentRequestError.INVALID_AMOUNT)
         if (atomic <= 0) return refuse(PaymentRequestError.INVALID_AMOUNT)
     }
-    return PaymentRequestResult.Valid(MoneroUriData(address, amount, params["recipient_name"], params["tx_description"]))
+    return PaymentRequestResult.Valid(MoneroUriData(address, amount, params["recipient_name"], params["tx_description"], name = name))
 }

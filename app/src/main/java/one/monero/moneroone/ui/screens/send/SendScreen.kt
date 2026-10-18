@@ -8,9 +8,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -39,9 +42,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -86,12 +92,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -111,6 +120,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.horizontalsystems.monerokit.MoneroKit
@@ -120,6 +130,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import one.monero.moneroone.core.openalias.OpenAlias
+import one.monero.moneroone.core.openalias.OpenAliasName
+import one.monero.moneroone.core.openalias.OpenAliasSummary
+import one.monero.moneroone.core.openalias.RecipientInput
 import one.monero.moneroone.core.util.NetworkMonitor
 import one.monero.moneroone.core.wallet.ReviewFee
 import one.monero.moneroone.core.wallet.ReviewFeeResult
@@ -142,6 +156,7 @@ import one.monero.moneroone.paymentlinks.linkFundingUnconfirmed
 import one.monero.moneroone.ui.components.AuthGateDialog
 import one.monero.moneroone.ui.components.CapsuleShape
 import one.monero.moneroone.ui.components.DismissTextButton
+import one.monero.moneroone.ui.components.FieldShape
 import one.monero.moneroone.ui.components.GlassButton
 import one.monero.moneroone.ui.components.GlassCard
 import one.monero.moneroone.ui.components.MoneroTextField
@@ -212,6 +227,7 @@ fun SendScreen(
     prefillSource: SendPrefillSource? = null,
     incomingLink: OpenSendLink? = null,
     onIncomingLink: (link: OpenSendLink, accepted: Boolean) -> Unit = { _, _ -> },
+    initialName: String? = null,
     onBack: () -> Unit,
     onScanQr: () -> Unit,
     onSent: () -> Unit,
@@ -229,6 +245,14 @@ fun SendScreen(
     // the phase where the dropped value would have been entered.
     val prefilledAddress = remember {
         initialAddress?.trim()?.takeIf { isValidMoneroAddress(it) }
+    }
+    // An OpenAlias name from a QR code: the flow starts on the address step and
+    // looks the name up at once.
+    val prefilledName = remember {
+        initialName?.trim()?.takeIf { name ->
+            prefilledAddress == null &&
+                OpenAlias.classify(name).let { it is RecipientInput.Name || it == RecipientInput.Reserved }
+        }
     }
     val prefilledAmount = remember {
         initialAmount?.trim()?.takeIf { walletViewModel.parseXmr(it) > 0 }
@@ -257,6 +281,13 @@ fun SendScreen(
 
     // Send flow state
     var address by rememberSaveable { mutableStateOf(prefilledAddress ?: "") }
+    // The field text (an address or an OpenAlias name). `address` stays the
+    // only value that reaches the fee estimate and the send.
+    var recipientInput by rememberSaveable { mutableStateOf(prefilledAddress ?: prefilledName ?: "") }
+    var openAliasSummary by rememberSaveable(stateSaver = OpenAliasSummarySaver) { mutableStateOf<OpenAliasSummary?>(null) }
+    val openAlias = rememberOpenAliasLookup()
+    // A prefilled address or name (from a scan) is classified at once, like a paste.
+    LaunchedEffect(Unit) { if (recipientInput.isNotEmpty()) openAlias.onInputChanged(recipientInput, immediate = true) }
     var amount by rememberSaveable { mutableStateOf(prefilledAmount ?: "") }
     var isSweepAll by rememberSaveable { mutableStateOf(false) }
     var memo by rememberSaveable { mutableStateOf("") }
@@ -298,6 +329,7 @@ fun SendScreen(
             is SendState.Success -> {
                 if (linkMode) linkDraft?.let { paymentLinks?.fundingFinished(it.link.id, success = true) }
                 phase = SendPhase.SUCCESS; sendInProgress = false
+                openAlias.onSendState(sendState, openAliasSummary, address)
             }
             is SendState.Error -> {
                 // A failure before the broadcast needs no envelope scan; any other may have reached the network.
@@ -341,6 +373,11 @@ fun SendScreen(
             linkMode = false
             linkDraft = null
             address = link.address
+            // A link holds an address only (iOS SendFlowView.apply): the field
+            // shows it, its row shows at once, and no looked-up name stays.
+            recipientInput = link.address
+            openAlias.onInputChanged(link.address, immediate = true)
+            openAliasSummary = null
             amount = link.amount?.trim()?.takeIf { walletViewModel.parseXmr(it) > 0 } ?: ""
             amountPrefilledFromQR = amount.isNotEmpty()
             amountSource = SendPrefillSource.LINK
@@ -374,7 +411,8 @@ fun SendScreen(
                     Text(
                         text = when (phase) {
                             SendPhase.ADDRESS -> tr("Send XMR")
-                            SendPhase.AMOUNT -> if (linkMode) tr("Send with a link") else if (address.length > 20) tr("Send to %s", truncateMiddle(address)) else tr("Amount")
+                            SendPhase.AMOUNT -> if (linkMode) tr("Send with a link") else openAliasSummary?.let { openAliasAmountTitle(it) }
+                                ?: if (address.length > 20) tr("Send to %s", truncateMiddle(address)) else tr("Amount")
                             SendPhase.REVIEW -> tr("Review")
                             else -> ""
                         },
@@ -424,23 +462,38 @@ fun SendScreen(
         ) { currentPhase ->
             when (currentPhase) {
                 SendPhase.ADDRESS -> AddressPhase(
-                    address = address,
-                    onAddressChange = {
+                    input = recipientInput,
+                    lookup = openAlias,
+                    onInputChange = { text, immediate ->
                         // A pasted claim link opens the claim sheet (which explains a cut-off one); it is never
-                        // an address. Typed by hand, a link opens once it is whole.
-                        val pasted = it.length - address.length > 1
-                        val link = PaymentLinkCodec.parse(it)
+                        // an address or a name. Typed by hand, a link opens once it is whole.
+                        val pasted = text.length - recipientInput.length > 1
+                        val link = PaymentLinkCodec.parse(text)
                         val whole = link is PaymentLinkParse.Valid || link == PaymentLinkParse.NeedsUpdate
                         if (paymentLinks != null && (whole || pasted && link != PaymentLinkParse.NotALink)) {
                             // The start of the link typed so far is no address either.
-                            if (PaymentLinkCodec.isClaimLink(address)) address = ""
-                            onClaimLink(it.trim())
+                            if (PaymentLinkCodec.isClaimLink(recipientInput)) {
+                                recipientInput = ""
+                                openAlias.onInputChanged("", true)
+                            }
+                            onClaimLink(text.trim())
                         } else {
-                            address = it
+                            recipientInput = text
+                            openAlias.onInputChanged(text, immediate)
                         }
                     },
                     onScanQr = onScanQr,
-                    onContinue = { goForward(SendPhase.AMOUNT) },
+                    onContinueAddress = {
+                        // A link sends to a new envelope: the typed recipient is not the address.
+                        if (!linkMode) address = recipientInput.trim()
+                        openAliasSummary = null
+                        goForward(SendPhase.AMOUNT)
+                    },
+                    onContinueName = { summary ->
+                        address = summary.address
+                        openAliasSummary = summary
+                        goForward(SendPhase.AMOUNT)
+                    },
                     linkMode = linkMode,
                     showLinkButton = canSendWithLink,
                     onLinkModeChange = { on ->
@@ -505,6 +558,7 @@ fun SendScreen(
                     val selectedCurrency by walletViewModel.selectedCurrency.collectAsState()
                     ReviewPhase(
                         address = address,
+                        openAliasSummary = openAliasSummary,
                         amount = amount,
                         memo = memo,
                         isSweepAll = isSweepAll,
@@ -643,18 +697,34 @@ fun SendScreen(
 
 @Composable
 private fun AddressPhase(
-    address: String,
-    onAddressChange: (String) -> Unit,
+    input: String,
+    lookup: OpenAliasLookupModel,
+    onInputChange: (text: String, immediate: Boolean) -> Unit,
     onScanQr: () -> Unit,
-    onContinue: () -> Unit,
+    onContinueAddress: () -> Unit,
+    onContinueName: (OpenAliasSummary) -> Unit,
     linkMode: Boolean = false,
     /** The Link capsule: any wallet that can send (view-only wallets do not see it). */
     showLinkButton: Boolean = false,
     onLinkModeChange: (Boolean) -> Unit = {}
 ) {
-    val isValid = linkMode || address.isNotEmpty() && isValidMoneroAddress(address)
+    val kind = remember(input) { OpenAlias.classify(input) }
+    val status = lookup.status
+    val resolved = (status as? LookupStatus.Resolved)?.takeIf { kind is RecipientInput.Name }
+    val resolvedSummary = resolved?.summary()
+    val lookingUp = (status as? LookupStatus.Running)?.name?.takeIf { kind is RecipientInput.Name }
+    val fieldFocus = remember { FocusRequester() }
+    // Set by the card's clear button: the field that comes back gets the cursor.
+    var focusFieldOnShow by remember { mutableStateOf(false) }
+    val isValid = linkMode || when (kind) {
+        // Continue follows the text at once; the row under the field waits for the typing delay.
+        is RecipientInput.Address -> isValidMoneroAddress(kind.text)
+        is RecipientInput.Name -> resolved != null
+        else -> false
+    }
     // iOS SendAddressStep: no sending while offline (canContinue needs a network).
     val isOnline by NetworkMonitor.isConnected.collectAsState()
+    var confirming by remember { mutableStateOf<LookupStatus.Resolved?>(null) }
     val clipboardManager = LocalClipboardManager.current
 
     // Entrance animation
@@ -727,44 +797,80 @@ private fun AddressPhase(
             if (link) {
                 PaymentLinkRecipientToken(onClear = { onLinkModeChange(false) })
             } else {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Addresses are mono caption, as on iOS.
+            // Address field. A resolved name turns it into the recipient card,
+            // inside the same rounded field, with the iOS step-forward spring.
+            AnimatedContent(
+                targetState = resolvedSummary,
+                contentKey = { it != null },
+                transitionSpec = {
+                    fadeIn(openAliasCardSpring()) togetherWith fadeOut(openAliasCardSpring()) using
+                        SizeTransform(clip = false) { _, _ -> openAliasCardSpring(IntSize.VisibilityThreshold) }
+                },
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, FieldShape),
+                label = "recipientField"
+            ) { summary ->
+                if (summary != null) {
+                    OpenAliasRecipientCard(summary, onClear = {
+                        focusFieldOnShow = true
+                        onInputChange("", true)
+                    })
+                } else {
+                    // Addresses and names are mono caption, as on iOS. TalkBack reads the
+                    // typed text, then this label (checked with TalkBack 14.2).
+                    val fieldLabel = tr("Recipient address or OpenAlias name")
                     MoneroTextField(
-                        value = address,
-                        onValueChange = onAddressChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(tr("Enter XMR address"), style = MonoCaption) },
+                        value = input,
+                        onValueChange = { onInputChange(it, false) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(fieldFocus)
+                            .semantics { contentDescription = fieldLabel },
+                        placeholder = { Text(tr("Enter XMR address or OpenAlias"), style = MonoCaption) },
                         textStyle = MonoCaption,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Done,
+                            autoCorrectEnabled = false
+                        ),
+                        keyboardActions = KeyboardActions(onDone = {
+                            onInputChange(input, true)
+                            defaultKeyboardAction(ImeAction.Done)
+                        }),
+                        trailingIcon = if (input.isNotEmpty()) {
+                            { RecipientFieldTrailing(lookingUp, onClear = { onInputChange("", true) }) }
+                        } else {
+                            null
+                        },
                         singleLine = true
                     )
-
-                    // Inline validation indicator
-                    if (address.isNotEmpty()) {
-                        val valid = isValidMoneroAddress(address)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 6.dp)
-                        ) {
-                            Icon(
-                                if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                                contentDescription = null,
-                                tint = if (valid) SuccessGreen else ErrorRed,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                if (valid) tr("Valid address") else tr("Invalid address"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (valid) SuccessGreen else ErrorRed
-                            )
+                    LaunchedEffect(Unit) {
+                        if (focusFieldOnShow) {
+                            focusFieldOnShow = false
+                            fieldFocus.requestFocus()
                         }
                     }
                 }
             }
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // Inline validation indicator (addresses). On the name path the
+        // OpenAlias row takes its place, in a slot one row high while the
+        // field has text, so the buttons keep their positions (as on iOS). A link has no recipient to check.
+        if (!linkMode && input.isNotEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                AddressCheckRow(valid = false, modifier = Modifier.alpha(0f).clearAndSetSemantics { })
+                AddressCheckSlot(status)
+                OpenAliasStatusRow(status = status, onRetry = lookup::retry)
+                OpenAliasResolvedLines(resolvedSummary)
+            }
+        }
+
+        // The gap above the buttons, and where TalkBack hears a lookup end.
+        OpenAliasAnnouncement(lookup, Modifier.fillMaxWidth().height(16.dp))
 
         // Scan QR, Paste and Link fill the recipient. Scan QR and Paste leave a link
         // for the address they bring. Three capsules stack at large text (iOS AX sizes).
@@ -779,7 +885,7 @@ private fun AddressPhase(
                 onClick = {
                     clipboardManager.getText()?.text?.let {
                         if (linkMode) onLinkModeChange(false)
-                        onAddressChange(it.trim())
+                        onInputChange(it.trim(), true)
                     }
                 },
                 contentPadding = narrow
@@ -807,8 +913,17 @@ private fun AddressPhase(
 
         // Continue button
         PrimaryButton(
-            onClick = onContinue,
-            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                when {
+                    linkMode || kind is RecipientInput.Address -> onContinueAddress()
+                    resolved == null -> Unit
+                    resolved.needsConfirmation -> confirming = resolved
+                    else -> onContinueName(resolved.summary())
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(openAliasContinueHint(running = kind is RecipientInput.Name && status is LookupStatus.Running)),
             enabled = isValid && isOnline
         ) {
             Text(tr("Continue"))
@@ -816,6 +931,17 @@ private fun AddressPhase(
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+
+    confirming?.let { request ->
+        OpenAliasContinueDialog(
+            request = request,
+            onConfirm = {
+                confirming = null
+                onContinueName(request.summary())
+            },
+            onDismiss = { confirming = null }
+        )
     }
 }
 
@@ -1146,6 +1272,7 @@ private fun AmountPhase(
 @Composable
 private fun ReviewPhase(
     address: String,
+    openAliasSummary: OpenAliasSummary?,
     amount: String,
     memo: String,
     isSweepAll: Boolean,
@@ -1208,191 +1335,223 @@ private fun ReviewPhase(
             .padding(horizontal = 24.dp)
             .graphicsLayer { this.alpha = alpha; translationY = offsetY.dp.toPx() }
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // QR warning
-        if (amountPrefilledFromQR && !isSweepAll) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 8.dp)
-            ) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(14.dp))
-                Text(tr("Amount pre-filled from QR code"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        // Transaction card: iOS review table (radius 16, fill, no shadow)
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 16.dp,
-            shadow = false,
-            color = MaterialTheme.colorScheme.surfaceVariant
+        // The details scroll and the Send button stays below them, as iOS
+        // puts them in a ScrollView: a long name or description, or a large
+        // text size, never pushes the button off the screen.
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Spacer(modifier = Modifier.height(16.dp))
 
-                // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(MoneroOrange.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+            // QR warning
+            if (amountPrefilledFromQR && !isSweepAll) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(14.dp))
+                    Text(tr("Amount pre-filled from QR code"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            // Transaction card: iOS review table (radius 16, fill, no shadow)
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 16.dp,
+                shadow = false,
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+
+                    // Recipient: the transaction-list disc (40, tint 0.15, 20dp glyph).
+                    // A name shows its picture, the name, the OpenAlias name and
+                    // every character of the address.
+                    Row(
+                        verticalAlignment = if (openAliasSummary == null) Alignment.CenterVertically else Alignment.Top,
+                        modifier = openAliasRecipientSemantics(openAliasSummary, address)
                     ) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(tr("Recipient"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            text = truncateMiddle(address),
-                            style = MonoCaption,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Amount (centered)
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (isSweepAll) {
-                        Text(tr("All Funds"), style = MaterialTheme.typography.headlineMedium)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        if (feeReady) {
-                            // What the built sweep sends: the balance it spends less its fee.
-                            val sendAmount = reviewFee.prepared?.sentAmount ?: (unlockedBalance - estimatedFee).coerceAtLeast(0)
-                            Text(
-                                "${formatXmr(sendAmount)} XMR",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            xmrPrice?.let { price ->
-                                val fiat = atomicToXmr(sendAmount) * price
+                        if (openAliasSummary != null) {
+                            RecipientAvatar(openAliasSummary, diameter = 40.dp)
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MoneroOrange.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = MoneroOrange, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(verticalArrangement = if (openAliasSummary != null) Arrangement.spacedBy(2.dp) else Arrangement.Top) {
+                            Text(tr("Recipient"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (openAliasSummary != null) {
+                                OpenAliasReviewNames(openAliasSummary)
+                            } else {
                                 Text(
-                                    "≈ ${currencySymbol}${"%.2f".format(fiat)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = truncateMiddle(address),
+                                    style = MonoCaption,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
-                        } else if (feeLoading) {
-                            CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                        }
-                    } else {
-                        Text(
-                            "${formatXmr(parsedAmount)} XMR",
-                            style = MaterialTheme.typography.headlineMedium
-                        )
-                        xmrPrice?.let { price ->
-                            val fiat = atomicToXmr(parsedAmount) * price
-                            Text(
-                                "≈ ${currencySymbol}${"%.2f".format(fiat)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
-                }
+                    // The notes start at the text column: the 40 dp disc plus the 12 dp gap.
+                    openAliasSummary?.let { OpenAliasReviewNotes(it, modifier = Modifier.padding(start = 52.dp)) }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // Fee row
-                ReviewDetailRow(
-                    label = { Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                ) {
-                    when {
-                        feeLoading -> CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        feeError != null -> Text(tr("Error"), style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
-                        else -> Column(horizontalAlignment = Alignment.End) {
-                            Text("${formatXmr(estimatedFee)} XMR", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    // Amount (centered)
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (isSweepAll) {
+                            Text(tr("All Funds"), style = MaterialTheme.typography.headlineMedium)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (feeReady) {
+                                // What the built sweep sends: the balance it spends less its fee.
+                                val sendAmount = reviewFee.prepared?.sentAmount ?: (unlockedBalance - estimatedFee).coerceAtLeast(0)
+                                Text(
+                                    "${formatXmr(sendAmount)} XMR",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                xmrPrice?.let { price ->
+                                    val fiat = atomicToXmr(sendAmount) * price
+                                    Text(
+                                        "≈ ${currencySymbol}${"%.2f".format(fiat)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            } else if (feeLoading) {
+                                CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
+                        } else {
+                            Text(
+                                "${formatXmr(parsedAmount)} XMR",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
                             xmrPrice?.let { price ->
-                                val fiat = atomicToXmr(estimatedFee) * price
+                                val fiat = atomicToXmr(parsedAmount) * price
                                 Text(
                                     "≈ ${currencySymbol}${"%.2f".format(fiat)}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                // Total row
-                ReviewDetailRow(
-                    label = { Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
-                ) {
-                    if (feeReady) {
-                        val total = reviewFee.prepared?.total ?: (parsedAmount + estimatedFee)
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                "${formatXmr(total)} XMR",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MoneroOrange
-                            )
-                            xmrPrice?.let { price ->
-                                val fiat = atomicToXmr(total) * price
-                                Text(
-                                    "≈ ${currencySymbol}${"%.2f".format(fiat)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                    // Fee row
+                    ReviewDetailRow(
+                        label = { Text(tr("Network Fee"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    ) {
+                        when {
+                            feeLoading -> CircularProgressIndicator(color = MoneroOrange, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            feeError != null -> Text(tr("Error"), style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
+                            else -> Column(horizontalAlignment = Alignment.End) {
+                                Text("${formatXmr(estimatedFee)} XMR", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                xmrPrice?.let { price ->
+                                    val fiat = atomicToXmr(estimatedFee) * price
+                                    Text(
+                                        "≈ ${currencySymbol}${"%.2f".format(fiat)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                // Memo: the last row, as on iOS, when the user wrote one.
-                if (memo.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(12.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(modifier = Modifier.height(12.dp))
-                    ReviewMemoRow(memo)
+
+                    // Total row
+                    ReviewDetailRow(
+                        label = { Text(tr("Total"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
+                    ) {
+                        if (feeReady) {
+                            val total = reviewFee.prepared?.total ?: (parsedAmount + estimatedFee)
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    "${formatXmr(total)} XMR",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MoneroOrange
+                                )
+                                xmrPrice?.let { price ->
+                                    val fiat = atomicToXmr(total) * price
+                                    Text(
+                                        "≈ ${currencySymbol}${"%.2f".format(fiat)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // The description in the OpenAlias record.
+                    openAliasSummary?.txDescription?.let { description ->
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OpenAliasDescriptionRow(description)
+                    }
+
+                    // Memo: the last row, as on iOS, when the user wrote one.
+                    if (memo.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        ReviewMemoRow(memo)
+                    }
                 }
             }
-        }
 
-        // Pre-filled amount + fee no longer fits the balance
-        if (needsSweepAllChoice) {
-            Spacer(modifier = Modifier.height(12.dp))
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(18.dp))
-                        Text(
-                            tr("Amount plus network fee exceeds your available balance"),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    TextButton(
-                        onClick = onUpgradeToSweepAll,
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text(tr("Send all funds instead"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
+            // Pre-filled amount + fee no longer fits the balance
+            if (needsSweepAllChoice) {
+                Spacer(modifier = Modifier.height(12.dp))
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = WarningYellow, modifier = Modifier.size(18.dp))
+                            Text(
+                                tr("Amount plus network fee exceeds your available balance"),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TextButton(
+                            onClick = onUpgradeToSweepAll,
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text(tr("Send all funds instead"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MoneroOrange)
+                        }
                     }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // Send button
         @OptIn(ExperimentalComposeUiApi::class)
@@ -1829,7 +1988,66 @@ private fun atomicToXmr(atomic: Long): Double {
     return atomic.toDouble() / 1_000_000_000_000.0
 }
 
-private fun isValidMoneroAddress(address: String): Boolean {
+/** The end of the recipient field: the spinner while a name lookup runs, then the clear button. */
+@Composable
+private fun RecipientFieldTrailing(lookingUp: OpenAliasName?, onClear: () -> Unit) {
+    // The last name stays on the spinner while it fades out.
+    val last = remember { arrayOfNulls<OpenAliasName>(1) }
+    if (lookingUp != null) last[0] = lookingUp
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        AnimatedVisibility(
+            visible = lookingUp != null,
+            enter = fadeIn(openAliasFadeSpec),
+            exit = fadeOut(openAliasFadeSpec)
+        ) {
+            last[0]?.let { OpenAliasLookupSpinner(it) }
+        }
+        OpenAliasClearButton(onClear = onClear)
+    }
+}
+
+/** The "Valid address" / "Invalid address" row under the recipient field. */
+@Composable
+private fun AddressCheckRow(valid: Boolean, modifier: Modifier = Modifier) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(top = 6.dp)
+    ) {
+        Icon(
+            if (valid) Icons.Default.CheckCircle else Icons.Default.Cancel,
+            contentDescription = null,
+            tint = if (valid) SuccessGreen else ErrorRed,
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            if (valid) tr("Valid address") else tr("Invalid address"),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (valid) SuccessGreen else ErrorRed
+        )
+    }
+}
+
+/**
+ * The address row fades in and out, as on iOS. When the name row takes its
+ * place, it goes at once, so the two never show together.
+ */
+@Composable
+private fun AddressCheckSlot(status: LookupStatus) {
+    val checked = status as? LookupStatus.Address
+    // The last row stays in place while it fades out.
+    val last = remember { arrayOfNulls<LookupStatus.Address>(1) }
+    if (checked != null) last[0] = checked
+    AnimatedVisibility(
+        visible = checked != null,
+        enter = fadeIn(openAliasFadeSpec),
+        exit = if (status is LookupStatus.Idle) fadeOut(openAliasFadeSpec) else ExitTransition.None
+    ) {
+        last[0]?.let { AddressCheckRow(valid = it.valid) }
+    }
+}
+
+internal fun isValidMoneroAddress(address: String): Boolean {
     if (address.length !in listOf(95, 106)) return false
     if (!address.startsWith("4") && !address.startsWith("8")) return false
     return try {
