@@ -1,0 +1,1 @@
+- The QR scanner now uses open-source ZXing code instead of Google ML Kit, so a scan sends nothing to Google.
