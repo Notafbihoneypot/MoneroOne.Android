@@ -825,14 +825,15 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         flowId: String,
         name: String? = null,
         emoji: String = "💰"
-    ): Boolean = addForScreen(flowId) {
+    ): Boolean = addForScreen(flowId) { onOpened ->
         addWalletInternal(
             seed = seed,
             seedType = seedType,
             name = name,
             emoji = emoji,
             restoreHeight = MoneroKit.restoreHeightForNewWallet(),
-            restoreDateMillis = System.currentTimeMillis()
+            restoreDateMillis = System.currentTimeMillis(),
+            onOpened = onOpened
         ).also { added ->
             // Kept until now so that a failed add can be retried with the same words.
             if (added) createFlowSeed.discard(flowId)
@@ -863,11 +864,29 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     /** Main only. */
     private val addJobs = mutableMapOf<String, Deferred<Boolean>>()
 
-    /** Runs [add] for the screen [flowId], or waits for the add it already runs. */
-    private suspend fun addForScreen(flowId: String, add: suspend () -> Boolean): Boolean {
+    /**
+     * Runs [add] for the screen [flowId], or waits for the add it already runs.
+     * [add] calls its argument once the new wallet's file is open and derives
+     * from its seed: the screen moves on then, while the add finishes.
+     */
+    private suspend fun addForScreen(flowId: String, add: suspend (onOpened: () -> Unit) -> Boolean): Boolean {
         val job = addJobs[flowId] ?: viewModelScope.async(start = CoroutineStart.LAZY) {
+            var movedOn = false
             try {
-                add().also { added -> _addOutcomes.update { it + (flowId to added) } }
+                val added = add {
+                    movedOn = true
+                    _addOutcomes.update { it + (flowId to true) }
+                }
+                _addOutcomes.update {
+                    when {
+                        !movedOn -> it + (flowId to added)
+                        // The screen has left and may have cleared its outcome: never put it back.
+                        added -> it
+                        // Not expected (wallet-level failures come before the open): the rollback ran.
+                        else -> it - flowId
+                    }
+                }
+                added
             } finally {
                 addJobs -= flowId
                 _addsInFlight.update { it - flowId }
@@ -891,8 +910,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         restoreDateMillis: Long? = null,
         name: String? = null,
         emoji: String = "💰"
-    ): Boolean = addForScreen(flowId) {
-        restoreNormalized(seed, restoreHeight, restoreDateMillis, name, emoji)
+    ): Boolean = addForScreen(flowId) { onOpened ->
+        restoreNormalized(seed, restoreHeight, restoreDateMillis, name, emoji, onOpened)
     }
 
     private suspend fun restoreNormalized(
@@ -900,7 +919,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         restoreHeight: String?,
         restoreDateMillis: Long?,
         name: String?,
-        emoji: String
+        emoji: String,
+        onOpened: () -> Unit
     ): Boolean {
         // Normalize: the same seed typed with different casing/whitespace must
         // derive the same cache id (dedupe) and convert cleanly. wallet2 reads
@@ -926,10 +946,16 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             emoji = emoji,
             restoreHeight = restoreHeight?.toLongOrNull() ?: 0L,
             restoreDateMillis = restoreDateMillis ?: 0L,
-            restored = true
+            restored = true,
+            onOpened = onOpened
         )
     }
 
+    /**
+     * [onOpened] runs once the new wallet's file is open and derives from
+     * [seed], while the kit's first node contact still runs (see
+     * [AddWalletStart]). The add returns when the whole start is done.
+     */
     private suspend fun addWalletInternal(
         seed: List<String>,
         seedType: SeedType,
@@ -937,7 +963,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         emoji: String,
         restoreHeight: Long,
         restoreDateMillis: Long,
-        restored: Boolean = false
+        restored: Boolean = false,
+        onOpened: () -> Unit = {}
     ): Boolean = walletMutationMutex.withLock {
         val previousActive = _activeWallet.value
         var persisted: WalletInfo? = null
@@ -1021,7 +1048,19 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             publishAddresses(info, kit)
-            WalletManager.start()
+            val seedPrimary = withContext(Dispatchers.Default) { runCatching { kit.seedPrimaryAddress() }.getOrNull() }
+            AddWalletStart.startSignallingOpen(
+                start = { WalletManager.start() },
+                opened = {
+                    AddWalletStart.walletFileVerified(
+                        isOpen = kit.isWalletOpen,
+                        filePrimary = kit.checkedWalletFilePrimaryAddress,
+                        seedPrimary = seedPrimary,
+                        state = kit.syncStateFlow.value
+                    )
+                },
+                onOpened = onOpened
+            )
             // Second line of defense: the kit reports a wallet-level failure
             // (recovery/creation error) through its sync state, not an
             // exception. Treat it as a failed add so the row is rolled back
