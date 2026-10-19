@@ -1,0 +1,8 @@
+- Send XMR as a link: whoever opens it claims the funds in Monero One.
+- Send to a name: OpenAlias addresses, checked with DNSSEC.
+- New seed phrase entry: one box per word, paste a whole phrase at once, and a checksum check.
+- The review screen shows the exact network fee you pay.
+- Rounded QR codes.
+- New wallets are created faster.
+- Fixes for custom node logins.
+- General stability improvements and bug fixes.
