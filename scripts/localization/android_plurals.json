@@ -1,0 +1,148 @@
+{
+  "in %s open links": {
+    "en": {
+      "one": "in %s open link",
+      "other": "in %s open links"
+    },
+    "de": {
+      "one": "in %s offenem Link",
+      "other": "in %s offenen Links"
+    },
+    "es": {
+      "one": "en %s enlace abierto",
+      "many": "en %s enlaces abiertos",
+      "other": "en %s enlaces abiertos"
+    },
+    "fr": {
+      "one": "dans %s lien ouvert",
+      "many": "dans %s liens ouverts",
+      "other": "dans %s liens ouverts"
+    },
+    "it": {
+      "one": "in %s link aperto",
+      "many": "in %s link aperti",
+      "other": "in %s link aperti"
+    },
+    "ja": {
+      "other": "未受取のリンク%s件分"
+    },
+    "ko": {
+      "other": "미수령 링크 %s개에"
+    },
+    "nl": {
+      "one": "in %s open link",
+      "other": "in %s open links"
+    },
+    "pl": {
+      "one": "w %s otwartym linku",
+      "few": "w %s otwartych linkach",
+      "many": "w %s otwartych linkach",
+      "other": "w %s otwartego linku"
+    },
+    "pt-BR": {
+      "one": "em %s link aberto",
+      "many": "em %s links abertos",
+      "other": "em %s links abertos"
+    },
+    "ro": {
+      "one": "în %s link deschis",
+      "few": "în %s linkuri deschise",
+      "other": "în %s de linkuri deschise"
+    },
+    "ru": {
+      "one": "в %s открытой ссылке",
+      "few": "в %s открытых ссылках",
+      "many": "в %s открытых ссылках",
+      "other": "в %s открытой ссылки"
+    },
+    "tr": {
+      "one": "%s açık bağlantıda",
+      "other": "%s açık bağlantıda"
+    },
+    "uk": {
+      "one": "у %s відкритому посиланні",
+      "few": "у %s відкритих посиланнях",
+      "many": "у %s відкритих посиланнях",
+      "other": "у %s відкритого посилання"
+    },
+    "zh-Hans": {
+      "other": "在 %s 个未领取的链接中"
+    },
+    "zh-Hant": {
+      "other": "在 %s 個未領取的連結中"
+    }
+  },
+  "%s payment links": {
+    "en": {
+      "one": "%s payment link",
+      "other": "%s payment links"
+    },
+    "de": {
+      "one": "%s Zahlungslink",
+      "other": "%s Zahlungslinks"
+    },
+    "es": {
+      "one": "%s enlace de pago",
+      "many": "%s enlaces de pago",
+      "other": "%s enlaces de pago"
+    },
+    "fr": {
+      "one": "%s lien de paiement",
+      "many": "%s liens de paiement",
+      "other": "%s liens de paiement"
+    },
+    "it": {
+      "one": "%s link di pagamento",
+      "many": "%s link di pagamento",
+      "other": "%s link di pagamento"
+    },
+    "ja": {
+      "other": "支払いリンク%s件"
+    },
+    "ko": {
+      "other": "결제 링크 %s개"
+    },
+    "nl": {
+      "one": "%s betaallink",
+      "other": "%s betaallinks"
+    },
+    "pl": {
+      "one": "%s link płatności",
+      "few": "%s linki płatności",
+      "many": "%s linków płatności",
+      "other": "%s linku płatności"
+    },
+    "pt-BR": {
+      "one": "%s link de pagamento",
+      "many": "%s links de pagamento",
+      "other": "%s links de pagamento"
+    },
+    "ro": {
+      "one": "%s link de plată",
+      "few": "%s linkuri de plată",
+      "other": "%s de linkuri de plată"
+    },
+    "ru": {
+      "one": "%s платёжная ссылка",
+      "few": "%s платёжные ссылки",
+      "many": "%s платёжных ссылок",
+      "other": "%s платёжной ссылки"
+    },
+    "tr": {
+      "one": "%s ödeme bağlantısı",
+      "other": "%s ödeme bağlantısı"
+    },
+    "uk": {
+      "one": "%s платіжне посилання",
+      "few": "%s платіжні посилання",
+      "many": "%s платіжних посилань",
+      "other": "%s платіжного посилання"
+    },
+    "zh-Hans": {
+      "other": "%s 个付款链接"
+    },
+    "zh-Hant": {
+      "other": "%s 個付款連結"
+    }
+  }
+}

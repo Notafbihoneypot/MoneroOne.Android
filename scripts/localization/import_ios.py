@@ -59,6 +59,12 @@ def main():
     for source, translations in extra.items():
         if set(translations) != set(LANGUAGES): raise ValueError('Incomplete translation: ' + source)
         entries[source] = translations
+    # Android-only plurals: {source: {lang: {quantity: text}}}, English included.
+    plurals_file = ROOT / 'scripts/localization/android_plurals.json'
+    if plurals_file.exists():
+        for source, translations in json.loads(plurals_file.read_text()).items():
+            if set(translations) != set(['en'] + LANGUAGES): raise ValueError('Incomplete plural: ' + source)
+            plurals[source] = {lang: {q: format_string(v) for q, v in forms.items()} for lang, forms in translations.items()}
     for lang in ['en'] + LANGUAGES:
         folder = ROOT / 'app/src/main/res' / ('values' if lang == 'en' else 'values-' + QUALIFIERS.get(lang, lang))
         folder.mkdir(parents=True, exist_ok=True)

@@ -11,12 +11,18 @@
     <string name="l10n_s_change_s_s_c4a2b000" formatted="false">"%1$s: %2$s met %3$s"</string>
     <string name="l10n_s_chart_s_ef051333" formatted="false">"Grafiek: %1$s, %2$s"</string>
     <string name="l10n_s_copied_c1726808" formatted="false">"%1$s gekopieerd"</string>
+    <string name="l10n_s_expired_5652a631" formatted="false">"%1$s verlopen"</string>
     <string name="l10n_s_has_no_dnssec_signature_a_dns_server_between_you_and__2e948776" formatted="false">"%1$s heeft geen DNSSEC-handtekening. Een DNS-server tussen jou en de eigenaar van de naam kan dit antwoord wijzigen. Controleer het adres bij de ontvanger voordat je verzendt."</string>
+    <string name="l10n_s_in_s_ea264d52" formatted="false">"%1$s in %2$s"</string>
     <string name="l10n_s_is_up_to_date_48532316" formatted="false">"%s is bijgewerkt"</string>
     <string name="l10n_s_km_7ae04f84" formatted="false">"%1$s km"</string>
     <string name="l10n_s_km_radius_0ce6b318" formatted="false">"Straal van %1$s km"</string>
     <string name="l10n_s_of_s_words_262b50ac" formatted="false">"%1$s van %2$s woorden"</string>
     <string name="l10n_s_on_s_745fc552" formatted="false">"%1$s op %2$s"</string>
+    <string name="l10n_s_open_af891b0e" formatted="false">"%s open"</string>
+    <string name="l10n_s_to_claim_4a220b89" formatted="false">"%1$s te claimen"</string>
+    <string name="l10n_s_s_ffad8427" formatted="false">"%1$s · %2$s"</string>
+    <string name="l10n_s_s_open_dfdb7ceb" formatted="false">"%1$s · %2$s open"</string>
     <string name="l10n_s_connecting_to_monero_network_70d08cc4" formatted="false">"%s — verbinden met het Monero-netwerk"</string>
     <string name="l10n_s_syncing_s_04b3ee90" formatted="false">"%s — synchroniseren %s%%"</string>
     <string name="l10n_s_live_62e53b9a" formatted="false">"%1$s • Live"</string>
@@ -30,6 +36,11 @@
     <string name="l10n_s_disabled_for_view_only_wallet_a7817a74" formatted="false">"%1$s, uitgeschakeld voor alleen-lezen portemonnee"</string>
     <string name="l10n_s_portfolio_s_f99d40f6" formatted="false">"%1$s, portefeuille %2$s"</string>
     <string name="l10n_s_subaddress_s_8258744c" formatted="false">"%1$s, subadres %2$s"</string>
+    <string name="l10n_s_s_confirmations_5fa21886" formatted="false">"%1$s/%2$s bevestigingen"</string>
+    <string name="l10n_s_10_317f518f" formatted="false">"%s/10"</string>
+    <string name="l10n_s_10_confirmations_f747e75d" formatted="false">"%s/10 bevestigingen"</string>
+    <string name="l10n_s_s_xmr_306ff387" formatted="false">"%1$s: %2$s XMR"</string>
+    <string name="l10n_s_loading_4ba052e4" formatted="false">"%1$s: laden"</string>
     <string name="l10n_sm_a8bef0fd" formatted="false">"%1$s m"</string>
     <string name="l10n_sm_radius_75e1c440" formatted="false">"Straal van %1$s m"</string>
     <string name="l10n_sms_cc004583" formatted="false">"%1$s ms"</string>
@@ -41,6 +52,7 @@
     <string name="l10n_not_connected_dc446831" formatted="false">", niet verbonden"</string>
     <string name="l10n_testnet_bf2928de" formatted="false">", testnet"</string>
     <string name="l10n_worth_s_at_the_time_abfae711" formatted="false">", destijds %1$s waard"</string>
+    <string name="l10n_worth_about_s_dede9b49" formatted="false">", circa %1$s waard"</string>
     <string name="l10n_1_minute_e67b6f61" formatted="false">"1 minuut"</string>
     <string name="l10n_1_month_cd8c117e" formatted="false">"1 maand"</string>
     <string name="l10n_1_week_c8cc5223" formatted="false">"1 week"</string>
@@ -69,6 +81,7 @@
     <string name="l10n_6_digit_pin_recommended_s_61cc2218" formatted="false">"PIN van 6 cijfers, aanbevolen. %1$s"</string>
     <string name="l10n_64_lowercase_hex_characters_ee749803" formatted="false">"64 hextekens in kleine letters"</string>
     <string name="l10n_about_4efca0d1" formatted="false">"Info"</string>
+    <string name="l10n_about_s_xmr_e24cc9d7" formatted="false">"Circa %1$s XMR"</string>
     <string name="l10n_above_80792346" formatted="false">"Boven"</string>
     <string name="l10n_above_s_15a825fb" formatted="false">"Boven %1$s"</string>
     <string name="l10n_action_required_9346491a" formatted="false">"Actie vereist"</string>
@@ -88,6 +101,7 @@
     <string name="l10n_add_a_wallet_62e4b1f3" formatted="false">"Voeg portemonnee toe"</string>
     <string name="l10n_add_a_note_322c0e13" formatted="false">"Voeg een notitie toe"</string>
     <string name="l10n_add_memo_4caf1d1c" formatted="false">"Voeg notitie toe"</string>
+    <string name="l10n_add_note_63565c04" formatted="false">"Voeg notitie toe"</string>
     <string name="l10n_add_places_you_trust_like_home_or_work_60974482" formatted="false">"Voeg plekken toe die je vertrouwt, zoals thuis of werk."</string>
     <string name="l10n_add_your_home_office_or_other_safe_locations_if_your_wa_43d93c16" formatted="false">"Voeg je huis, kantoor of andere veilige locaties toe. Als je portemonnee activiteit buiten deze zones detecteert, krijg je een melding."</string>
     <string name="l10n_address_56ef8f20" formatted="false">"Adres"</string>
@@ -111,6 +125,8 @@
     <string name="l10n_all_transactions_bc927373" formatted="false">"Alle transacties"</string>
     <string name="l10n_all_details_copied_4cd79df1" formatted="false">"Alle gegevens gekopieerd"</string>
     <string name="l10n_all_time_9755c8d7" formatted="false">"Hele periode"</string>
+    <string name="l10n_already_claimed_b8a2f9b8" formatted="false">"Al geclaimd"</string>
+    <string name="l10n_already_claimed_01414370" formatted="false">"Al geclaimd."</string>
     <string name="l10n_always_use_dark_theme_89b9eb74" formatted="false">"Donker"</string>
     <string name="l10n_always_use_light_theme_dfd3a93e" formatted="false">"Licht"</string>
     <string name="l10n_amount_49e96d7c" formatted="false">"Bedrag"</string>
@@ -123,6 +139,9 @@
     <string name="l10n_an_unknown_error_occurred_please_check_your_seed_phrase_004f0a9b" formatted="false">"Er is een onbekende fout opgetreden. Controleer je seedzin en probeer het opnieuw."</string>
     <string name="l10n_an_unknown_error_occurred_please_try_again_82fcdad5" formatted="false">"Er is een onbekende fout opgetreden. Probeer het opnieuw."</string>
     <string name="l10n_any_2b505597" formatted="false">"Alle"</string>
+    <string name="l10n_anyone_who_has_this_link_can_claim_the_money_send_it_to_75e45a6d" formatted="false">"Iedereen die deze link heeft, kan het geld claimen. Stuur hem naar één persoon in een privéchat. Je kunt het geld terugnemen totdat iemand het claimt."</string>
+    <string name="l10n_anyone_with_the_link_5b7f7017" formatted="false">"Iedereen met de link"</string>
+    <string name="l10n_anyone_with_the_link_can_claim_it_956f7f5e" formatted="false">"Iedereen met de link kan hem claimen"</string>
     <string name="l10n_anyone_with_the_view_key_can_see_every_payment_you_rece_05e2a8e4" formatted="false">"Iedereen met de alleen-lezen sleutel ziet elke betaling die je ontvangt."</string>
     <string name="l10n_anyone_with_these_words_can_take_your_funds_b306cfef" formatted="false">"Iedereen met deze woorden kan je tegoed meenemen."</string>
     <string name="l10n_apartment_3fc028ff" formatted="false">"Appartement"</string>
@@ -136,6 +155,7 @@
     <string name="l10n_auto_02862497" formatted="false">"Auto"</string>
     <string name="l10n_auto_select_6cc55210" formatted="false">"Automatisch kiezen"</string>
     <string name="l10n_auto_lock_034e3946" formatted="false">"Automatisch slot"</string>
+    <string name="l10n_available_after_10_confirmations_22005707" formatted="false">"Beschikbaar na 10 bevestigingen"</string>
     <string name="l10n_available_balance_s_some_funds_locked_until_recent_tran_33a13557" formatted="false">"Beschikbaar saldo: %1$s. Een deel is vergrendeld tot recente transacties zijn bevestigd."</string>
     <string name="l10n_available_72074a8a" formatted="false">"Beschikbaar:"</string>
     <string name="l10n_available_s_xmr_fe6c540f" formatted="false">"Beschikbaar: %1$s XMR"</string>
@@ -174,6 +194,7 @@
     <string name="l10n_camera_permission_required_9407beac" formatted="false">"Cameratoestemming vereist"</string>
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"Camera-invoer wordt niet ondersteund"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"Campus"</string>
+    <string name="l10n_can_t_open_link_9d9305ba" formatted="false">"Kan link niet openen"</string>
     <string name="l10n_can_t_open_payment_link_b51de8b1" formatted="false">"Kan betaallink niet openen"</string>
     <string name="l10n_can_t_reach_the_name_service_c67b5871" formatted="false">"De naamdienst is niet bereikbaar"</string>
     <string name="l10n_can_t_reach_the_name_service_through_tor_0ed93028" formatted="false">"De naamdienst is niet bereikbaar via Tor"</string>
@@ -185,18 +206,36 @@
     <string name="l10n_channel_allocated_296fd962" formatted="false">"Kanaal toegewezen"</string>
     <string name="l10n_chart_3e5b90ae" formatted="false">"Grafiek"</string>
     <string name="l10n_chart_mode_9b19d23e" formatted="false">"Grafiekmodus"</string>
+    <string name="l10n_check_again_32e60e73" formatted="false">"Opnieuw controleren"</string>
     <string name="l10n_check_screen_time_or_device_management_c63dba08" formatted="false">"Controleer Schermtijd of het apparaatbeheer."</string>
     <string name="l10n_check_word_s_90eb1a05" formatted="false">"Controleer woord %s"</string>
     <string name="l10n_check_words_s_23e605da" formatted="false">"Controleer woorden %s"</string>
     <string name="l10n_checking_latency_544be1ed" formatted="false">"Latentie controleren"</string>
+    <string name="l10n_checking_the_link_took_too_long_try_again_bc2465f7" formatted="false">"Het controleren van de link duurde te lang. Probeer het opnieuw."</string>
+    <string name="l10n_checking_the_link_8ef9b6e6" formatted="false">"Link controleren…"</string>
     <string name="l10n_checking_2e5f79bb" formatted="false">"Controleren…"</string>
     <string name="l10n_chinese_yuan_e689570a" formatted="false">"Chinese yuan"</string>
     <string name="l10n_choose_icon_4060e90f" formatted="false">"Kies symbool"</string>
     <string name="l10n_choose_restore_method_5f66994c" formatted="false">"Kies herstelmethode"</string>
     <string name="l10n_choose_seed_format_d1699775" formatted="false">"Kies seedformaat"</string>
     <string name="l10n_choose_a_new_6_digit_pin_c2846426" formatted="false">"Nieuwe PIN"</string>
+    <string name="l10n_choose_a_wallet_d1157c4d" formatted="false">"Kies een portemonnee"</string>
     <string name="l10n_choose_another_date_d8c80c56" formatted="false">"Kies een andere datum"</string>
     <string name="l10n_choose_your_preferred_app_appearance_9f795e99" formatted="false">"Uiterlijk"</string>
+    <string name="l10n_claim_4ca41db0" formatted="false">"Claim"</string>
+    <string name="l10n_claim_by_aff685c9" formatted="false">"Claim vóór"</string>
+    <string name="l10n_claim_by_s_4bc68146" formatted="false">"Claim vóór %1$s"</string>
+    <string name="l10n_claim_fee_reserve_0d0fd617" formatted="false">"Reserve voor claimkosten"</string>
+    <string name="l10n_claim_opens_when_the_link_is_ready_after_10_confirmatio_ad15f1ef" formatted="false">"Claimen kan zodra de link klaar is, na 10 bevestigingen."</string>
+    <string name="l10n_claim_the_money_41eebe4c" formatted="false">"Geld claimen"</string>
+    <string name="l10n_claim_to_5eb6a71e" formatted="false">"Claim naar"</string>
+    <string name="l10n_claim_transaction_32a9a43b" formatted="false">"Claimtransactie"</string>
+    <string name="l10n_claim_your_monero_0cb16106" formatted="false">"Claim je Monero"</string>
+    <string name="l10n_claimed_ddcd2779" formatted="false">"Geclaimd"</string>
+    <string name="l10n_claimed_to_7c9902c9" formatted="false">"Geclaimd naar"</string>
+    <string name="l10n_claimed_8c4ce6b4" formatted="false">"Geclaimd!"</string>
+    <string name="l10n_claiming_702f4ab2" formatted="false">"Claimen…"</string>
+    <string name="l10n_claims_the_money_to_s_f834cb19" formatted="false">"Claimt het geld in %1$s"</string>
     <string name="l10n_clear_83b12c22" formatted="false">"Verwijder"</string>
     <string name="l10n_clear_address_8b6db0f3" formatted="false">"Wis adres"</string>
     <string name="l10n_clear_address_search_bdfb1064" formatted="false">"Wis adreszoekopdracht"</string>
@@ -256,7 +295,13 @@
     <string name="l10n_copy_seed_phrase_to_clipboard_f0ad8786" formatted="false">"Kopieer seedzin naar klembord"</string>
     <string name="l10n_copy_to_clipboard_fa8f2b6c" formatted="false">"Kopieer naar klembord"</string>
     <string name="l10n_copy_transaction_id_5d9172fe" formatted="false">"Kopieer transactie-ID"</string>
+    <string name="l10n_could_not_check_this_link_526d4cde" formatted="false">"Deze link kon niet worden gecontroleerd."</string>
+    <string name="l10n_could_not_create_the_link_nothing_was_sent_f7c0b52f" formatted="false">"De link kon niet worden gemaakt. Er is niets verzonden."</string>
+    <string name="l10n_could_not_make_the_payment_link_nothing_was_sent_f9f659f8" formatted="false">"De betaallink kon niet worden gemaakt. Er is niets verzonden."</string>
+    <string name="l10n_could_not_reach_the_node_check_your_connection_and_try__0106ec4e" formatted="false">"De node is niet bereikbaar. Controleer je verbinding en probeer het opnieuw."</string>
+    <string name="l10n_could_not_reach_the_node_s_bbfe3900" formatted="false">"Node niet bereikbaar: %1$s"</string>
     <string name="l10n_could_not_save_the_claim_nothing_was_sent_fae573d7" formatted="false">"De inwisseling kon niet worden opgeslagen. Er is niets verzonden."</string>
+    <string name="l10n_could_not_save_the_payment_link_on_this_iphone_nothing__522ab51c" formatted="false">"De betaallink kon niet op deze iPhone worden opgeslagen. Er is niets verzonden."</string>
     <string name="l10n_could_not_save_the_payment_link_nothing_was_sent_0c31ef71" formatted="false">"De betaallink kon niet worden opgeslagen. Er is niets verzonden."</string>
     <string name="l10n_could_not_save_the_reclaim_nothing_was_sent_74335914" formatted="false">"Het terughalen kon niet worden opgeslagen. Er is niets verzonden."</string>
     <string name="l10n_couldn_t_connect_a6d2a167" formatted="false">"Verbinden mislukt"</string>
@@ -268,12 +313,15 @@
     <string name="l10n_couldn_t_read_wallet_keys_a7a6a2af" formatted="false">"Kan portemonneesleutels niet lezen."</string>
     <string name="l10n_couldn_t_restore_view_only_wallet_relaunch_the_app_8dd7ffa8" formatted="false">"Kan alleen-lezen portemonnee niet herstellen — start de app opnieuw."</string>
     <string name="l10n_couldn_t_save_the_qr_code_allow_photos_access_in_settin_7d4a4817" formatted="false">"Kan QR-code niet bewaren. Geef toegang tot Foto\'s in Instellingen."</string>
+    <string name="l10n_covers_the_fee_the_recipient_pays_to_claim_it_4f948d00" formatted="false">"Dekt de kosten die de ontvanger betaalt om te claimen."</string>
+    <string name="l10n_covers_the_recipient_s_claim_fee_3cb3cc84" formatted="false">"Dekt de claimkosten van de ontvanger."</string>
     <string name="l10n_create_new_wallet_417ff209" formatted="false">"Maak nieuwe portemonnee aan"</string>
     <string name="l10n_create_subaddress_260b3de1" formatted="false">"Nieuw adres"</string>
     <string name="l10n_create_wallet_726aa71c" formatted="false">"Maak portemonnee aan"</string>
     <string name="l10n_create_a_fresh_wallet_or_restore_one_from_its_seed_phra_675edab8" formatted="false">"Maak een nieuwe wallet of herstel er een met de herstelzin. Je bestaande pincode wordt gebruikt."</string>
     <string name="l10n_create_a_new_wallet_or_restore_an_existing_one_from_you_fbf64730" formatted="false">"Maak een nieuwe portemonnee aan of herstel een bestaande met je seedzin."</string>
     <string name="l10n_create_subaddresses_for_better_privacy_when_receiving_p_1fdc2fc3" formatted="false">"Maak subadressen aan voor meer privacy bij het ontvangen van betalingen."</string>
+    <string name="l10n_created_d70b9e24" formatted="false">"Aangemaakt"</string>
     <string name="l10n_creates_a_new_subaddress_for_receiving_monero_e42be3bd" formatted="false">"Maakt een nieuw subadres aan om Monero te ontvangen"</string>
     <string name="l10n_creating_subaddress_05c15cfd" formatted="false">"Subadres wordt aangemaakt"</string>
     <string name="l10n_creating_wallet_in_progress_524845a2" formatted="false">"Portemonnee wordt aangemaakt"</string>
@@ -294,6 +342,7 @@
     <string name="l10n_current_wallet_08ab2c04" formatted="false">"Huidige portemonnee"</string>
     <string name="l10n_currently_selected_0a4149e5" formatted="false">"Nu geselecteerd"</string>
     <string name="l10n_currently_showing_all_transactions_f20e3dbc" formatted="false">"Toont nu alle transacties"</string>
+    <string name="l10n_currently_showing_payment_link_transactions_4a6ead7d" formatted="false">"Toont nu transacties van betaallinks"</string>
     <string name="l10n_currently_showing_pending_transactions_250f204e" formatted="false">"Toont nu transacties in afwachting"</string>
     <string name="l10n_currently_showing_received_transactions_22599dbe" formatted="false">"Toont nu ontvangen transacties"</string>
     <string name="l10n_currently_showing_sent_transactions_c3c231d4" formatted="false">"Toont nu verzonden transacties"</string>
@@ -323,6 +372,7 @@
     <string name="l10n_device_paired_af592192" formatted="false">"Apparaat gekoppeld"</string>
     <string name="l10n_device_error_s_0a78a992" formatted="false">"Apparaatfout: %1$s"</string>
     <string name="l10n_device_wallet_sync_failed_s_2ed19bfc" formatted="false">"Synchroniseren van hardwareportemonnee mislukt: %1$s"</string>
+    <string name="l10n_dismiss_48845bff" formatted="false">"Sluit"</string>
     <string name="l10n_display_34e108c0" formatted="false">"Weergave"</string>
     <string name="l10n_display_currency_a34d6ee5" formatted="false">"Weergavevaluta"</string>
     <string name="l10n_district_50f1878d" formatted="false">"Wijk"</string>
@@ -337,6 +387,8 @@
     <string name="l10n_double_tap_to_create_a_new_monero_wallet_628fc0a9" formatted="false">"Tik dubbel om een nieuwe Monero-portemonnee aan te maken"</string>
     <string name="l10n_double_tap_to_create_your_wallet_5f1bad91" formatted="false">"Tik dubbel om je portemonnee aan te maken"</string>
     <string name="l10n_double_tap_to_enable_s_for_quick_unlock_29d8bee8" formatted="false">"Tik dubbel om %1$s in te schakelen voor snel ontgrendelen"</string>
+    <string name="l10n_double_tap_to_enter_the_recovery_phrase_of_one_of_these_b8f46b93" formatted="false">"Tik dubbel om de seedzin van een van deze portemonnees in te voeren"</string>
+    <string name="l10n_double_tap_to_fund_the_link_with_s_xmr_70c67733" formatted="false">"Tik dubbel om de link te vullen met %1$s XMR"</string>
     <string name="l10n_double_tap_to_make_it_small_again_0960f859" formatted="false">"Tik dubbel om hem weer te verkleinen."</string>
     <string name="l10n_double_tap_to_pair_a_trezor_hardware_wallet_over_blueto_42439687" formatted="false">"Tik dubbel om een Trezor-hardwareportemonnee via Bluetooth te koppelen"</string>
     <string name="l10n_double_tap_to_proceed_e25cc42c" formatted="false">"Tik dubbel om door te gaan"</string>
@@ -344,9 +396,11 @@
     <string name="l10n_double_tap_to_proceed_with_s_seed_format_b00a3dcb" formatted="false">"Tik dubbel om door te gaan met seedformaat %1$s"</string>
     <string name="l10n_double_tap_to_proceed_with_your_seed_phrase_6fad2e0b" formatted="false">"Tik dubbel om door te gaan met je seedzin"</string>
     <string name="l10n_double_tap_to_receive_monero_a60417de" formatted="false">"Tik dubbel om Monero te ontvangen"</string>
+    <string name="l10n_double_tap_to_remove_every_wallet_from_this_iphone_d9d79691" formatted="false">"Tik dubbel om alle portemonnees van deze iPhone te verwijderen"</string>
     <string name="l10n_double_tap_to_rename_this_address_72aa1a7e" formatted="false">"Tik dubbel om de naam van dit adres te wijzigen"</string>
     <string name="l10n_double_tap_to_reset_your_wallet_and_start_over_36126cd8" formatted="false">"Tik dubbel om je portemonnee te wissen en opnieuw te beginnen"</string>
     <string name="l10n_double_tap_to_restore_an_existing_wallet_from_a_seed_ph_2613fdfd" formatted="false">"Tik dubbel om een bestaande portemonnee te herstellen met een seedzin of alleen-lezen sleutel"</string>
+    <string name="l10n_double_tap_to_restore_this_wallet_86f5d1b7" formatted="false">"Tik dubbel om deze portemonnee te herstellen"</string>
     <string name="l10n_double_tap_to_restore_your_wallet_8e72310b" formatted="false">"Tik dubbel om je portemonnee te herstellen"</string>
     <string name="l10n_double_tap_to_select_6c4b7a21" formatted="false">"Tik dubbel om te selecteren"</string>
     <string name="l10n_double_tap_to_select_s_8963947c" formatted="false">"Tik dubbel om %1$s te selecteren"</string>
@@ -407,6 +461,8 @@
     <string name="l10n_establishing_connection_over_bluetooth_6d370004" formatted="false">"Verbinding maken via Bluetooth."</string>
     <string name="l10n_euro_8bd0b436" formatted="false">"Euro"</string>
     <string name="l10n_expanded_e72d5d8d" formatted="false">"Uitgevouwen"</string>
+    <string name="l10n_expired_424a2551" formatted="false">"Verlopen"</string>
+    <string name="l10n_expires_f6725f3a" formatted="false">"Verloopt"</string>
     <string name="l10n_export_view_key_2068ca52" formatted="false">"Exporteer alleen-lezen sleutel"</string>
     <string name="l10n_exporting_your_view_key_835f2bf2" formatted="false">"Je alleen-lezen sleutel wordt geëxporteerd…"</string>
     <string name="l10n_face_id_33811c75" formatted="false">"Face ID"</string>
@@ -434,6 +490,7 @@
     <string name="l10n_from_s_to_s_8d8ddcf6" formatted="false">"Van %1$s naar %2$s"</string>
     <string name="l10n_from_beginning_full_scan_17265d0d" formatted="false">"Scant vanaf het begin"</string>
     <string name="l10n_full_wallet_you_can_send_and_receive_adca402c" formatted="false">"Volledige portemonnee — je kunt verzenden en ontvangen."</string>
+    <string name="l10n_funding_transaction_c2006a3f" formatted="false">"Financieringstransactie"</string>
     <string name="l10n_generating_49286f33" formatted="false">"Laden…"</string>
     <string name="l10n_get_notified_on_price_changes_1a5ab92c" formatted="false">"Bekijk en beheer prijsmeldingen"</string>
     <string name="l10n_get_notified_when_xmr_crosses_a_price_you_set_92aed39f" formatted="false">"Krijg een melding als XMR een prijs bereikt die je instelt."</string>
@@ -448,7 +505,9 @@
     <string name="l10n_help_feedback_561e9634" formatted="false">"Hulp en feedback"</string>
     <string name="l10n_hide_authentication_d4eaff33" formatted="false">"Authenticatie verbergen"</string>
     <string name="l10n_hide_history_db1ddf34" formatted="false">"Verberg geschiedenis"</string>
+    <string name="l10n_hide_keyboard_f6b0718e" formatted="false">"Verberg toetsenbord"</string>
     <string name="l10n_hide_memo_b25fa21b" formatted="false">"Verberg notitie"</string>
+    <string name="l10n_hide_note_9ada2698" formatted="false">"Verberg notitie"</string>
     <string name="l10n_hide_password_a60a56c5" formatted="false">"Wachtwoord verbergen"</string>
     <string name="l10n_hides_balance_history_and_returns_to_now_29508d25" formatted="false">"Verbergt de saldogeschiedenis en keert terug naar nu"</string>
     <string name="l10n_historical_balance_3f9a1eb4" formatted="false">"Historisch saldo"</string>
@@ -464,12 +523,15 @@
     <string name="l10n_i_hate_asking_for_this_166f376a" formatted="false">"Ik haat het om hierom te vragen"</string>
     <string name="l10n_i_have_written_down_my_seed_phrase_b1bc0677" formatted="false">"Ik heb mijn seedzin opgeschreven"</string>
     <string name="l10n_i_know_the_creation_date_206d5973" formatted="false">"Ik weet de aanmaakdatum"</string>
+    <string name="l10n_i_sent_you_s_xmr_tap_to_claim_it_in_monero_one_s_930fb0f3" formatted="false">"Ik heb je %1$s XMR gestuurd. Tik om ze te claimen in Monero One: %2$s"</string>
     <string name="l10n_icon_a35abcd6" formatted="false">"Symbool"</string>
     <string name="l10n_icon_s_3a3f85a8" formatted="false">"Symbool, %1$s"</string>
     <string name="l10n_idle_ab0171ca" formatted="false">"Inactief"</string>
+    <string name="l10n_if_this_wallet_is_older_lower_the_restore_height_in_set_e4c6e6ce" formatted="false">"Is deze portemonnee ouder? Verlaag dan de herstelhoogte in Instellingen › Synchronisatie-instellingen en stel de synchronisatie opnieuw in."</string>
     <string name="l10n_if_you_lose_your_seed_phrase_your_funds_are_permanently_134f6f56" formatted="false">"Als je je seedzin kwijtraakt, ben je je tegoed voorgoed kwijt. Schrijf hem op en bewaar hem veilig offline."</string>
     <string name="l10n_immediately_0fe556b2" formatted="false">"Onmiddellijk"</string>
     <string name="l10n_important_information_1a134db6" formatted="false">"Belangrijke informatie"</string>
+    <string name="l10n_in_send_choose_link_to_make_one_e23b608e" formatted="false">"Kies bij Verzend de optie Link om er een te maken."</string>
     <string name="l10n_in_settings_set_location_to_always_ea63b31c" formatted="false">"Zet in Instellingen ‘Locatie’ op ‘Altijd’."</string>
     <string name="l10n_in_settings_turn_on_precise_location_ee60bd0a" formatted="false">"Schakel in Instellingen ‘Exacte locatie’ in."</string>
     <string name="l10n_incorrect_pin_f76f82ec" formatted="false">"Ongeldige PIN"</string>
@@ -483,6 +545,7 @@
     <string name="l10n_invalid_response_from_trezor_68112748" formatted="false">"Ongeldig antwoord van Trezor"</string>
     <string name="l10n_invalid_seed_phrase_3a8da7cf" formatted="false">"Ongeldige seedzin"</string>
     <string name="l10n_invalid_seed_phrase_please_check_your_words_and_try_aga_48aabf18" formatted="false">"Ongeldige seedzin. Controleer je woorden en probeer het opnieuw."</string>
+    <string name="l10n_it_checks_again_every_few_seconds_while_this_screen_is__aa8d210f" formatted="false">"Zolang dit scherm open is, wordt het om de paar seconden opnieuw gecontroleerd."</string>
     <string name="l10n_item_not_found_in_keychain_cc73af45" formatted="false">"Item niet gevonden in sleutelhanger"</string>
     <string name="l10n_japanese_yen_fa53dbe5" formatted="false">"Japanse yen"</string>
     <string name="l10n_keep_your_seed_safe_cdc03cc8" formatted="false">"Bescherm je seedzin"</string>
@@ -497,6 +560,10 @@
     <string name="l10n_last_updated_s_ago_be6d790e" formatted="false">"Laatst bijgewerkt %1$s geleden"</string>
     <string name="l10n_leave_empty_to_scan_from_beginning_slower_23ebe459" formatted="false">"Scant vanaf het begin (langzamer)"</string>
     <string name="l10n_light_dbcd5e7b" formatted="false">"Licht"</string>
+    <string name="l10n_link_a6a32dbc" formatted="false">"Link"</string>
+    <string name="l10n_link_s_d119eb01" formatted="false">"Link %1$s"</string>
+    <string name="l10n_link_ready_a99139fe" formatted="false">"Link klaar"</string>
+    <string name="l10n_links_9024c197" formatted="false">"Links"</string>
     <string name="l10n_loading_balance_history_92ea9acd" formatted="false">"Saldogeschiedenis laden…"</string>
     <string name="l10n_loading_blocks_7843d1a9" formatted="false">"Laden…"</string>
     <string name="l10n_loading_chart_data_ebb949c3" formatted="false">"Grafiekgegevens laden…"</string>
@@ -526,6 +593,7 @@
     <string name="l10n_mexican_peso_027e50dd" formatted="false">"Mexicaanse peso"</string>
     <string name="l10n_min_dea79332" formatted="false">"Min"</string>
     <string name="l10n_monero_address_c561cf4d" formatted="false">"Monero-adres"</string>
+    <string name="l10n_monero_one_cannot_read_the_wallet_keys_on_this_iphone_s_440dd510" formatted="false">"Monero One kan de sleutels van de portemonnees op deze iPhone niet lezen, dus moet ze herstellen."</string>
     <string name="l10n_monero_one_does_not_include_tor_start_orbot_or_another__67399fa1" formatted="false">"Monero One bevat geen Tor. Start Orbot of een andere Tor-proxy voordat je dit inschakelt."</string>
     <string name="l10n_monero_one_has_no_built_in_tor_without_orbot_or_another_f79ac3c0" formatted="false">"Monero One heeft geen ingebouwde Tor. Zonder actieve Orbot of een andere Tor-app maakt geen enkele node verbinding."</string>
     <string name="l10n_monero_one_is_a_self_custody_wallet_your_seed_phrase_is_3a95ff43" formatted="false">"Monero One is een portemonnee in eigen beheer. Je seedzin is de enige toegang tot je tegoed. Wij kunnen hem niet voor je herstellen."</string>
@@ -546,16 +614,22 @@
     <string name="l10n_moved_down_69318bee" formatted="false">"Omlaag verplaatst"</string>
     <string name="l10n_moved_up_dbbbde2a" formatted="false">"Omhoog verplaatst"</string>
     <string name="l10n_moves_between_transactions_426445ed" formatted="false">"Springt tussen transacties"</string>
+    <string name="l10n_moves_the_money_in_this_link_back_to_s_e697ef03" formatted="false">"Zet het geld uit deze link terug naar %1$s"</string>
+    <string name="l10n_moves_the_money_in_this_link_back_to_your_wallet_fb8d98af" formatted="false">"Zet het geld uit deze link terug naar je portemonnee"</string>
+    <string name="l10n_moves_the_money_in_this_link_to_s_d78b8a89" formatted="false">"Zet het geld uit deze link naar %1$s"</string>
     <string name="l10n_name_dcd1d522" formatted="false">"Naam"</string>
     <string name="l10n_name_not_signed_a4712126" formatted="false">"Naam niet ondertekend"</string>
     <string name="l10n_name_your_wallet_31b56e34" formatted="false">"Portemonneenaam"</string>
+    <string name="l10n_name_this_link_4aa3d2cb" formatted="false">"Geef deze link een naam"</string>
     <string name="l10n_name_number_or_address_04f4c03c" formatted="false">"Naam, nummer of adres"</string>
     <string name="l10n_needs_always_90893ff3" formatted="false">"‘Altijd’ nodig"</string>
     <string name="l10n_needs_always_permission_6dd576c0" formatted="false">"Toestemming ‘Altijd’ nodig"</string>
     <string name="l10n_needs_precise_49296e35" formatted="false">"‘Exact’ nodig"</string>
     <string name="l10n_needs_precise_location_9ce0bbed" formatted="false">"‘Exacte locatie’ nodig"</string>
+    <string name="l10n_needs_restore_4f5e2660" formatted="false">"Herstel nodig"</string>
     <string name="l10n_network_fee_90297f42" formatted="false">"Netwerkkosten"</string>
     <string name="l10n_network_error_check_your_connection_bdfeee9c" formatted="false">"Netwerkfout. Controleer je verbinding."</string>
+    <string name="l10n_network_fee_82c5067d" formatted="false">"Netwerkkosten"</string>
     <string name="l10n_network_fee_s_xmr_2f32e617" formatted="false">"Netwerkkosten: %1$s XMR"</string>
     <string name="l10n_network_fee_loading_2a673f23" formatted="false">"Netwerkkosten: laden"</string>
     <string name="l10n_never_6300ef80" formatted="false">"Nooit"</string>
@@ -580,7 +654,10 @@
     <string name="l10n_no_internet_connection_cannot_send_4934c052" formatted="false">"Geen internetverbinding. Verzenden is niet mogelijk."</string>
     <string name="l10n_no_matching_addresses_cc972c5d" formatted="false">"Geen overeenkomende adressen"</string>
     <string name="l10n_no_matching_transactions_aef28cd8" formatted="false">"Geen overeenkomende transacties"</string>
+    <string name="l10n_no_money_in_this_link_yet_188b81cc" formatted="false">"Er zit nog geen geld in deze link."</string>
+    <string name="l10n_no_money_yet_3dbb64ad" formatted="false">"Nog geen geld"</string>
     <string name="l10n_no_network_a5b3016a" formatted="false">"Geen netwerk"</string>
+    <string name="l10n_no_payment_links_yet_c499c35c" formatted="false">"Nog geen betaallinks"</string>
     <string name="l10n_no_pending_transactions_93d0a921" formatted="false">"Geen transacties in afwachting"</string>
     <string name="l10n_no_received_transactions_59f49569" formatted="false">"Geen ontvangen transacties"</string>
     <string name="l10n_no_response_961136f9" formatted="false">"Geen reactie"</string>
@@ -588,6 +665,7 @@
     <string name="l10n_no_sent_transactions_520d20b0" formatted="false">"Geen verzonden transacties"</string>
     <string name="l10n_no_transactions_6ca1aa5e" formatted="false">"Nog geen transacties"</string>
     <string name="l10n_no_transactions_by_this_time_4b570646" formatted="false">"Geen transacties tot dit moment"</string>
+    <string name="l10n_no_transactions_found_since_block_s_0102185a" formatted="false">"Geen transacties gevonden sinds blok %1$s"</string>
     <string name="l10n_no_transactions_on_s_8bb726f5" formatted="false">"Geen transacties op %1$s"</string>
     <string name="l10n_no_transactions_yet_f75dda0d" formatted="false">"Nog geen transacties"</string>
     <string name="l10n_no_wallet_4485d729" formatted="false">"Geen portemonnee"</string>
@@ -606,11 +684,17 @@
     <string name="l10n_not_available_67a926f7" formatted="false">"Niet beschikbaar"</string>
     <string name="l10n_not_available_for_transactions_sent_before_this_wallet__47e02c54" formatted="false">"Niet beschikbaar voor transacties die zijn verzonden voordat deze portemonnee werd hersteld"</string>
     <string name="l10n_not_available_on_this_device_01c75e3f" formatted="false">"Niet beschikbaar op dit apparaat"</string>
+    <string name="l10n_not_checked_d16948e7" formatted="false">"Niet gecontroleerd"</string>
     <string name="l10n_not_connected_0303e182" formatted="false">"Offline"</string>
+    <string name="l10n_not_enough_unlocked_funds_for_the_amount_the_network_fe_121ca818" formatted="false">"Onvoldoende ontgrendeld saldo voor het bedrag, de netwerkkosten en de reserve voor de claimkosten."</string>
     <string name="l10n_not_enough_unlocked_funds_available_s_xmr_87157ccc" formatted="false">"Onvoldoende ontgrendeld tegoed. Beschikbaar: %1$s XMR"</string>
+    <string name="l10n_not_funded_6862c44c" formatted="false">"Niet gefinancierd"</string>
     <string name="l10n_not_in_the_word_list_f182a51f" formatted="false">"Niet in de woordenlijst"</string>
     <string name="l10n_not_selected_df12aeba" formatted="false">"Niet geselecteerd"</string>
     <string name="l10n_not_synced_87cde3ef" formatted="false">"Offline"</string>
+    <string name="l10n_note_d8da2c49" formatted="false">"Notitie"</string>
+    <string name="l10n_note_s_3deb4f9b" formatted="false">"Notitie, %1$s"</string>
+    <string name="l10n_note_none_961e1a78" formatted="false">"Notitie, geen"</string>
     <string name="l10n_notifications_disabled_8d68e6c4" formatted="false">"Meldingen uitgeschakeld"</string>
     <string name="l10n_now_fe18013d" formatted="false">"Nu"</string>
     <string name="l10n_now_exporting_your_view_key_from_the_device_01419aac" formatted="false">"Je alleen-lezen sleutel wordt nu van het apparaat geëxporteerd."</string>
@@ -618,10 +702,14 @@
     <string name="l10n_ok_565339bc" formatted="false">"OK"</string>
     <string name="l10n_offline_a1794783" formatted="false">"Offline"</string>
     <string name="l10n_offline_no_internet_connection_b01b0ab8" formatted="false">"Offline: geen internetverbinding"</string>
+    <string name="l10n_on_its_way_c5d0f5f4" formatted="false">"Onderweg"</string>
+    <string name="l10n_on_its_way_to_s_6b81fd4f" formatted="false">"Onderweg naar %1$s"</string>
     <string name="l10n_once_a_monero_transaction_is_confirmed_it_cannot_be_rev_74305ca5" formatted="false">"Zodra een Monero-transactie is bevestigd, kan deze niet worden teruggedraaid, geannuleerd of gewijzigd. Controleer altijd de adressen voordat je verzendt."</string>
     <string name="l10n_only_finds_transactions_after_this_date_1d9e9bdd" formatted="false">"Vindt alleen transacties na deze datum."</string>
     <string name="l10n_only_for_nodes_that_need_a_login_ce0e5d51" formatted="false">"Alleen voor nodes die een login vereisen."</string>
     <string name="l10n_only_sync_when_inside_a_trusted_zone_2a854510" formatted="false">"Synchroniseer alleen binnen een vertrouwde zone"</string>
+    <string name="l10n_only_this_iphone_keeps_the_note_66ba5c5b" formatted="false">"Alleen deze iPhone bewaart de notitie."</string>
+    <string name="l10n_only_this_phone_keeps_the_note_7ab4fa09" formatted="false">"Alleen deze telefoon bewaart de notitie."</string>
     <string name="l10n_open_ed077f3d" formatted="false">"Opening"</string>
     <string name="l10n_open_settings_3f940108" formatted="false">"Open Instellingen"</string>
     <string name="l10n_opening_device_wallet_3ac96873" formatted="false">"Hardwareportemonnee openen…"</string>
@@ -632,13 +720,17 @@
     <string name="l10n_opens_terms_of_service_in_your_browser_899e55c8" formatted="false">"Opent de gebruiksvoorwaarden in je browser"</string>
     <string name="l10n_opens_the_app_store_to_write_a_review_c041aa6e" formatted="false">"Opent de App Store om een recensie te schrijven"</string>
     <string name="l10n_opens_the_emoji_keyboard_to_type_any_emoji_7e4db033" formatted="false">"Opent het emojitoetsenbord om elke emoji te typen"</string>
+    <string name="l10n_opens_the_link_and_claims_it_when_it_is_ready_2456cba9" formatted="false">"Opent de link en claimt hem zodra hij klaar is"</string>
+    <string name="l10n_opens_the_link_to_claim_it_3db9ca83" formatted="false">"Opent de link om te claimen"</string>
     <string name="l10n_opens_the_portfolio_chart_c50b1d8e" formatted="false">"Opent de portefeuillegrafiek"</string>
     <string name="l10n_opens_the_price_chart_26780688" formatted="false">"Opent de prijsgrafiek"</string>
     <string name="l10n_opens_the_receive_screen_with_your_address_and_qr_code_9118b3d5" formatted="false">"Opent het ontvangstscherm met je adres en QR-code"</string>
     <string name="l10n_opens_the_send_transaction_screen_280e34b5" formatted="false">"Opent het scherm om een transactie te verzenden"</string>
     <string name="l10n_opens_the_transaction_in_an_in_app_browser_88c02a39" formatted="false">"Opent de transactie in een browser in de app"</string>
+    <string name="l10n_opens_the_wallet_list_to_choose_where_the_money_goes_8e1668c9" formatted="false">"Opent de lijst met portemonnees om te kiezen waar het geld naartoe gaat"</string>
     <string name="l10n_opens_the_wallet_list_where_you_can_switch_rename_or_ad_900e32f3" formatted="false">"Opent de lijst met portemonnees, waar je portemonnees kunt wisselen, hernoemen of toevoegen"</string>
     <string name="l10n_optic_id_650eb5d4" formatted="false">"Optic ID"</string>
+    <string name="l10n_other_wallets_show_their_last_known_balance_e3e5aca7" formatted="false">"Andere portemonnees tonen hun laatst bekende saldo."</string>
     <string name="l10n_outgoing_transactions_may_be_out_of_date_179823e2" formatted="false">"Uitgaande transacties zijn mogelijk niet actueel"</string>
     <string name="l10n_outside_trusted_zones_7a2e6d43" formatted="false">"Buiten vertrouwde zones"</string>
     <string name="l10n_outside_trusted_zones_969b7922" formatted="false">"Buiten vertrouwde zones"</string>
@@ -654,8 +746,12 @@
     <string name="l10n_paste_address_from_clipboard_dcb429a0" formatted="false">"Plak adres vanaf klembord"</string>
     <string name="l10n_paste_amount_from_clipboard_8781b432" formatted="false">"Plak bedrag vanaf klembord"</string>
     <string name="l10n_paused_e159b061" formatted="false">"Gepauzeerd"</string>
+    <string name="l10n_payment_link_bc7c1f6c" formatted="false">"Betaallink"</string>
+    <string name="l10n_payment_link_7f3bd7d2" formatted="false">"Betaallink"</string>
+    <string name="l10n_payment_link_s_eb335677" formatted="false">"Betaallink: %1$s"</string>
     <string name="l10n_payments_to_your_main_address_can_be_linked_together_50d87ace" formatted="false">"Betalingen naar je hoofdadres kunnen aan elkaar worden gekoppeld."</string>
     <string name="l10n_pending_331551b0" formatted="false">"In afwachting"</string>
+    <string name="l10n_pending_s_s_5f9a06f7" formatted="false">"In afwachting %1$s/%2$s"</string>
     <string name="l10n_permanently_delete_all_wallets_from_device_3b99fe4b" formatted="false">"Verwijdert elke portemonnee van dit apparaat. Herstellen met de seedzin blijft mogelijk."</string>
     <string name="l10n_permission_denied_866a0a58" formatted="false">"Toestemming geweigerd"</string>
     <string name="l10n_personal_wallet_9544fbaa" formatted="false">"Persoonlijke portemonnee"</string>
@@ -677,6 +773,7 @@
     <string name="l10n_position_a_qr_code_within_the_scanning_area_1646741b" formatted="false">"Plaats een QR-code binnen het scangebied"</string>
     <string name="l10n_prefills_send_screen_with_donation_address_7af8e2ca" formatted="false">"Vult het verzendscherm in met het donatieadres"</string>
     <string name="l10n_preparing_session_2cd69111" formatted="false">"Sessie voorbereiden…"</string>
+    <string name="l10n_preparing_the_link_2e6b3477" formatted="false">"Link voorbereiden"</string>
     <string name="l10n_previous_transaction_88dc6273" formatted="false">"Vorige transactie"</string>
     <string name="l10n_price_93c91c85" formatted="false">"Prijs"</string>
     <string name="l10n_price_alerts_ca277973" formatted="false">"Prijsmeldingen"</string>
@@ -712,6 +809,8 @@
     <string name="l10n_reaching_node_9a18d501" formatted="false">"Node bereiken…"</string>
     <string name="l10n_reading_transactions_from_trezor_13097f0b" formatted="false">"Transacties lezen van Trezor…"</string>
     <string name="l10n_ready_5fa7aac5" formatted="false">"Klaar"</string>
+    <string name="l10n_ready_in_about_s_min_6cc2ac3f" formatted="false">"Klaar over circa %1$s min"</string>
+    <string name="l10n_ready_to_claim_f476330a" formatted="false">"Klaar om te claimen"</string>
     <string name="l10n_ready_exporting_keys_a6ee29a9" formatted="false">"Klaar, sleutels exporteren…"</string>
     <string name="l10n_ready_starting_session_3d2117fe" formatted="false">"Klaar, sessie starten…"</string>
     <string name="l10n_receive_bac9d15a" formatted="false">"Ontvang"</string>
@@ -722,6 +821,7 @@
     <string name="l10n_received_s_xmr_c7cf4364" formatted="false">"%1$s XMR ontvangen"</string>
     <string name="l10n_received_an_implausible_xmr_price_keeping_the_last_know_ba5ee207" formatted="false">"Onwaarschijnlijke XMR-prijs ontvangen. De laatst bekende waarde blijft staan."</string>
     <string name="l10n_received_an_out_of_date_price_response_keeping_the_last_6012a12e" formatted="false">"Verouderde prijsgegevens ontvangen. De laatst bekende waarde blijft staan."</string>
+    <string name="l10n_received_by_link_46041372" formatted="false">"Ontvangen via link"</string>
     <string name="l10n_received_on_076d920e" formatted="false">"Ontvangen op"</string>
     <string name="l10n_received_on_s_a79cf2b9" formatted="false">"Ontvangen op (%1$s)"</string>
     <string name="l10n_receiving_address_664f693a" formatted="false">"Ontvangstadres"</string>
@@ -731,8 +831,20 @@
     <string name="l10n_recipient_address_454d0391" formatted="false">"Adres ontvanger"</string>
     <string name="l10n_recipient_address_or_openalias_name_05d761e3" formatted="false">"Adres ontvanger of OpenAlias-naam"</string>
     <string name="l10n_recipient_not_available_for_transactions_sent_before_th_bcca6091" formatted="false">"Ontvanger niet beschikbaar voor transacties die zijn verzonden voordat deze portemonnee werd hersteld"</string>
+    <string name="l10n_recipient_payment_link_anyone_with_the_link_can_claim_i_f9e24380" formatted="false">"Ontvanger, betaallink. Iedereen met de link kan hem claimen"</string>
     <string name="l10n_recipient_s_4d3d8df1" formatted="false">"Ontvanger: %1$s"</string>
     <string name="l10n_recipient_s_address_s_b4e456fc" formatted="false">"Ontvanger: %1$s, adres %2$s"</string>
+    <string name="l10n_recipient_anyone_with_the_link_393c9974" formatted="false">"Ontvanger: iedereen met de link"</string>
+    <string name="l10n_reclaim_1d2867cd" formatted="false">"Terugnemen"</string>
+    <string name="l10n_reclaim_opens_when_the_link_is_ready_after_10_confirmat_b6ac6d19" formatted="false">"Terugnemen kan zodra de link klaar is, na 10 bevestigingen."</string>
+    <string name="l10n_reclaim_the_money_218e21f9" formatted="false">"Geld terugnemen"</string>
+    <string name="l10n_reclaim_to_0b854ab0" formatted="false">"Terugnemen naar"</string>
+    <string name="l10n_reclaim_transaction_df2a2b98" formatted="false">"Terugnametransactie"</string>
+    <string name="l10n_reclaim_when_unlocked_ec6f0618" formatted="false">"Terugnemen zodra ontgrendeld"</string>
+    <string name="l10n_reclaimed_ebda9fa9" formatted="false">"Teruggenomen"</string>
+    <string name="l10n_reclaimed_by_link_0b9ad8cf" formatted="false">"Teruggenomen uit link"</string>
+    <string name="l10n_reclaimed_on_its_way_to_s_4e3f9f42" formatted="false">"Teruggenomen. Onderweg naar %s."</string>
+    <string name="l10n_reclaiming_9595429b" formatted="false">"Terugnemen…"</string>
     <string name="l10n_recommended_d70604e8" formatted="false">"Aanbevolen"</string>
     <string name="l10n_recovery_phrase_68fbadc6" formatted="false">"Seedzin"</string>
     <string name="l10n_remote_node_0ea0c139" formatted="false">"Externe node"</string>
@@ -743,11 +855,14 @@
     <string name="l10n_remove_all_wallets_from_device_66d56e29" formatted="false">"Verwijder alle portemonnees van apparaat"</string>
     <string name="l10n_remove_all_wallets_from_device_91e665bd" formatted="false">"Alle portemonnees van apparaat verwijderen?"</string>
     <string name="l10n_remove_wallet_from_device_7141c099" formatted="false">"Portemonnee verwijderen?"</string>
+    <string name="l10n_remove_payment_link_c07caabc" formatted="false">"Betaallink verwijderen"</string>
+    <string name="l10n_remove_these_wallets_9c110ecb" formatted="false">"Verwijder deze portemonnees"</string>
     <string name="l10n_removes_every_wallet_from_this_device_recovery_with_see_809c2d93" formatted="false">"Verwijdert elke portemonnee van dit apparaat. Herstellen met de seedzin blijft mogelijk."</string>
     <string name="l10n_rename_3064d79a" formatted="false">"Wijzig naam"</string>
     <string name="l10n_rename_subaddress_949ec777" formatted="false">"Wijzig naam subadres"</string>
     <string name="l10n_rename_wallet_02d657cc" formatted="false">"Wijzig naam portemonnee"</string>
     <string name="l10n_rename_s_37736fea" formatted="false">"Wijzig naam, %1$s"</string>
+    <string name="l10n_renames_the_link_1efc85b4" formatted="false">"Hernoemt de link"</string>
     <string name="l10n_request_amount_optional_a62bd939" formatted="false">"Gevraagd bedrag (optioneel)"</string>
     <string name="l10n_request_amount_in_s_faaa0bea" formatted="false">"Vraag bedrag in %1$s"</string>
     <string name="l10n_request_amount_in_xmr_08acf2d7" formatted="false">"Vraag bedrag in XMR"</string>
@@ -767,6 +882,9 @@
     <string name="l10n_restore_view_only_eb41b6f8" formatted="false">"Herstel alleen-lezen"</string>
     <string name="l10n_restore_wallet_3b4a6b8e" formatted="false">"Herstel portemonnee"</string>
     <string name="l10n_restore_from_s_7b531a34" formatted="false">"Herstellen vanaf %1$s?"</string>
+    <string name="l10n_restore_this_wallet_with_its_recovery_phrase_a0416580" formatted="false">"Herstel deze portemonnee met zijn seedzin."</string>
+    <string name="l10n_restore_with_recovery_phrase_bee6377d" formatted="false">"Herstel met seedzin"</string>
+    <string name="l10n_restore_your_wallets_aba345b5" formatted="false">"Herstel je portemonnees"</string>
     <string name="l10n_restoring_wallet_in_progress_4b239056" formatted="false">"Portemonnee wordt hersteld"</string>
     <string name="l10n_restoring_wallet_c5eac1fe" formatted="false">"Portemonnee herstellen…"</string>
     <string name="l10n_restoring_your_wallet_aded4dd9" formatted="false">"Je portemonnee wordt hersteld…"</string>
@@ -791,6 +909,7 @@
     <string name="l10n_scan_range_cd9a3ddf" formatted="false">"Scanbereik"</string>
     <string name="l10n_scanning_s_1ea7191b" formatted="false">"Scannen %1$s%%"</string>
     <string name="l10n_scanning_s_2e6d6eb1" formatted="false">"Scannen %1$s%%…"</string>
+    <string name="l10n_scanning_blocks_s_79e61632" formatted="false">"Blokken scannen: %1$s%%"</string>
     <string name="l10n_scanning_restarts_at_block_s_earlier_transactions_won_t_979db006" formatted="false">"Het scannen begint opnieuw bij blok %1$s. Eerdere transacties worden niet gevonden."</string>
     <string name="l10n_scanning_a83820eb" formatted="false">"Scannen…"</string>
     <string name="l10n_scans_this_wallet_again_from_its_restore_height_83ca1392" formatted="false">"Scant deze portemonnee opnieuw vanaf de herstelhoogte"</string>
@@ -825,15 +944,20 @@
     <string name="l10n_send_all_funds_instead_474acbb3" formatted="false">"Volledig saldo"</string>
     <string name="l10n_send_failed_s_ddac2789" formatted="false">"Verzenden mislukt: %1$s"</string>
     <string name="l10n_send_is_still_showing_another_payment_close_it_then_ope_461b5843" formatted="false">"Het verzendscherm toont nog een andere betaling. Sluit het en open de link opnieuw."</string>
+    <string name="l10n_send_it_to_one_person_in_a_private_chat_anyone_who_has__4b6edb0e" formatted="false">"Stuur hem naar één persoon in een privéchat. Iedereen die deze link heeft, kan het geld claimen."</string>
     <string name="l10n_send_maximum_amount_69c19f14" formatted="false">"Verzend maximaal bedrag"</string>
     <string name="l10n_send_me_s_xmr_at_this_address_s_f46bae9e" formatted="false">"Stuur me %1$s XMR naar dit adres:\n\n%2$s"</string>
     <string name="l10n_send_me_monero_xmr_at_this_address_s_b252c9ed" formatted="false">"Stuur me Monero (XMR) naar dit adres:\n\n%1$s"</string>
     <string name="l10n_send_to_s_eb35ff2a" formatted="false">"Verzend naar %1$s"</string>
     <string name="l10n_send_transaction_7bc085c4" formatted="false">"Verzend transactie"</string>
+    <string name="l10n_send_with_a_link_86a321a8" formatted="false">"Verzend met een link"</string>
+    <string name="l10n_send_with_a_link_5d2460f7" formatted="false">"Verzend met een link"</string>
     <string name="l10n_sender_address_hidden_by_monero_privacy_db9424c6" formatted="false">"Adres afzender verborgen door Monero-privacy"</string>
     <string name="l10n_sending_transaction_bd723587" formatted="false">"Transactie verzenden…"</string>
+    <string name="l10n_sends_the_money_as_a_link_anyone_can_claim_b6e2cb74" formatted="false">"Verstuurt het geld als link die iedereen kan claimen"</string>
     <string name="l10n_sent_c16bc82b" formatted="false">"Verzonden"</string>
     <string name="l10n_sent_s_xmr_53edc03c" formatted="false">"%1$s XMR verzonden"</string>
+    <string name="l10n_sent_by_link_d13ed786" formatted="false">"Verzonden via link"</string>
     <string name="l10n_sent_to_4e7201c7" formatted="false">"Verzonden naar"</string>
     <string name="l10n_sent_to_s_of_s_751bb8d7" formatted="false">"Verzonden naar (%1$s van %2$s)"</string>
     <string name="l10n_sent_total_includes_fees_dabd62d7" formatted="false">"Verzonden totaal is inclusief kosten"</string>
@@ -852,6 +976,9 @@
     <string name="l10n_share_diagnostic_log_294ca4a0" formatted="false">"Deel diagnoselogboek"</string>
     <string name="l10n_share_qr_code_ffbb0902" formatted="false">"Deel QR-code"</string>
     <string name="l10n_share_address_a4e12428" formatted="false">"Deel adres"</string>
+    <string name="l10n_share_again_8fb3b8e2" formatted="false">"Opnieuw delen"</string>
+    <string name="l10n_share_the_link_b0c1ec20" formatted="false">"Deel de link"</string>
+    <string name="l10n_share_the_link_again_ca22671a" formatted="false">"Deel de link opnieuw"</string>
     <string name="l10n_share_view_only_wallet_keys_e0bb1306" formatted="false">"Deel sleutels voor alleen-lezen portemonnee"</string>
     <string name="l10n_show_s_first_cc3cb868" formatted="false">"%1$s eerst tonen"</string>
     <string name="l10n_show_balance_transactions_bf96c0cc" formatted="false">"Saldo en transacties tonen"</string>
@@ -863,12 +990,16 @@
     <string name="l10n_show_transaction_key_a69e0052" formatted="false">"Transactiesleutel tonen"</string>
     <string name="l10n_showing_new_address_s_6e300332" formatted="false">"Nieuw adres getoond, %1$s"</string>
     <string name="l10n_shows_the_code_full_screen_actions_available_save_to_ph_6965c68d" formatted="false">"Toont de code op volledig scherm. Beschikbare acties: bewaren in Foto\'s of delen"</string>
+    <string name="l10n_shows_the_links_to_claim_7535de75" formatted="false">"Toont de links om te claimen"</string>
+    <string name="l10n_shows_the_transaction_7bd580e8" formatted="false">"Toont de transactie"</string>
     <string name="l10n_shows_transaction_details_f7f06755" formatted="false">"Toont transactiegegevens"</string>
     <string name="l10n_shows_wallet_sync_progress_while_running_in_the_backgro_9f004867" formatted="false">"Toont de voortgang van de portemonnee-synchronisatie op de achtergrond"</string>
     <string name="l10n_shows_your_balance_over_time_40113f92" formatted="false">"Toont je saldo door de tijd"</string>
+    <string name="l10n_shows_your_payment_links_a6c313d0" formatted="false">"Toont je betaallinks"</string>
     <string name="l10n_sign_with_trezor_63d35e0b" formatted="false">"Onderteken met Trezor"</string>
     <string name="l10n_simple_private_secure_9cc5a4a5" formatted="false">"Eenvoudig. Privé. Veilig."</string>
     <string name="l10n_skip_for_now_1e157fdf" formatted="false">"Sla nu over"</string>
+    <string name="l10n_something_went_wrong_ab827e3f" formatted="false">"Er ging iets mis"</string>
     <string name="l10n_south_korean_won_9c88b386" formatted="false">"Zuid-Koreaanse won"</string>
     <string name="l10n_standard_ef669154" formatted="false">"Standaard"</string>
     <string name="l10n_statistics_a656107e" formatted="false">"Statistieken"</string>
@@ -913,10 +1044,12 @@
     <string name="l10n_syncing_wallet_99450901" formatted="false">"Portemonnee synchroniseren…"</string>
     <string name="l10n_syncing_1567e1da" formatted="false">"Synchroniseren…"</string>
     <string name="l10n_system_6725e7bb" formatted="false">"Systeem"</string>
+    <string name="l10n_taking_the_money_back_1169d301" formatted="false">"Geld terugnemen…"</string>
     <string name="l10n_tap_to_create_your_first_alert_153768bc" formatted="false">"Voeg je eerste melding toe en krijg bericht als XMR een prijsgrens passeert"</string>
     <string name="l10n_tap_the_map_to_place_a_pin_f46ac1f8" formatted="false">"Tik op de kaart om een speld te plaatsen"</string>
     <string name="l10n_tap_to_change_43d3e926" formatted="false">"Tik om symbool te wijzigen"</string>
     <string name="l10n_tap_to_change_icon_920974cb" formatted="false">"Tik om symbool te wijzigen"</string>
+    <string name="l10n_tap_to_check_d067a49c" formatted="false">"Tik om te controleren"</string>
     <string name="l10n_tap_to_pick_an_emoji_1dee1212" formatted="false">"Tik om een emoji te kiezen"</string>
     <string name="l10n_tap_to_pick_an_icon_31dd153b" formatted="false">"Tik om een emoji te kiezen"</string>
     <string name="l10n_target_price_30035da5" formatted="false">"Doelprijs"</string>
@@ -933,8 +1066,9 @@
     <string name="l10n_the_address_for_s_is_different_from_the_address_you_pai_b51afe25" formatted="false">"Het adres voor %1$s verschilt van het adres dat je op %2$s hebt betaald. Controleer het nieuwe adres bij de ontvanger."</string>
     <string name="l10n_the_amount_in_this_link_is_not_a_valid_xmr_amount_16fc0795" formatted="false">"Het bedrag in deze link is geen geldig XMR-bedrag."</string>
     <string name="l10n_the_clipboard_clears_in_s_0329e50d" formatted="false">"Het klembord wordt over %1$s gewist."</string>
-    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"De betaling kon niet worden bevestigd. Als ze is gelukt, verschijnt de link bij Activiteit."</string>
     <string name="l10n_the_lookup_took_too_long_bae6d149" formatted="false">"Het opzoeken duurde te lang"</string>
+    <string name="l10n_the_payment_could_not_be_confirmed_if_it_went_through_t_9543d69a" formatted="false">"De betaling kon niet worden bevestigd. Als ze is gelukt, verschijnt de link bij Activiteit."</string>
+    <string name="l10n_the_payment_link_failed_its_safety_check_nothing_was_se_9e2a494f" formatted="false">"De betaallink is niet door de veiligheidscontrole gekomen. Er is niets verzonden."</string>
     <string name="l10n_the_price_feed_has_no_s_quote_0b226e88" formatted="false">"De prijsfeed heeft geen koers voor %1$s."</string>
     <string name="l10n_the_record_holds_an_address_for_another_network_31f49873" formatted="false">"Het record bevat een adres voor een ander netwerk"</string>
     <string name="l10n_the_record_holds_an_invalid_monero_address_18a56b6b" formatted="false">"Het record bevat een ongeldig Monero-adres"</string>
@@ -944,15 +1078,26 @@
     <string name="l10n_this_polyseed_uses_a_passphrase_monero_one_does_not_sup_2d07f5e0" formatted="false">"Deze Polyseed gebruikt een wachtzin. Monero One ondersteunt Polyseed-wachtzinnen nog niet."</string>
     <string name="l10n_this_device_does_not_support_biometric_authentication_y_60fadc72" formatted="false">"Dit apparaat ondersteunt geen biometrische verificatie. Je kunt deze later in Instellingen inschakelen als je biometrie op je apparaat instelt."</string>
     <string name="l10n_this_helps_speed_up_transaction_scanning_by_skipping_bl_ff8147d6" formatted="false">"Dit versnelt het scannen van transacties, doordat blokken van vóór je portemonnee worden overgeslagen."</string>
+    <string name="l10n_this_iphone_was_set_up_from_a_device_backup_wallet_keys_86cd3cbf" formatted="false">"Deze iPhone is ingesteld vanuit een apparaatreservekopie. De sleutels van de portemonnees blijven op de oude iPhone, dus Monero One moet ze hier herstellen."</string>
+    <string name="l10n_this_is_not_a_monero_one_payment_link_42e38dce" formatted="false">"Dit is geen betaallink van Monero One."</string>
     <string name="l10n_this_is_not_a_valid_monero_payment_link_cd32d925" formatted="false">"Dit is geen geldige Monero-betaallink."</string>
     <string name="l10n_this_is_the_only_way_to_recover_your_wallet_store_it_sa_be62bce0" formatted="false">"Dit is de ENIGE manier om je portemonnee te herstellen. Bewaar de zin veilig offline."</string>
+    <string name="l10n_this_is_your_own_link_fbf4b979" formatted="false">"Dit is je eigen link"</string>
+    <string name="l10n_this_is_your_own_link_it_holds_this_wallet_s_own_keys_s_9019570e" formatted="false">"Dit is je eigen link. Hij bevat de sleutels van deze portemonnee, dus er valt niets te claimen."</string>
+    <string name="l10n_this_link_failed_its_safety_check_do_not_use_it_ee128ada" formatted="false">"Deze link is niet door de veiligheidscontrole gekomen. Gebruik hem niet."</string>
     <string name="l10n_this_link_has_no_valid_monero_address_a9f74722" formatted="false">"Deze link bevat geen geldig Monero-adres."</string>
+    <string name="l10n_this_link_holds_no_money_that_can_move_yet_3721fb0a" formatted="false">"Deze link bevat nog geen geld dat kan worden verplaatst."</string>
+    <string name="l10n_this_link_is_not_complete_f9dec2f9" formatted="false">"Deze link is onvolledig."</string>
     <string name="l10n_this_link_uses_a_payment_id_which_monero_no_longer_supp_10f3384a" formatted="false">"Deze link gebruikt een betalings-ID, die Monero niet meer ondersteunt. Vraag de ontvanger om een subadres of een geïntegreerd adres."</string>
+    <string name="l10n_this_link_was_already_claimed_d8f5ff1a" formatted="false">"Deze link is al geclaimd."</string>
+    <string name="l10n_this_link_was_removed_287b9eca" formatted="false">"Deze link is verwijderd."</string>
     <string name="l10n_this_may_take_a_moment_c1049c89" formatted="false">"Dit kan even duren"</string>
     <string name="l10n_this_name_lists_more_than_one_monero_address_a3832633" formatted="false">"Deze naam vermeldt meer dan één Monero-adres"</string>
     <string name="l10n_this_name_uses_a_payment_id_which_monero_no_longer_supp_ca5f6521" formatted="false">"Deze naam gebruikt een betalings-ID, die Monero niet meer ondersteunt. Vraag de ontvanger om een subadres of een geïntegreerd adres."</string>
     <string name="l10n_this_node_is_already_in_the_list_0720642a" formatted="false">"Deze node staat al in de lijst"</string>
     <string name="l10n_this_protects_you_from_wallet_activity_on_untrusted_net_91dd1d1c" formatted="false">"Dit beschermt je tegen portemonnee-activiteit op niet-vertrouwde netwerken, zoals openbare Wi-Fi of onbekende locaties."</string>
+    <string name="l10n_this_recovery_phrase_does_not_match_any_of_these_wallet_0982b5b5" formatted="false">"Deze seedzin komt met geen van deze portemonnees overeen."</string>
+    <string name="l10n_this_recovery_phrase_is_for_a_different_wallet_enter_th_e885dc87" formatted="false">"Deze seedzin hoort bij een andere portemonnee. Voer de seedzin voor ‘%1$s’ in."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_only_it_still__22761798" formatted="false">"Dit verwijdert de portemonnee van dit apparaat. Je kunt hem herstellen met de seedzin."</string>
     <string name="l10n_this_removes_the_wallet_from_this_device_you_can_recove_6b8f3dd7" formatted="false">"Dit verwijdert de portemonnee van dit apparaat. Je kunt hem herstellen met de seedzin."</string>
     <string name="l10n_this_removes_wallet_data_from_this_device_only_your_wal_e09970ba" formatted="false">"Dit verwijdert de portemonnee van dit apparaat. Je kunt hem herstellen met de seedzin."</string>
@@ -963,6 +1108,7 @@
     <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_722eee0c" formatted="false">"Deze portemonnee wordt opnieuw gescand vanaf de herstelhoogte. Transactiesleutels van eerdere verzendingen worden verwijderd."</string>
     <string name="l10n_this_wallet_scans_again_from_its_restore_height_transac_3a4e903b" formatted="false">"Deze portemonnee wordt opnieuw gescand vanaf de herstelhoogte. Transactiesleutels van eerdere verzendingen zijn daarna niet meer beschikbaar."</string>
     <string name="l10n_this_wallet_was_restored_from_a_private_view_key_so_it__b286becb" formatted="false">"Deze portemonnee is hersteld met een geheime alleen-lezen sleutel en kan op dit apparaat geen transacties ondertekenen. Open de portemonnee met de bestedingssleutel om uit te geven."</string>
+    <string name="l10n_this_wallet_s_keys_are_not_on_this_iphone_delete_it_the_438e2fad" formatted="false">"De sleutels van deze portemonnee staan niet op deze iPhone. Verwijder hem en voeg hem daarna opnieuw toe met ‘Voeg portemonnee toe’."</string>
     <string name="l10n_this_will_delete_all_wallet_data_from_this_device_you_c_f5eb4984" formatted="false">"Dit verwijdert alle portemonneegegevens van dit apparaat. Je kunt je portemonnee herstellen met je seedzin.\n\nDit kan niet ongedaan worden gemaakt."</string>
     <string name="l10n_time_33b93476" formatted="false">"Tijd"</string>
     <string name="l10n_timed_out_waiting_for_device_wallet_to_sync_2dbd6f57" formatted="false">"Time-out bij wachten op synchronisatie van hardwareportemonnee."</string>
@@ -1018,6 +1164,7 @@
     <string name="l10n_unable_to_fetch_price_b1924948" formatted="false">"Prijs niet beschikbaar"</string>
     <string name="l10n_unable_to_load_chart_0dd141f8" formatted="false">"Kan grafiek niet laden"</string>
     <string name="l10n_unavailable_ca184496" formatted="false">"Niet beschikbaar"</string>
+    <string name="l10n_unclaimed_payment_links_will_be_lost_1fab7442" formatted="false">"Niet-geclaimde betaallinks gaan verloren."</string>
     <string name="l10n_unencrypted_d5c28194" formatted="false">"Onversleuteld"</string>
     <string name="l10n_unknown_b764cdc0" formatted="false">"Onbekend"</string>
     <string name="l10n_unknown_error_27c2ccd9" formatted="false">"Onbekende fout"</string>
@@ -1035,6 +1182,7 @@
     <string name="l10n_unused_231aedff" formatted="false">"Ongebruikt"</string>
     <string name="l10n_update_c1c1009d" formatted="false">"Werk bij"</string>
     <string name="l10n_update_location_227f0c79" formatted="false">"Werk locatie bij"</string>
+    <string name="l10n_update_monero_one_to_open_this_link_8bc92a49" formatted="false">"Update Monero One om deze link te openen."</string>
     <string name="l10n_update_restore_height_2b00103e" formatted="false">"Werk herstelhoogte bij"</string>
     <string name="l10n_update_restore_height_ebec1431" formatted="false">"Herstelhoogte bijwerken?"</string>
     <string name="l10n_update_your_wallet_pin_384f8403" formatted="false">"Wijzig PIN"</string>
@@ -1074,6 +1222,8 @@
     <string name="l10n_view_only_wallets_cannot_send_transactions_4a11f950" formatted="false">"Alleen-lezen portemonnees kunnen geen transacties verzenden"</string>
     <string name="l10n_visit_monero_one_2ba11ca1" formatted="false">"Opent monero.one in je browser"</string>
     <string name="l10n_wait_for_the_name_lookup_to_finish_a9cfb529" formatted="false">"Wacht tot het opzoeken van de naam klaar is"</string>
+    <string name="l10n_wait_for_your_wallet_to_finish_syncing_then_try_again_b26130ac" formatted="false">"Wacht tot je portemonnee klaar is met synchroniseren en probeer het dan opnieuw."</string>
+    <string name="l10n_waiting_6e293a8c" formatted="false">"Wachtend"</string>
     <string name="l10n_waiting_for_fee_estimate_44418c72" formatted="false">"Wachten op schatting van vergoeding"</string>
     <string name="l10n_wallet_d1c9a01d" formatted="false">"Portemonnee"</string>
     <string name="l10n_wallet_s_ca6410b6" formatted="false">"Portemonnee %1$s"</string>
@@ -1096,6 +1246,7 @@
     <string name="l10n_wallet_s_6c7a3ca8" formatted="false">"Portemonnee: %1$s"</string>
     <string name="l10n_warn_only_4605a608" formatted="false">"Alleen waarschuwen"</string>
     <string name="l10n_warning_e981ddae" formatted="false">"Waarschuwing"</string>
+    <string name="l10n_warning_anyone_who_has_this_link_can_claim_the_money_se_dae37a67" formatted="false">"Waarschuwing: iedereen die deze link heeft, kan het geld claimen. Stuur hem naar één persoon in een privéchat. Je kunt het geld terugnemen totdat iemand het claimt."</string>
     <string name="l10n_watch_only_balances_and_transactions_no_sending_cfc95d78" formatted="false">"Alleen-lezen — saldi en transacties, zonder verzenden."</string>
     <string name="l10n_we_use_low_power_location_monitoring_to_minimize_batter_806fe472" formatted="false">"We gebruiken zuinige locatiebewaking om het batterijverbruik te beperken. Als dit aan staat, merk je mogelijk iets meer batterijverbruik."</string>
     <string name="l10n_website_b5a229ac" formatted="false">"Website"</string>
@@ -1118,9 +1269,11 @@
     <string name="l10n_you_can_change_the_name_and_icon_later_074fe36e" formatted="false">"Je kunt dit later wijzigen"</string>
     <string name="l10n_you_can_change_this_later_a1dd0706" formatted="false">"Je kunt dit later wijzigen"</string>
     <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_or_ke_4ad7ab94" formatted="false">"Je kunt ze alleen herstellen met hun seedzinnen of sleutels."</string>
+    <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_or_ke_49fc3c79" formatted="false">"Je kunt ze alleen herstellen met hun seedzinnen of sleutels.\nNiet-geclaimde betaallinks gaan verloren."</string>
     <string name="l10n_you_can_restore_them_only_with_their_seed_phrases_9d64a0a8" formatted="false">"Je kunt ze alleen herstellen met hun seedzinnen."</string>
     <string name="l10n_you_re_offline_some_features_may_be_unavailable_29abd526" formatted="false">"Geen internetverbinding"</string>
     <string name="l10n_your_pin_is_required_to_access_your_recovery_phrase_636df823" formatted="false">"Je pincode is nodig om je herstelzin te bekijken"</string>
+    <string name="l10n_your_payment_link_d7e13524" formatted="false">"Jouw betaallink"</string>
     <string name="l10n_your_seed_phrase_dd4949d6" formatted="false">"Je seedzin"</string>
     <string name="l10n_your_history_starts_here_9357da77" formatted="false">"Hier begint je geschiedenis"</string>
     <string name="l10n_your_location_data_stays_on_your_device_it_s_only_used__e37b3c21" formatted="false">"Je locatiegegevens blijven op je apparaat. Ze worden alleen gebruikt om te controleren of je in een vertrouwde zone bent - en nooit bewaard, gelogd of verstuurd."</string>
@@ -1128,7 +1281,12 @@
     <string name="l10n_your_screen_reader_will_read_your_seed_phrase_out_loud__68a1d49e" formatted="false">"Je schermlezer leest je herstelzin hardop voor. Iedereen die deze hoort, kan je geld stelen. Gebruik een koptelefoon of zorg dat niemand je apparaat kan horen voordat je doorgaat."</string>
     <string name="l10n_your_transaction_has_been_submitted_to_the_network_fde69ecb" formatted="false">"Transactie uitgezonden."</string>
     <string name="l10n_your_transactions_will_appear_here_once_synced_cfb34a10" formatted="false">"Je transacties verschijnen hier na het synchroniseren"</string>
+    <string name="l10n_your_wallet_has_no_receive_address_yet_wait_for_it_to_l_255cc257" formatted="false">"Je portemonnee heeft nog geen ontvangstadres. Wacht tot het is geladen en probeer het dan opnieuw."</string>
+    <string name="l10n_your_wallet_is_busy_try_again_in_a_moment_2a5a8a57" formatted="false">"Je portemonnee is bezig. Probeer het zo meteen opnieuw."</string>
     <string name="l10n_your_wallet_is_syncing_from_an_untrusted_location_add_t_0aef1648" formatted="false">"Je portemonnee synchroniseert vanaf een niet-vertrouwde locatie. Voeg deze locatie toe als vertrouwd in Instellingen als dit de bedoeling is."</string>
+    <string name="l10n_about_s_549742af" formatted="false">"circa %1$s"</string>
+    <string name="l10n_about_s_xmr_13b5b2b2" formatted="false">"circa %1$s XMR"</string>
+    <string name="l10n_about_s_about_s_xmr_68d123ab" formatted="false">"circa %1$s, circa %2$s XMR"</string>
     <string name="l10n_all_time_c79ddf2b" formatted="false">"hele periode"</string>
     <string name="l10n_amount_cf38d95c" formatted="false">"Bedrag"</string>
     <string name="l10n_balance_unavailable_8d223926" formatted="false">"saldo niet beschikbaar"</string>
@@ -1137,25 +1295,50 @@
     <string name="l10n_hardware_wallet_b7720b6e" formatted="false">"hardwareportemonnee"</string>
     <string name="l10n_ios_limits_apps_to_20_monitored_regions_you_have_s_trus_d57089ef" formatted="false">"iOS staat maximaal 20 bewaakte gebieden per app toe. Je hebt %1$s vertrouwde locaties."</string>
     <string name="l10n_last_known_balance_s_xmr_f8a4e76c" formatted="false">"laatst bekend saldo %1$s XMR"</string>
+    <string name="l10n_minus_s_1c309697" formatted="false">"min %1$s"</string>
     <string name="l10n_past_24_hours_a9863862" formatted="false">"afgelopen 24 uur"</string>
     <string name="l10n_past_month_ffa8e517" formatted="false">"afgelopen maand"</string>
     <string name="l10n_past_week_1653412b" formatted="false">"afgelopen week"</string>
     <string name="l10n_past_year_7468aea7" formatted="false">"afgelopen jaar"</string>
+    <string name="l10n_plus_s_a6ac9570" formatted="false">"plus %1$s"</string>
+    <string name="l10n_plus_about_s_787d8323" formatted="false">"plus circa %s"</string>
     <string name="l10n_received_s_xmr_0a508f72" formatted="false">"%1$s XMR ontvangen"</string>
     <string name="l10n_received_s_at_the_time_s_xmr_e6d878d9" formatted="false">"destijds %1$s ontvangen, %2$s XMR"</string>
     <string name="l10n_sent_s_xmr_3933e409" formatted="false">"%1$s XMR verzonden"</string>
     <string name="l10n_sent_s_xmr_including_fees_00f37a89" formatted="false">"%1$s XMR verzonden, inclusief vergoedingen"</string>
     <string name="l10n_sent_s_at_the_time_s_xmr_including_fees_e4e53115" formatted="false">"destijds %1$s verzonden, %2$s XMR inclusief vergoedingen"</string>
+    <string name="l10n_to_claim_0ae4d57b" formatted="false">"te claimen"</string>
     <string name="l10n_unchanged_aaa8d3c8" formatted="false">"onveranderd"</string>
     <string name="l10n_unused_febe1d74" formatted="false">"ongebruikt"</string>
     <string name="l10n_up_75a288c0" formatted="false">"gestegen"</string>
     <string name="l10n_up_s_2fa9bc08" formatted="false">"gestegen met %1$s%%"</string>
     <string name="l10n_view_only_8479be81" formatted="false">"alleen-lezen"</string>
+    <string name="l10n_s_xmr_6ddc67de" formatted="false">"~%1$s XMR"</string>
     <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__89c5af9a" formatted="false">"‘%1$s’ wordt opnieuw gescand vanaf de herstelhoogte. Transactiesleutels van eerdere verzendingen worden verwijderd."</string>
     <string name="l10n_s_scans_again_from_its_restore_height_transaction_keys__28ab8822" formatted="false">"‘%s’ wordt opnieuw gescand vanaf de herstelhoogte. Transactiesleutels van eerdere verzendingen zijn daarna niet meer beschikbaar."</string>
+    <plurals name="l10n_s_link_transactions_c019a309">
+        <item quantity="one">"%1$s linktransactie"</item>
+        <item quantity="other">"%1$s linktransacties"</item>
+    </plurals>
+    <plurals name="l10n_s_links_1b27d18b">
+        <item quantity="one">"%1$s link"</item>
+        <item quantity="other">"%1$s links"</item>
+    </plurals>
+    <plurals name="l10n_s_links_to_claim_7f99dc72">
+        <item quantity="one">"%1$s link om te claimen"</item>
+        <item quantity="other">"%1$s links om te claimen"</item>
+    </plurals>
     <plurals name="l10n_s_locations_cdc8a004">
         <item quantity="one">"%1$s locatie"</item>
         <item quantity="other">"%1$s locaties"</item>
+    </plurals>
+    <plurals name="l10n_s_open_links_70eaa51f">
+        <item quantity="one">"%1$s open link"</item>
+        <item quantity="other">"%1$s open links"</item>
+    </plurals>
+    <plurals name="l10n_s_payment_links_4ae9b987">
+        <item quantity="one">"%s betaallink"</item>
+        <item quantity="other">"%s betaallinks"</item>
     </plurals>
     <plurals name="l10n_s_payments_bfee8c12">
         <item quantity="one">"%1$s betaling"</item>
@@ -1189,6 +1372,10 @@
         <item quantity="one">"Legacy (%1$s woord)"</item>
         <item quantity="other">"Legacy (%1$s woorden)"</item>
     </plurals>
+    <plurals name="l10n_monero_one_cannot_reset_your_pin_to_use_the_app_again_r_7f15c040">
+        <item quantity="one">"Monero One kan je PIN niet resetten. Om de app weer te gebruiken, verwijder je %1$s portemonnee van deze iPhone. Herstel hem daarna met zijn seedzin."</item>
+        <item quantity="other">"Monero One kan je PIN niet resetten. Om de app weer te gebruiken, verwijder je alle %1$s portemonnees van deze iPhone. Herstel ze daarna met hun seedzinnen."</item>
+    </plurals>
     <plurals name="l10n_original_s_words_8cfc4d7d">
         <item quantity="one">"Origineel (%1$s woord)"</item>
         <item quantity="other">"Origineel (%1$s woorden)"</item>
@@ -1196,5 +1383,13 @@
     <plurals name="l10n_polyseed_s_words_6d2fadfc">
         <item quantity="one">"Polyseed (%1$s woord)"</item>
         <item quantity="other">"Polyseed (%1$s woorden)"</item>
+    </plurals>
+    <plurals name="l10n_remove_s_wallets_this_is_permanent_1ded795c">
+        <item quantity="one">"%1$s portemonnee verwijderen? Dit is permanent."</item>
+        <item quantity="other">"%1$s portemonnees verwijderen? Dit is permanent."</item>
+    </plurals>
+    <plurals name="l10n_in_s_open_links_c8d0bc2b">
+        <item quantity="one">"in %s open link"</item>
+        <item quantity="other">"in %s open links"</item>
     </plurals>
 </resources>
