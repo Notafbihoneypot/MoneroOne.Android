@@ -32,6 +32,12 @@ sealed interface ReviewFeeResult {
     /** The transfer is built and signed: its fee is the real one. Send broadcasts [prepared]. */
     data class Ready(val prepared: PreparedSend) : ReviewFeeResult
 
+    /**
+     * Hardware/watch-only review: wallet2 can estimate the fee but cannot sign on the phone.
+     * Keystone shows the final fee before the user approves the offline signature.
+     */
+    data class Estimated(val fee: Long) : ReviewFeeResult
+
     /** The amount plus the fee is more than the unlocked balance. [fee]: wallet2's estimate. Nothing was built. */
     data class OverBalance(val fee: Long) : ReviewFeeResult
 

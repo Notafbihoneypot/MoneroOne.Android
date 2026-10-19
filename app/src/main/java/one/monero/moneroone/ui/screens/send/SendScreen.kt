@@ -231,6 +231,7 @@ fun SendScreen(
     onBack: () -> Unit,
     onScanQr: () -> Unit,
     onSent: () -> Unit,
+    onKeystoneSign: (String, Long, Boolean) -> Unit = { _, _, _ -> },
     // Payment links: the Link capsule, and claim links pasted into the recipient field.
     paymentLinks: PaymentLinksViewModel? = null,
     onClaimLink: (String) -> Unit = {}
@@ -239,6 +240,7 @@ fun SendScreen(
     val flow = rememberSaveable(saver = SendFlowSaver) { SendFlow(walletViewModel.activeWallet.value?.id) }
     val sharedSendState by walletViewModel.sendState.collectAsState()
     val sendState = sharedSendState.takeIf { it.flow == flow } ?: SendState.Idle
+    val isKeystone = walletViewModel.activeWallet.value?.isKeystone == true
 
     // Pre-fill arrives via QR / deep link and is untrusted: it must pass the
     // same checks as manual entry or be dropped, so the flow can never skip
@@ -571,12 +573,22 @@ fun SendScreen(
                         formatXmr = walletViewModel::formatXmr,
                         parseXmr = walletViewModel::parseXmr,
                         buildFee = { amt, sweep, unlocked ->
-                            ReviewFee.build(
-                                address, amt, sweep, unlocked,
-                                estimate = { a, s -> walletViewModel.estimateFee(address, a, isSweepAll = s) },
-                                prepare = { a, s -> walletViewModel.prepareSend(address, a, isSweepAll = s) }
-                            )
+                            if (isKeystone) {
+                                val fee = walletViewModel.estimateFee(address, amt, isSweepAll = sweep)
+                                when {
+                                    fee <= 0L -> ReviewFeeResult.Failed("Fee estimation failed")
+                                    !sweep && amt + fee > unlocked -> ReviewFeeResult.OverBalance(fee)
+                                    else -> ReviewFeeResult.Estimated(fee)
+                                }
+                            } else {
+                                ReviewFee.build(
+                                    address, amt, sweep, unlocked,
+                                    estimate = { a, s -> walletViewModel.estimateFee(address, a, isSweepAll = s) },
+                                    prepare = { a, s -> walletViewModel.prepareSend(address, a, isSweepAll = s) }
+                                )
+                            }
                         },
+                        hardwareWallet = isKeystone,
                         xmrPrice = currentPrice?.price,
                         currencySymbol = selectedCurrency.symbol,
                         sendInProgress = sendInProgress,
@@ -664,6 +676,9 @@ fun SendScreen(
                             prepared = prepared
                         )
                     }
+                } else if (isKeystone) {
+                    sendInProgress = false
+                    onKeystoneSign(address, walletViewModel.parseXmr(amount), isSweepAll)
                 } else {
                     val prepared = reviewFee.prepared
                     scope.launch {
@@ -1287,6 +1302,7 @@ private fun ReviewPhase(
     parseXmr: (String) -> Long,
     /** Builds and signs the transfer (amount, sweep, unlocked balance). Blocking: called off Main. */
     buildFee: (Long, Boolean, Long) -> ReviewFeeResult,
+    hardwareWallet: Boolean = false,
     xmrPrice: Double?,
     currencySymbol: String,
     sendInProgress: Boolean,
@@ -1307,6 +1323,7 @@ private fun ReviewPhase(
         }
         when (result) {
             is ReviewFeeResult.Ready -> onReviewFee(ReviewFeeState(fee = result.prepared.fee, prepared = result.prepared))
+            is ReviewFeeResult.Estimated -> onReviewFee(ReviewFeeState(fee = result.fee))
             // Auto-upgrade to sweep-all if amount + fee > balance (this effect then builds the sweep). An amount
             // the user did not type must never silently become the full balance — that upgrade requires an
             // explicit tap instead.
@@ -1562,7 +1579,7 @@ private fun ReviewPhase(
                 .pointerInteropFilter { event ->
                     (event.flags and MotionEvent.FLAG_WINDOW_IS_OBSCURED) != 0
                 },
-            enabled = feeReady && reviewFee.prepared != null && !sendInProgress && !needsSweepAllChoice
+            enabled = feeReady && (hardwareWallet || reviewFee.prepared != null) && !sendInProgress && !needsSweepAllChoice
         ) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(tr("Send"))
