@@ -262,25 +262,6 @@ fun SettingsScreen(
                 iconColor = MoneroOrange,
                 chevron = false
             )
-            // Opens the Play listing in the Play Store app, or in the browser
-            // where Play is missing (GrapheneOS). The id is the release app's,
-            // because debug builds end in .debug.
-            SettingsItem(
-                icon = Icons.Default.Star,
-                title = tr("Rate Monero One"),
-                onClick = {
-                    val listing = "https://play.google.com/store/apps/details?id=one.monero.moneroone"
-                    try {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse(listing)).setPackage("com.android.vending")
-                        )
-                    } catch (_: ActivityNotFoundException) {
-                        openLink(listing)
-                    }
-                },
-                iconColor = MoneroOrange,
-                chevron = false
-            )
             SettingsItem(
                 icon = Icons.Default.PanTool,
                 title = tr("Privacy Policy"),
@@ -321,6 +302,25 @@ fun SettingsScreen(
                 onClick = onDonateClick,
                 iconColor = SettingsPink,
                 showDivider = false
+            )
+            // Opens the Play listing in the Play Store app, or in the browser
+            // where Play is missing (GrapheneOS). The id is the release app's,
+            // because debug builds end in .debug.
+            SettingsItem(
+                icon = Icons.Default.Star,
+                title = tr("Rate Monero One"),
+                onClick = {
+                    val listing = "https://play.google.com/store/apps/details?id=one.monero.moneroone"
+                    try {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(listing)).setPackage("com.android.vending")
+                        )
+                    } catch (_: ActivityNotFoundException) {
+                        openLink(listing)
+                    }
+                },
+                iconColor = MoneroOrange,
+                chevron = false
             )
         }
 
