@@ -73,7 +73,9 @@ fun MainScreen(
     chartViewModel: ChartViewModel,
     onNavigateToSend: () -> Unit = {},
     onNavigateToReceive: () -> Unit = {},
-    paymentLinks: PaymentLinksViewModel? = null
+    paymentLinks: PaymentLinksViewModel? = null,
+    /** A payment link alert shows over Main. */
+    linkAlertShowing: Boolean = false
 ) {
     // Saveable: Main leaves composition while a settings sub-page is up, so
     // plain remember reset the tab to Wallet and Back from Security/Sync/etc.
@@ -207,7 +209,8 @@ fun MainScreen(
                         onFetchHistoryRange = chartViewModel::fetchRange,
                         onAddWalletClick = {
                             navController.navigate("add_wallet")
-                        }
+                        },
+                        linkAlertShowing = linkAlertShowing
                     )
                     1 -> ChartScreen(
                         viewModel = chartViewModel,

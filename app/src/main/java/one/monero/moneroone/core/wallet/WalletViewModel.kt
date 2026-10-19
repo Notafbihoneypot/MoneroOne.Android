@@ -37,6 +37,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import one.monero.moneroone.core.openalias.OpenAliasPinStore
+import one.monero.moneroone.core.review.ReviewPromptGate
 import one.monero.moneroone.data.model.Currency
 import one.monero.moneroone.data.model.CurrentPrice
 import one.monero.moneroone.data.repository.PriceRepository
@@ -292,6 +293,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         checkAndApplyAutoLock()
         // The kit does not try again after a start or a refresh that had no network (SyncRecovery).
         viewModelScope.launch { NetworkMonitor.networkReturns.collect { startWallet() } }
+        // The rating ask waits for the first send that went out. It only watches every send's result.
+        val reviewPrompt = ReviewPromptGate(prefs)
+        viewModelScope.launch { sendState.collect(reviewPrompt::sendStateChanged) }
     }
 
     // =========================================================================

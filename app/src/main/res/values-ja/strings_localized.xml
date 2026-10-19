@@ -170,6 +170,7 @@
     <string name="l10n_british_pound_9bc3c68e" formatted="false">"英国ポンド"</string>
     <string name="l10n_broadcast_failed_s_99ac586d" formatted="false">"ブロードキャストに失敗しました：%1$s"</string>
     <string name="l10n_broadcasting_01aaf862" formatted="false">"ブロードキャスト中…"</string>
+    <string name="l10n_but_a_rating_really_helps_people_find_monero_one_i_ll_n_5af2ce08" formatted="false">"でも、評価はみんながMonero Oneを見つける大きな助けになります。二度とお願いしません。"</string>
     <string name="l10n_camera_permission_required_9407beac" formatted="false">"カメラの権限が必要です"</string>
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"カメラ入力に対応していません"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"キャンパス"</string>
@@ -460,6 +461,7 @@
     <string name="l10n_how_it_works_c1879525" formatted="false">"仕組み"</string>
     <string name="l10n_how_does_this_work_6cae34c8" formatted="false">"仕組みについて"</string>
     <string name="l10n_i_understand_continue_2390c0c6" formatted="false">"理解して続ける"</string>
+    <string name="l10n_i_hate_asking_for_this_166f376a" formatted="false">"お願いするのは苦手なのですが"</string>
     <string name="l10n_i_have_written_down_my_seed_phrase_b1bc0677" formatted="false">"シードフレーズを書き留めました"</string>
     <string name="l10n_i_know_the_creation_date_206d5973" formatted="false">"作成日がわかる"</string>
     <string name="l10n_icon_a35abcd6" formatted="false">"アイコン"</string>
@@ -567,6 +569,7 @@
     <string name="l10n_next_transaction_37f49104" formatted="false">"次の取引"</string>
     <string name="l10n_no_monero_address_for_this_name_79d0651c" formatted="false">"この名前にはMoneroアドレスがありません"</string>
     <string name="l10n_no_price_alerts_cfb97a21" formatted="false">"価格アラートなし"</string>
+    <string name="l10n_no_thanks_c6394418" formatted="false">"結構です"</string>
     <string name="l10n_no_trusted_locations_008f580f" formatted="false">"信頼できる場所なし"</string>
     <string name="l10n_no_warranty_420d720d" formatted="false">"無保証"</string>
     <string name="l10n_no_camera_available_on_this_device_1fa4921b" formatted="false">"このデバイスにはカメラがありません"</string>

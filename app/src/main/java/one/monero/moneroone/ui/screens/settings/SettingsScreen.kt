@@ -1,7 +1,6 @@
 package one.monero.moneroone.ui.screens.settings
 
 import one.monero.moneroone.core.locale.tr
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
@@ -74,6 +73,8 @@ import io.horizontalsystems.monerokit.MoneroKit
 import io.horizontalsystems.monerokit.SyncState
 import one.monero.moneroone.BuildConfig
 import one.monero.moneroone.core.alert.PriceAlertManager
+import one.monero.moneroone.core.review.ReviewPromptGate
+import one.monero.moneroone.core.review.openPlayListing
 import one.monero.moneroone.core.wallet.WalletViewModel
 import one.monero.moneroone.data.model.PriceAlert
 import one.monero.moneroone.paymentlinks.PaymentLinkStore
@@ -303,21 +304,14 @@ fun SettingsScreen(
                 iconColor = SettingsPink,
                 showDivider = false
             )
-            // Opens the Play listing in the Play Store app, or in the browser
-            // where Play is missing (GrapheneOS). The id is the release app's,
-            // because debug builds end in .debug.
+            // Opens the Play listing. A person who rates here never gets the
+            // rating ask after a send (ReviewPromptGate).
             SettingsItem(
                 icon = Icons.Default.Star,
                 title = tr("Rate Monero One"),
                 onClick = {
-                    val listing = "https://play.google.com/store/apps/details?id=one.monero.moneroone"
-                    try {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse(listing)).setPackage("com.android.vending")
-                        )
-                    } catch (_: ActivityNotFoundException) {
-                        openLink(listing)
-                    }
+                    ReviewPromptGate(prefs).ratedFromSettings()
+                    openPlayListing(context)
                 },
                 iconColor = MoneroOrange,
                 chevron = false

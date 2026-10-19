@@ -170,6 +170,7 @@
     <string name="l10n_british_pound_9bc3c68e" formatted="false">"영국 파운드"</string>
     <string name="l10n_broadcast_failed_s_99ac586d" formatted="false">"전송 실패: %1$s"</string>
     <string name="l10n_broadcasting_01aaf862" formatted="false">"전송 중…"</string>
+    <string name="l10n_but_a_rating_really_helps_people_find_monero_one_i_ll_n_5af2ce08" formatted="false">"그래도 평점은 사람들이 Monero One을 찾는 데 정말 도움이 돼요. 다시는 부탁하지 않을게요."</string>
     <string name="l10n_camera_permission_required_9407beac" formatted="false">"카메라 권한 필요"</string>
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"카메라 입력이 지원되지 않음"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"캠퍼스"</string>
@@ -460,6 +461,7 @@
     <string name="l10n_how_it_works_c1879525" formatted="false">"작동 방식"</string>
     <string name="l10n_how_does_this_work_6cae34c8" formatted="false">"어떻게 작동하나요?"</string>
     <string name="l10n_i_understand_continue_2390c0c6" formatted="false">"이해했습니다, 계속"</string>
+    <string name="l10n_i_hate_asking_for_this_166f376a" formatted="false">"이런 부탁은 정말 싫지만"</string>
     <string name="l10n_i_have_written_down_my_seed_phrase_b1bc0677" formatted="false">"시드 문구를 적어 두었습니다"</string>
     <string name="l10n_i_know_the_creation_date_206d5973" formatted="false">"생성 날짜를 알고 있습니다"</string>
     <string name="l10n_icon_a35abcd6" formatted="false">"아이콘"</string>
@@ -567,6 +569,7 @@
     <string name="l10n_next_transaction_37f49104" formatted="false">"다음 거래"</string>
     <string name="l10n_no_monero_address_for_this_name_79d0651c" formatted="false">"이 이름에 대한 Monero 주소가 없습니다"</string>
     <string name="l10n_no_price_alerts_cfb97a21" formatted="false">"가격 알림 없음"</string>
+    <string name="l10n_no_thanks_c6394418" formatted="false">"괜찮아요"</string>
     <string name="l10n_no_trusted_locations_008f580f" formatted="false">"신뢰할 수 있는 위치 없음"</string>
     <string name="l10n_no_warranty_420d720d" formatted="false">"보증 없음"</string>
     <string name="l10n_no_camera_available_on_this_device_1fa4921b" formatted="false">"이 기기에서 사용할 수 있는 카메라가 없음"</string>

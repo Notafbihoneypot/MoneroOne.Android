@@ -183,7 +183,9 @@ fun WalletScreen(
     /** Checks open sent links so the balance card's line stays true. */
     paymentLinks: PaymentLinksViewModel? = null,
     /** Opens Activity with the Links filter on. */
-    onOpenLinks: () -> Unit = {}
+    onOpenLinks: () -> Unit = {},
+    /** A payment link alert shows over the home. */
+    linkAlertShowing: Boolean = false
 ) {
     val walletState by walletViewModel.walletState.collectAsState()
     val currentPrice by walletViewModel.currentPrice.collectAsState()
@@ -301,6 +303,13 @@ fun WalletScreen(
     // reset: a fresh LazyListState per wallet session epoch.
     var switcherExpanded by remember { mutableStateOf(false) }
     val listState = remember(walletSessionId) { LazyListState() }
+
+    // The rating ask after the first send, only while nothing else is open on the home.
+    val claimSheetOpen = paymentLinks?.store?.pendingOpen?.collectAsState()?.value != null
+    val linkProblemShowing = paymentLinks?.store?.intakeProblem?.collectAsState()?.value != null
+    ReviewPromptAfterSend(
+        isIdle = !switcherExpanded && !history.expanded && !claimSheetOpen && !linkProblemShowing && !linkAlertShowing
+    )
 
     LazyColumn(
         state = listState,

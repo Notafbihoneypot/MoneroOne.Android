@@ -170,6 +170,7 @@
     <string name="l10n_british_pound_9bc3c68e" formatted="false">"英镑"</string>
     <string name="l10n_broadcast_failed_s_99ac586d" formatted="false">"广播失败：%1$s"</string>
     <string name="l10n_broadcasting_01aaf862" formatted="false">"正在广播…"</string>
+    <string name="l10n_but_a_rating_really_helps_people_find_monero_one_i_ll_n_5af2ce08" formatted="false">"但评分真的能帮助更多人找到 Monero One。我保证不会再问了。"</string>
     <string name="l10n_camera_permission_required_9407beac" formatted="false">"需要相机权限"</string>
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"不支持相机输入"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"园区"</string>
@@ -460,6 +461,7 @@
     <string name="l10n_how_it_works_c1879525" formatted="false">"运作方式"</string>
     <string name="l10n_how_does_this_work_6cae34c8" formatted="false">"这是如何运作的？"</string>
     <string name="l10n_i_understand_continue_2390c0c6" formatted="false">"我已了解，继续"</string>
+    <string name="l10n_i_hate_asking_for_this_166f376a" formatted="false">"我真不想开口求这个"</string>
     <string name="l10n_i_have_written_down_my_seed_phrase_b1bc0677" formatted="false">"我已写下助记词"</string>
     <string name="l10n_i_know_the_creation_date_206d5973" formatted="false">"我知道创建日期"</string>
     <string name="l10n_icon_a35abcd6" formatted="false">"图标"</string>
@@ -567,6 +569,7 @@
     <string name="l10n_next_transaction_37f49104" formatted="false">"下一笔交易"</string>
     <string name="l10n_no_monero_address_for_this_name_79d0651c" formatted="false">"此名称没有 Monero 地址"</string>
     <string name="l10n_no_price_alerts_cfb97a21" formatted="false">"没有价格提醒"</string>
+    <string name="l10n_no_thanks_c6394418" formatted="false">"不用了"</string>
     <string name="l10n_no_trusted_locations_008f580f" formatted="false">"没有可信位置"</string>
     <string name="l10n_no_warranty_420d720d" formatted="false">"无担保"</string>
     <string name="l10n_no_camera_available_on_this_device_1fa4921b" formatted="false">"此设备上没有可用的相机"</string>

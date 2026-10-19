@@ -170,6 +170,7 @@
     <string name="l10n_british_pound_9bc3c68e" formatted="false">"İngiliz Sterlini"</string>
     <string name="l10n_broadcast_failed_s_99ac586d" formatted="false">"Yayınlama başarısız oldu: %1$s"</string>
     <string name="l10n_broadcasting_01aaf862" formatted="false">"Yayınlanıyor…"</string>
+    <string name="l10n_but_a_rating_really_helps_people_find_monero_one_i_ll_n_5af2ce08" formatted="false">"Ama bir puan, insanların Monero One\'ı bulmasına gerçekten yardımcı oluyor. Bir daha asla istemeyeceğim."</string>
     <string name="l10n_camera_permission_required_9407beac" formatted="false">"Kamera izni gerekli"</string>
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"Kamera girişi desteklenmiyor"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"Kampüs"</string>
@@ -460,6 +461,7 @@
     <string name="l10n_how_it_works_c1879525" formatted="false">"Nasıl Çalışır"</string>
     <string name="l10n_how_does_this_work_6cae34c8" formatted="false">"Bu nasıl çalışır?"</string>
     <string name="l10n_i_understand_continue_2390c0c6" formatted="false">"Anladım, Devam Et"</string>
+    <string name="l10n_i_hate_asking_for_this_166f376a" formatted="false">"Bunu istemekten nefret ediyorum"</string>
     <string name="l10n_i_have_written_down_my_seed_phrase_b1bc0677" formatted="false">"Kurtarma ifademi bir yere yazdım"</string>
     <string name="l10n_i_know_the_creation_date_206d5973" formatted="false">"Oluşturma tarihini biliyorum"</string>
     <string name="l10n_icon_a35abcd6" formatted="false">"Simge"</string>
@@ -567,6 +569,7 @@
     <string name="l10n_next_transaction_37f49104" formatted="false">"Sonraki işlem"</string>
     <string name="l10n_no_monero_address_for_this_name_79d0651c" formatted="false">"Bu ad için Monero adresi yok"</string>
     <string name="l10n_no_price_alerts_cfb97a21" formatted="false">"Fiyat Uyarısı Yok"</string>
+    <string name="l10n_no_thanks_c6394418" formatted="false">"Hayır, teşekkürler"</string>
     <string name="l10n_no_trusted_locations_008f580f" formatted="false">"Güvenilir Konum Yok"</string>
     <string name="l10n_no_warranty_420d720d" formatted="false">"Garanti Yok"</string>
     <string name="l10n_no_camera_available_on_this_device_1fa4921b" formatted="false">"Bu aygıtta kamera yok"</string>

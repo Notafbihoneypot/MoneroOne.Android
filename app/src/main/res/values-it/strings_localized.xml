@@ -170,6 +170,7 @@
     <string name="l10n_british_pound_9bc3c68e" formatted="false">"Sterlina britannica"</string>
     <string name="l10n_broadcast_failed_s_99ac586d" formatted="false">"Trasmissione non riuscita: %1$s"</string>
     <string name="l10n_broadcasting_01aaf862" formatted="false">"Trasmissione…"</string>
+    <string name="l10n_but_a_rating_really_helps_people_find_monero_one_i_ll_n_5af2ce08" formatted="false">"Ma una valutazione aiuta davvero le persone a trovare Monero One. Non lo chiederò mai più."</string>
     <string name="l10n_camera_permission_required_9407beac" formatted="false">"Autorizzazione fotocamera richiesta"</string>
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"Fotocamera non supportata"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"Campus"</string>
@@ -460,6 +461,7 @@
     <string name="l10n_how_it_works_c1879525" formatted="false">"Come funziona"</string>
     <string name="l10n_how_does_this_work_6cae34c8" formatted="false">"Come funziona?"</string>
     <string name="l10n_i_understand_continue_2390c0c6" formatted="false">"Ho capito, continua"</string>
+    <string name="l10n_i_hate_asking_for_this_166f376a" formatted="false">"Odio chiedertelo"</string>
     <string name="l10n_i_have_written_down_my_seed_phrase_b1bc0677" formatted="false">"Ho trascritto la mia frase seed"</string>
     <string name="l10n_i_know_the_creation_date_206d5973" formatted="false">"Conosco la data di creazione"</string>
     <string name="l10n_icon_a35abcd6" formatted="false">"Icona"</string>
@@ -567,6 +569,7 @@
     <string name="l10n_next_transaction_37f49104" formatted="false">"Transazione successiva"</string>
     <string name="l10n_no_monero_address_for_this_name_79d0651c" formatted="false">"Nessun indirizzo Monero per questo nome"</string>
     <string name="l10n_no_price_alerts_cfb97a21" formatted="false">"Nessun avviso di prezzo"</string>
+    <string name="l10n_no_thanks_c6394418" formatted="false">"No, grazie"</string>
     <string name="l10n_no_trusted_locations_008f580f" formatted="false">"Nessun luogo attendibile"</string>
     <string name="l10n_no_warranty_420d720d" formatted="false">"Nessuna garanzia"</string>
     <string name="l10n_no_camera_available_on_this_device_1fa4921b" formatted="false">"Nessuna fotocamera disponibile su questo dispositivo"</string>

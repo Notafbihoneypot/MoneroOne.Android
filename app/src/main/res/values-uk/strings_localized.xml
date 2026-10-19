@@ -170,6 +170,7 @@
     <string name="l10n_british_pound_9bc3c68e" formatted="false">"Британський фунт"</string>
     <string name="l10n_broadcast_failed_s_99ac586d" formatted="false">"Не вдалося передати транзакцію в мережу: %1$s"</string>
     <string name="l10n_broadcasting_01aaf862" formatted="false">"Передавання в мережу…"</string>
+    <string name="l10n_but_a_rating_really_helps_people_find_monero_one_i_ll_n_5af2ce08" formatted="false">"Але оцінка справді допомагає людям знайти Monero One. Більше я не проситиму."</string>
     <string name="l10n_camera_permission_required_9407beac" formatted="false">"Потрібен доступ до камери"</string>
     <string name="l10n_camera_input_not_supported_55e44330" formatted="false">"Введення з камери не підтримується"</string>
     <string name="l10n_campus_99a2b0e2" formatted="false">"Кампус"</string>
@@ -460,6 +461,7 @@
     <string name="l10n_how_it_works_c1879525" formatted="false">"Як це працює"</string>
     <string name="l10n_how_does_this_work_6cae34c8" formatted="false">"Як це працює?"</string>
     <string name="l10n_i_understand_continue_2390c0c6" formatted="false">"Зрозуміло, продовжити"</string>
+    <string name="l10n_i_hate_asking_for_this_166f376a" formatted="false">"Терпіти не можу про це просити"</string>
     <string name="l10n_i_have_written_down_my_seed_phrase_b1bc0677" formatted="false">"Мнемонічну фразу записано"</string>
     <string name="l10n_i_know_the_creation_date_206d5973" formatted="false">"Я знаю дату створення"</string>
     <string name="l10n_icon_a35abcd6" formatted="false">"Значок"</string>
@@ -567,6 +569,7 @@
     <string name="l10n_next_transaction_37f49104" formatted="false">"Наступна транзакція"</string>
     <string name="l10n_no_monero_address_for_this_name_79d0651c" formatted="false">"Для цього імені немає адреси Monero"</string>
     <string name="l10n_no_price_alerts_cfb97a21" formatted="false">"Немає цінових сповіщень"</string>
+    <string name="l10n_no_thanks_c6394418" formatted="false">"Ні, дякую"</string>
     <string name="l10n_no_trusted_locations_008f580f" formatted="false">"Немає довірених місць"</string>
     <string name="l10n_no_warranty_420d720d" formatted="false">"Без гарантій"</string>
     <string name="l10n_no_camera_available_on_this_device_1fa4921b" formatted="false">"На цьому пристрої немає камери"</string>

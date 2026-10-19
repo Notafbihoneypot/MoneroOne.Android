@@ -436,7 +436,8 @@ fun MoneroOneNavHost(
                     chartViewModel = chartViewModel,
                     onNavigateToSend = { navController.navigate(Screen.Send.createRoute()) },
                     onNavigateToReceive = { navController.navigate(Screen.Receive.route) },
-                    paymentLinks = paymentLinks
+                    paymentLinks = paymentLinks,
+                    linkAlertShowing = paymentLinkError != null
                 )
             }
 
